@@ -1,0 +1,22 @@
+package model;
+
+/**
+ * Equipment that modifies defense when equipped (logic in later phases).
+ */
+public class Armor extends Item {
+
+    private int defModifier;
+
+    public Armor(String name, int defModifier) {
+        super(name);
+        this.defModifier = defModifier;
+    }
+
+    public int getDefModifier() {
+        return defModifier;
+    }
+
+    public void setDefModifier(int defModifier) {
+        this.defModifier = defModifier;
+    }
+}
