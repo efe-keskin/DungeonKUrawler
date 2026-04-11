@@ -2,7 +2,7 @@ package main;
 
 import javax.swing.SwingUtilities;
 
-import view.LoginWindow;
+import view.MainMenuWindow;
 import view.RetroTheme;
 
 /**
@@ -16,7 +16,7 @@ public final class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             RetroTheme.installLookAndFeel();
-            LoginWindow w = new LoginWindow();
+            MainMenuWindow w = new MainMenuWindow();
             w.setVisible(true);
         });
     }

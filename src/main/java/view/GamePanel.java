@@ -17,7 +17,6 @@ import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
-import model.Item;
 import model.Knight;
 import model.Sorcerer;
 
@@ -94,22 +93,15 @@ public class GamePanel extends JPanel implements GameStateListener {
                     g2.setColor(GRID_LINE);
                     g2.drawRect(px, py, CELL, CELL);
 
-                    for (Item ignored : cell.getItemsView()) {
+                    if (!cell.getItemsView().isEmpty()) {
                         drawItemGold(g2, px, py);
                     }
 
                     for (Entity ent : cell.getEntitiesView()) {
-                        Color c;
-                        if (ent instanceof Hero) {
-                            c = HERO;
-                        } else if (ent instanceof Knight) {
-                            c = KNIGHT;
-                        } else if (ent instanceof Sorcerer) {
-                            c = SORCERER;
-                        } else {
-                            c = Color.LIGHT_GRAY;
-                        }
-                        g2.setColor(c);
+                        g2.setColor(ent instanceof Hero ? HERO
+                                : ent instanceof Knight ? KNIGHT
+                                : ent instanceof Sorcerer ? SORCERER
+                                : Color.LIGHT_GRAY);
                         int inset = 5;
                         g2.fillRect(px + inset, py + inset, CELL - inset * 2, CELL - inset * 2);
                     }

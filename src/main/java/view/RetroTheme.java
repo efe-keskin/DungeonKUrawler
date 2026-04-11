@@ -2,13 +2,13 @@ package view;
 
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.io.InputStream;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.plaf.metal.MetalLookAndFeel;
@@ -22,7 +22,7 @@ public final class RetroTheme {
     public static final Color BG_DUNGEON = new Color(12, 12, 18);
     /** Slightly lifted panel fill. */
     public static final Color BG_PANEL = new Color(22, 22, 30);
-    /** Primary action (Start, Login). */
+    /** Primary action (Start). */
     public static final Color BTN_PRIMARY = new Color(45, 90, 140);
     /** Secondary / info. */
     public static final Color BTN_SECONDARY = new Color(70, 65, 95);
@@ -31,12 +31,12 @@ public final class RetroTheme {
     /** Danger (Exit). */
     public static final Color BTN_DANGER = new Color(130, 45, 45);
 
-    public static final Font UI_MONO = new Font(Font.MONOSPACED, Font.BOLD, 14);
-    public static final Font UI_MONO_SMALL = new Font(Font.MONOSPACED, Font.BOLD, 13);
+    public static Font UI_MONO;
+    public static Font UI_MONO_SMALL;
+    public static Font UI_TITLE_FONT;
+    public static Font UI_SUBTITLE_FONT;
 
-    private static final Border BTN_BORDER = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(220, 220, 230), 2),
-            BorderFactory.createEmptyBorder(6, 14, 6, 14));
+    private static final Border BTN_BORDER = BorderFactory.createEmptyBorder(6, 14, 6, 14);
 
     private RetroTheme() {
     }
@@ -47,15 +47,37 @@ public final class RetroTheme {
      */
     public static void installLookAndFeel() {
         try {
+            try (InputStream fontStream = RetroTheme.class.getResourceAsStream("/fonts/Minecraft.ttf")) {
+                if (fontStream != null) {
+                    Font customFont = Font.createFont(Font.TRUETYPE_FONT, fontStream);
+                    GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(customFont);
+                    
+                    UI_MONO = customFont.deriveFont(Font.PLAIN, 16f);
+                    UI_MONO_SMALL = customFont.deriveFont(Font.PLAIN, 14f);
+                    UI_TITLE_FONT = customFont.deriveFont(Font.PLAIN, 56f);
+                    UI_SUBTITLE_FONT = customFont.deriveFont(Font.PLAIN, 20f);
+                } else {
+                    UI_MONO = new Font(Font.MONOSPACED, Font.BOLD, 14);
+                    UI_MONO_SMALL = new Font(Font.MONOSPACED, Font.BOLD, 13);
+                    UI_TITLE_FONT = new Font(Font.MONOSPACED, Font.BOLD, 42);
+                    UI_SUBTITLE_FONT = new Font(Font.MONOSPACED, Font.BOLD, 15);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to load custom font: " + e.getMessage());
+                UI_MONO = new Font(Font.MONOSPACED, Font.BOLD, 14);
+                UI_MONO_SMALL = new Font(Font.MONOSPACED, Font.BOLD, 13);
+                UI_TITLE_FONT = new Font(Font.MONOSPACED, Font.BOLD, 42);
+                UI_SUBTITLE_FONT = new Font(Font.MONOSPACED, Font.BOLD, 15);
+            }
+
             UIManager.setLookAndFeel(new MetalLookAndFeel());
             UIManager.put("Panel.background", BG_DUNGEON);
+            UIManager.put("Button.font", UI_MONO);
             UIManager.put("Label.font", UI_MONO);
+            UIManager.put("TextArea.font", UI_MONO);
+            UIManager.put("TextField.font", UI_MONO);
+            UIManager.put("ToolTip.font", UI_MONO_SMALL);
             UIManager.put("Label.foreground", Color.WHITE);
-            UIManager.put("TextField.background", new Color(35, 35, 45));
-            UIManager.put("TextField.foreground", Color.WHITE);
-            UIManager.put("TextField.caretForeground", Color.WHITE);
-            UIManager.put("PasswordField.background", new Color(35, 35, 45));
-            UIManager.put("PasswordField.foreground", Color.WHITE);
         } catch (Exception e) {
             throw new IllegalStateException("Could not install retro LAF", e);
         }
@@ -81,16 +103,5 @@ public final class RetroTheme {
         button.setBorderPainted(true);
         button.setFocusPainted(false);
         button.setBorder(BTN_BORDER);
-    }
-
-    public static void styleLabel(JLabel label) {
-        label.setFont(UI_MONO_SMALL);
-        label.setForeground(Color.WHITE);
-    }
-
-    public static void styleTextField(JTextField field) {
-        field.setFont(UI_MONO_SMALL);
-        field.setForeground(Color.WHITE);
-        field.setCaretColor(Color.WHITE);
     }
 }
