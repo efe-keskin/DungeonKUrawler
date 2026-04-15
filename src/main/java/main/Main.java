@@ -12,7 +12,7 @@ public final class Main {
 
     private Main() {
     }
-
+/*Starter of the code */
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             RetroTheme.installLookAndFeel();
