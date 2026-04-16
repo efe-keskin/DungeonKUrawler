@@ -12,7 +12,9 @@ import javax.swing.SwingUtilities;
 
 import engine.Direction;
 import engine.GameEngine;
+import engine.PlayerModeController;
 import engine.GameStateListener;
+import engine.InteractionController;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
@@ -21,8 +23,10 @@ import model.Knight;
 import model.Sorcerer;
 
 /**
- * Observer: implements {@link GameStateListener} and repaints when the engine notifies — no direct
- * model mutation. Input is forwarded to {@link GameEngine#moveHero(Direction)} only; movement rules
+ * Observer: implements {@link GameStateListener} and repaints when the engine
+ * notifies — no direct
+ * model mutation. Input is forwarded to {@link GameEngine#moveHero(Direction)}
+ * only; movement rules
  * stay in the controller.
  */
 public class GamePanel extends JPanel implements GameStateListener {
@@ -30,7 +34,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final int CELL = 28;
 
     private static final Color FLOOR = new Color(32, 36, 48);
-    private static final Color WALL = new Color(48, 48, 58);
+    private static final Color WALL = new Color(200, 60, 60);
     /** Visible grid lines (retro tile border). */
     private static final Color GRID_LINE = new Color(55, 55, 62);
     private static final Color HERO = new Color(50, 130, 255);
@@ -39,20 +43,41 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color ITEM = new Color(255, 200, 40);
 
     private final GameEngine engine;
+    private final PlayerModeController playerModeController;
+    private final InteractionController interactionController;
 
-    public GamePanel(GameEngine engine) {
+    public GamePanel(GameEngine engine, PlayerModeController playerModeController,
+            InteractionController interactionController) {
         this.engine = engine;
+        this.playerModeController = playerModeController;
+        this.interactionController = interactionController;
+
         engine.addGameStateListener(this);
         setBackground(Color.BLACK);
         setOpaque(true);
         setFocusable(true);
+
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {
-                    engine.moveHero(d);
+                    playerModeController.moveHero(d);
                 }
+            }
+        });
+
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+
+                int mouseX = e.getX();
+                int mouseY = e.getY();
+
+                int gridX = mouseX / CELL;
+                int gridY = mouseY / CELL;
+
+                interactionController.handleCellClick(gridX, gridY);
             }
         });
     }
@@ -100,8 +125,8 @@ public class GamePanel extends JPanel implements GameStateListener {
                     for (Entity ent : cell.getEntitiesView()) {
                         g2.setColor(ent instanceof Hero ? HERO
                                 : ent instanceof Knight ? KNIGHT
-                                : ent instanceof Sorcerer ? SORCERER
-                                : Color.LIGHT_GRAY);
+                                        : ent instanceof Sorcerer ? SORCERER
+                                                : Color.LIGHT_GRAY);
                         int inset = 5;
                         g2.fillRect(px + inset, py + inset, CELL - inset * 2, CELL - inset * 2);
                     }
@@ -120,4 +145,5 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.setColor(GRID_LINE);
         g2.drawRect(px + inset, py + inset, s, s);
     }
+
 }

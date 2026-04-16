@@ -14,10 +14,14 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
+import engine.PlayerModeController;
+import engine.InteractionController;
 
 /**
- * Gameplay shell: dark frame; {@link GamePanel} is the observer and input surface — it delegates
- * keys to {@link GameEngine} without containing rules. A top control strip provides navigation back
+ * Gameplay shell: dark frame; {@link GamePanel} is the observer and input
+ * surface — it delegates
+ * keys to {@link GameEngine} without containing rules. A top control strip
+ * provides navigation back
  * to the main menu without trapping keyboard focus.
  */
 public class GameWindow extends JFrame {
@@ -28,7 +32,9 @@ public class GameWindow extends JFrame {
         setResizable(true);
         RetroTheme.styleFrameDark(this);
 
-        GamePanel panel = new GamePanel(engine);
+        PlayerModeController playerModeController = new PlayerModeController(engine);
+        InteractionController interactionController = new InteractionController(engine);
+        GamePanel panel = new GamePanel(engine, playerModeController, interactionController);
 
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         controlPanel.setBackground(RetroTheme.BG_DUNGEON);
@@ -45,7 +51,8 @@ public class GameWindow extends JFrame {
         });
         controlPanel.add(returnToMenu);
 
-        // Clicks on the strip background (not consumed by the button) return focus to the game.
+        // Clicks on the strip background (not consumed by the button) return focus to
+        // the game.
         controlPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {

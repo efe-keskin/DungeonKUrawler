@@ -13,12 +13,15 @@ import model.GridCell;
 import model.Hero;
 import model.Knight;
 import model.Sorcerer;
+import model.Potion;
 
 /**
- * GRASP Controller: sole entry point for game rules and state changes. The UI forwards input here
- * (e.g. {@link #moveHero(Direction)}) and observes updates via {@link GameStateListener}.
+ * Game state owner and observer subject.
+ * Keeps overall game state and notifies listeners after mutations.
  *
- * <p><strong>Observer (Subject):</strong> maintains listener list and {@link #notifyListeners()} after
+ * <p>
+ * <strong>Observer (Subject):</strong> maintains listener list and
+ * {@link #notifyListeners()} after
  * mutations so views stay decoupled from model internals.
  */
 public class GameEngine {
@@ -57,10 +60,12 @@ public class GameEngine {
         }
     }
 
+    // DEMO WALLS
     private DungeonMap buildDemoMap(String levelName) {
         int w = 16;
         int h = 12;
         DungeonMap map = new DungeonMap(levelName, w, h);
+
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
                 boolean wall = (x == 0 || y == 0 || x == w - 1 || y == h - 1);
@@ -70,6 +75,28 @@ public class GameEngine {
                 }
             }
         }
+
+        // inner 2x2 wall block
+        for (int x = 6; x <= 7; x++) {
+            for (int y = 4; y <= 5; y++) {
+                GridCell c = map.getCell(x, y);
+                if (c != null) {
+                    c.setPassable(false);
+                }
+            }
+        }
+
+        // Temporary test items: hero should be able to move onto these cells.
+        GridCell itemCell1 = map.getCell(3, 1);
+        if (itemCell1 != null) {
+            itemCell1.getItems().add(new Potion("Potion", 25));
+        }
+
+        GridCell itemCell2 = map.getCell(5, 3);
+        if (itemCell2 != null) {
+            itemCell2.getItems().add(new Potion("Potion", 25));
+        }
+
         return map;
     }
 
@@ -88,46 +115,22 @@ public class GameEngine {
         return hero;
     }
 
-    /**
-     * Attempts to move the hero one tile; blocked by walls and enemy-occupied cells. All rules live
-     * here — the UI only forwards {@link Direction}.
-     */
-    public void moveHero(Direction direction) {
-        if (direction == null) {
-            return;
-        }
-        int nx = hero.getX();
-        int ny = hero.getY();
-        switch (direction) {
-            case UP -> ny--;
-            case DOWN -> ny++;
-            case LEFT -> nx--;
-            case RIGHT -> nx++;
-        }
+    public void updateHeroPosition(int nx, int ny) {
         GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
         GridCell to = dungeonMap.getCell(nx, ny);
-        if (!canHeroEnter(to)) {
-            return;
-        }
+
         if (from != null) {
             from.getEntities().remove(hero);
         }
+
         hero.setX(nx);
         hero.setY(ny);
-        to.getEntities().add(hero);
-        notifyListeners();
-    }
 
-    private boolean canHeroEnter(GridCell cell) {
-        if (cell == null || !cell.isPassable()) {
-            return false;
+        if (to != null && !to.getEntities().contains(hero)) {
+            to.getEntities().add(hero);
         }
-        for (Entity e : cell.getEntities()) {
-            if (e instanceof Knight || e instanceof Sorcerer) {
-                return false;
-            }
-        }
-        return true;
+
+        notifyListeners();
     }
 
     /**

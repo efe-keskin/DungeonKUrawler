@@ -1,9 +1,12 @@
 package model;
 
 /**
- * Level layout: a rectangular grid of {@link GridCell}s plus a human-readable {@code levelName}
- * for save/load UI (future). The 2D array is indexed {@code [x][y]} in screen coordinates: x grows
- * right, y grows down (matches typical Swing pixel order in {@link view.GamePanel}).
+ * Level layout: a rectangular grid of {@link GridCell}s plus a human-readable
+ * {@code levelName}
+ * for save/load UI (future). The 2D array is indexed {@code [x][y]} in screen
+ * coordinates: x grows
+ * right, y grows down (matches typical Swing pixel order in
+ * {@link view.GamePanel}).
  */
 public class DungeonMap {
 
@@ -13,7 +16,8 @@ public class DungeonMap {
     private final GridCell[][] cells;
 
     /**
-     * Builds a map with the given dimensions; all cells default to passable unless you customize.
+     * Builds a map with the given dimensions; all cells default to passable unless
+     * you customize.
      */
     public DungeonMap(String levelName, int width, int height) {
         this.levelName = levelName;
@@ -48,5 +52,25 @@ public class DungeonMap {
 
     public GridCell[][] getCells() {
         return cells;
+    }
+
+    /**
+     * Information Expert: the map knows whether a coordinate is in bounds and
+     * walkable.
+     * Out-of-bounds coordinates are treated as impassable.
+     */
+    public boolean isCellPassable(int x, int y) {
+        GridCell cell = getCell(x, y);
+        return cell != null && cell.isWalkable();
+    }
+
+    public boolean isHeroAdjacent(Hero hero, int targetX, int targetY) {
+        int heroX = hero.getX();
+        int heroY = hero.getY();
+
+        int dx = Math.abs(heroX - targetX);
+        int dy = Math.abs(heroY - targetY);
+
+        return dx <= 1 && dy <= 1;
     }
 }
