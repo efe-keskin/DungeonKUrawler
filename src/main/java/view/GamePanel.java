@@ -9,6 +9,8 @@ import java.awt.event.KeyEvent;
 
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.JPopupMenu;
+import javax.swing.JMenuItem;
 
 import engine.Direction;
 import engine.GameEngine;
@@ -68,18 +70,42 @@ public class GamePanel extends JPanel implements GameStateListener {
         });
 
         addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mousePressed(java.awt.event.MouseEvent e) {
+    @Override
+    public void mousePressed(java.awt.event.MouseEvent e) {
+        int gridX = e.getX() / CELL;
+        int gridY = e.getY() / CELL;
 
-                int mouseX = e.getX();
-                int mouseY = e.getY();
+        
+        String actionName = interactionController.getPrimaryAction(gridX, gridY);
 
-                int gridX = mouseX / CELL;
-                int gridY = mouseY / CELL;
+        // 2. If an action exists, build and show the UI menu
+        if (actionName != null) {
+            JPopupMenu actionMenu = new JPopupMenu();
 
-                interactionController.handleCellClick(gridX, gridY);
-            }
-        });
+            // --- BUTTON 1: The specific action ---
+            JMenuItem actionBtn = new JMenuItem(actionName);
+            actionBtn.addActionListener(event -> {
+                // When clicked, tell the controller to execute it
+                interactionController.executeAction(actionName, gridX, gridY);
+            });
+
+            // --- BUTTON 2: Return to map ---
+            JMenuItem returnBtn = new JMenuItem("Return to map");
+            // In Java Swing, clicking any JMenuItem automatically closes the menu, 
+            // so we don't even need to add an ActionListener for this one!
+
+            // Add the buttons to the menu
+            actionMenu.add(actionBtn);
+            actionMenu.add(returnBtn);
+            
+            // Show the menu at the exact X and Y coordinates of the mouse click
+            actionMenu.show(GamePanel.this, e.getX(), e.getY());
+        }
+    }
+});
+
+
+
     }
 
     @Override
