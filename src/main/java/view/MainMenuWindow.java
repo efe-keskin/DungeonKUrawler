@@ -109,7 +109,7 @@ public class MainMenuWindow extends JFrame {
         help.setOpaque(false);
         help.addActionListener(e -> JOptionPane.showMessageDialog(this,
                 "Build Mode — Arrow keys or WASD to move.\n"
-                        + "PlayerModeController handles movement; UI only forwards input.",
+                        + "The engine handles all rules; UI only forwards input.",
                 "Help",
                 JOptionPane.INFORMATION_MESSAGE));
 

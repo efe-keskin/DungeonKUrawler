@@ -11,8 +11,6 @@ import model.EnemyFactory;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
-import model.Knight;
-import model.Sorcerer;
 import model.Potion;
 
 /**
