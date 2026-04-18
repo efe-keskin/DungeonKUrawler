@@ -26,10 +26,13 @@ import engine.InteractionController;
  */
 public class GameWindow extends JFrame {
 
+    private static final int WINDOW_W = 920;
+    private static final int WINDOW_H = 560;
+
     public GameWindow(GameEngine engine) {
         setTitle("Dungeon Krawler — Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setResizable(true);
+        setResizable(false);
         RetroTheme.styleFrameDark(this);
 
         PlayerModeController playerModeController = new PlayerModeController(engine);
@@ -83,8 +86,7 @@ public class GameWindow extends JFrame {
             }
         });
 
-        pack();
-        setMinimumSize(getSize());
+        setSize(WINDOW_W, WINDOW_H);
         setLocationRelativeTo(null);
     }
 }

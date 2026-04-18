@@ -33,7 +33,7 @@ import model.Sorcerer;
  */
 public class GamePanel extends JPanel implements GameStateListener {
 
-    private static final int CELL = 28;
+    private static final int BASE_CELL = 28;
 
     private static final Color FLOOR = new Color(32, 36, 48);
     private static final Color WALL = new Color(200, 60, 60);
@@ -64,45 +64,43 @@ public class GamePanel extends JPanel implements GameStateListener {
             public void keyPressed(KeyEvent e) {
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {
-                    playerModeController.moveHero(d);
+                    GamePanel.this.playerModeController.moveHero(d);
                 }
             }
         });
 
         addMouseListener(new java.awt.event.MouseAdapter() {
-    @Override
-    public void mousePressed(java.awt.event.MouseEvent e) {
-        int gridX = e.getX() / CELL;
-        int gridY = e.getY() / CELL;
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                DungeonMap map = GamePanel.this.engine.getDungeonMap();
+                if (map == null || map.getWidth() <= 0 || map.getHeight() <= 0) {
+                    return;
+                }
 
-        
-        String actionName = interactionController.getPrimaryAction(gridX, gridY);
+                int panelW = Math.max(1, GamePanel.this.getWidth());
+                int panelH = Math.max(1, GamePanel.this.getHeight());
 
-        // 2. If an action exists, build and show the UI menu
-        if (actionName != null) {
-            JPopupMenu actionMenu = new JPopupMenu();
+                int gridX = Math.min(map.getWidth() - 1, Math.max(0, e.getX() * map.getWidth() / panelW));
+                int gridY = Math.min(map.getHeight() - 1, Math.max(0, e.getY() * map.getHeight() / panelH));
 
-            // --- BUTTON 1: The specific action ---
-            JMenuItem actionBtn = new JMenuItem(actionName);
-            actionBtn.addActionListener(event -> {
-                // When clicked, tell the controller to execute it
-                interactionController.executeAction(actionName, gridX, gridY);
-            });
+                String actionName = GamePanel.this.interactionController.getPrimaryAction(gridX, gridY);
 
-            // --- BUTTON 2: Return to map ---
-            JMenuItem returnBtn = new JMenuItem("Return to map");
-            // In Java Swing, clicking any JMenuItem automatically closes the menu, 
-            // so we don't even need to add an ActionListener for this one!
+                if (actionName != null) {
+                    JPopupMenu actionMenu = new JPopupMenu();
 
-            // Add the buttons to the menu
-            actionMenu.add(actionBtn);
-            actionMenu.add(returnBtn);
-            
-            // Show the menu at the exact X and Y coordinates of the mouse click
-            actionMenu.show(GamePanel.this, e.getX(), e.getY());
-        }
-    }
-});
+                    JMenuItem actionBtn = new JMenuItem(actionName);
+                    actionBtn.addActionListener(event -> GamePanel.this.interactionController.executeAction(actionName,
+                            gridX, gridY));
+
+                    JMenuItem returnBtn = new JMenuItem("Return to map");
+
+                    actionMenu.add(actionBtn);
+                    actionMenu.add(returnBtn);
+
+                    actionMenu.show(GamePanel.this, e.getX(), e.getY());
+                }
+            }
+        });
 
 
 
@@ -122,7 +120,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     @Override
     public Dimension getPreferredSize() {
         DungeonMap map = engine.getDungeonMap();
-        return new Dimension(map.getWidth() * CELL + 1, map.getHeight() * CELL + 1);
+        return new Dimension(map.getWidth() * BASE_CELL + 1, map.getHeight() * BASE_CELL + 1);
     }
 
     @Override
@@ -131,21 +129,27 @@ public class GamePanel extends JPanel implements GameStateListener {
         Graphics2D g2 = (Graphics2D) g.create();
         try {
             DungeonMap map = engine.getDungeonMap();
+            int mapW = Math.max(1, map.getWidth());
+            int mapH = Math.max(1, map.getHeight());
             for (int x = 0; x < map.getWidth(); x++) {
                 for (int y = 0; y < map.getHeight(); y++) {
                     GridCell cell = map.getCell(x, y);
                     if (cell == null) {
                         continue;
                     }
-                    int px = x * CELL;
-                    int py = y * CELL;
+                    int px = x * getWidth() / mapW;
+                    int py = y * getHeight() / mapH;
+                    int px2 = (x + 1) * getWidth() / mapW;
+                    int py2 = (y + 1) * getHeight() / mapH;
+                    int cellW = Math.max(1, px2 - px);
+                    int cellH = Math.max(1, py2 - py);
                     g2.setColor(cell.isPassable() ? FLOOR : WALL);
-                    g2.fillRect(px, py, CELL, CELL);
+                    g2.fillRect(px, py, cellW, cellH);
                     g2.setColor(GRID_LINE);
-                    g2.drawRect(px, py, CELL, CELL);
+                    g2.drawRect(px, py, cellW, cellH);
 
                     if (!cell.getItemsView().isEmpty()) {
-                        drawItemGold(g2, px, py);
+                        drawItemGold(g2, px, py, cellW, cellH);
                     }
 
                     for (Entity ent : cell.getEntitiesView()) {
@@ -153,8 +157,10 @@ public class GamePanel extends JPanel implements GameStateListener {
                                 : ent instanceof Knight ? KNIGHT
                                         : ent instanceof Sorcerer ? SORCERER
                                                 : Color.LIGHT_GRAY);
-                        int inset = 5;
-                        g2.fillRect(px + inset, py + inset, CELL - inset * 2, CELL - inset * 2);
+                        int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+                        int entityW = Math.max(1, cellW - inset * 2);
+                        int entityH = Math.max(1, cellH - inset * 2);
+                        g2.fillRect(px + inset, py + inset, entityW, entityH);
                     }
                 }
             }
@@ -163,13 +169,14 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
     }
 
-    private void drawItemGold(Graphics2D g2, int px, int py) {
+    private void drawItemGold(Graphics2D g2, int px, int py, int cellW, int cellH) {
         g2.setColor(ITEM);
-        int inset = 9;
-        int s = CELL - inset * 2;
-        g2.fillRect(px + inset, py + inset, s, s);
+        int inset = Math.max(1, Math.min(cellW, cellH) / 3);
+        int itemW = Math.max(1, cellW - inset * 2);
+        int itemH = Math.max(1, cellH - inset * 2);
+        g2.fillRect(px + inset, py + inset, itemW, itemH);
         g2.setColor(GRID_LINE);
-        g2.drawRect(px + inset, py + inset, s, s);
+        g2.drawRect(px + inset, py + inset, itemW, itemH);
     }
 
 }
