@@ -1,17 +1,20 @@
 package view;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dialog;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
+import java.util.List;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
+import javax.imageio.ImageIO;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
+import javax.swing.JComponent;
 import javax.swing.border.EmptyBorder;
 
 import model.Armor;
@@ -21,13 +24,23 @@ import model.Potion;
 import model.Weapon;
 
 /**
- * Modal inventory view with fixed 2x4 slot layout (8 total).
+ * Image-backed modal inventory view with fixed 2x4 slot overlays (8 total).
  */
 public class InventoryDialog extends JDialog {
 
-    private static final Color SLOT_EMPTY_BG = new Color(18, 18, 24);
-    private static final Color SLOT_FILLED_BG = new Color(36, 42, 56);
-    private static final Color SLOT_BORDER = new Color(78, 82, 98);
+    private static final String BACKGROUND_ASSET = "/Inventory x4.png";
+
+    private static final int SLOT_START_X = 36;
+    private static final int SLOT_START_Y = 176;
+    private static final int SLOT_W = 54;
+    private static final int SLOT_H = 54;
+    private static final int SLOT_GAP_X = 11;
+    private static final int SLOT_GAP_Y = 12;
+
+    private static final Color FILLED_SLOT_BG = new Color(10, 12, 18, 150);
+    private static final Color FILLED_SLOT_BORDER = new Color(220, 225, 245, 120);
+    private static final Color BADGE_FG = new Color(245, 245, 255);
+    private static final Color NAME_FG = new Color(245, 245, 255);
 
     public InventoryDialog(JDialog owner, Inventory inventory) {
         super(owner, "Inventory", Dialog.ModalityType.APPLICATION_MODAL);
@@ -40,72 +53,101 @@ public class InventoryDialog extends JDialog {
     }
 
     private void buildUi(Inventory inventory) {
-        JPanel root = new JPanel(new BorderLayout(0, 10));
-        root.setBorder(new EmptyBorder(14, 14, 14, 14));
-        root.setBackground(RetroTheme.BG_DUNGEON);
-
-        JLabel title = new JLabel("Inventory " + inventory.size() + "/" + inventory.getCapacity(), SwingConstants.CENTER);
-        title.setForeground(Color.WHITE);
-        title.setFont(RetroTheme.UI_MONO);
-        root.add(title, BorderLayout.NORTH);
-
-        JPanel grid = new JPanel(new GridLayout(2, 4, 8, 8));
-        grid.setOpaque(false);
-
-        for (int i = 0; i < 8; i++) {
-            Item item = i < inventory.size() ? inventory.getItems().get(i) : null;
-            grid.add(createSlot(item));
+        BufferedImage background = loadBackground();
+        if (background == null) {
+            JPanel fallback = new JPanel();
+            fallback.setBackground(RetroTheme.BG_DUNGEON);
+            fallback.setBorder(new EmptyBorder(18, 22, 18, 22));
+            JLabel message = new JLabel("Inventory image missing", SwingConstants.CENTER);
+            message.setForeground(Color.WHITE);
+            message.setFont(RetroTheme.UI_MONO);
+            fallback.add(message);
+            setContentPane(fallback);
+            setSize(320, 160);
+            setResizable(false);
+            setLocationRelativeTo(getOwner());
+            return;
         }
 
-        root.add(grid, BorderLayout.CENTER);
+        setUndecorated(true);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        actions.setOpaque(false);
+        InventoryCanvas canvas = new InventoryCanvas(background);
+        canvas.setLayout(null);
 
-        JButton close = new JButton("Close");
-        RetroTheme.styleRetroButton(close, RetroTheme.BTN_SECONDARY);
-        close.setFocusable(false);
-        close.addActionListener(e -> dispose());
-        actions.add(close);
+        List<Item> items = inventory.getItems();
+        for (int i = 0; i < 8; i++) {
+            JPanel slot = createSlot(i < items.size() ? items.get(i) : null);
+            slot.setBounds(slotX(i), slotY(i), SLOT_W, SLOT_H);
+            canvas.add(slot);
+        }
 
-        root.add(actions, BorderLayout.SOUTH);
-        setContentPane(root);
-        setSize(540, 330);
+        JLabel hint = new JLabel("ESC", SwingConstants.CENTER);
+        hint.setForeground(new Color(230, 230, 240, 150));
+        hint.setFont(RetroTheme.UI_MONO_SMALL);
+        hint.setBounds(136, 430, 48, 20);
+        canvas.add(hint);
+
+        setContentPane(canvas);
         setResizable(false);
+        setPreferredSize(new Dimension(background.getWidth(), background.getHeight()));
+        pack();
+
+        // Image-only dialog: allow quick close without adding extra chrome buttons.
+        getRootPane().registerKeyboardAction(e -> dispose(),
+                KeyStroke.getKeyStroke("ESCAPE"),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
         setLocationRelativeTo(getOwner());
     }
 
     private JPanel createSlot(Item item) {
-        JPanel slot = new JPanel(new BorderLayout(0, 8));
-        slot.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(SLOT_BORDER),
-                new EmptyBorder(10, 8, 10, 8)));
+        JPanel slot = new JPanel(null);
+        slot.setOpaque(false);
 
         if (item == null) {
-            slot.setBackground(SLOT_EMPTY_BG);
-            JLabel empty = new JLabel("Empty", SwingConstants.CENTER);
-            empty.setFont(RetroTheme.UI_MONO_SMALL);
-            empty.setForeground(new Color(140, 140, 155));
-            slot.add(empty, BorderLayout.CENTER);
             return slot;
         }
 
-        slot.setBackground(SLOT_FILLED_BG);
+        JPanel overlay = new JPanel(null);
+        overlay.setBackground(FILLED_SLOT_BG);
+        overlay.setOpaque(true);
+        overlay.setBounds(2, 2, SLOT_W - 4, SLOT_H - 4);
+        overlay.setBorder(javax.swing.BorderFactory.createLineBorder(FILLED_SLOT_BORDER));
 
         JLabel marker = new JLabel(typeMarker(item), SwingConstants.CENTER);
         marker.setOpaque(true);
         marker.setBackground(typeColor(item));
-        marker.setForeground(Color.WHITE);
+        marker.setForeground(BADGE_FG);
         marker.setFont(RetroTheme.UI_MONO_SMALL);
-        marker.setBorder(new EmptyBorder(2, 4, 2, 4));
+        marker.setBounds(6, 6, SLOT_W - 16, 16);
 
         JLabel name = new JLabel(item.getName(), SwingConstants.CENTER);
-        name.setForeground(Color.WHITE);
+        name.setForeground(NAME_FG);
         name.setFont(RetroTheme.UI_MONO_SMALL);
+        name.setBounds(3, 27, SLOT_W - 10, 20);
 
-        slot.add(marker, BorderLayout.NORTH);
-        slot.add(name, BorderLayout.CENTER);
+        overlay.add(marker);
+        overlay.add(name);
+        slot.add(overlay);
         return slot;
+    }
+
+    private int slotX(int index) {
+        return SLOT_START_X + (index % 4) * (SLOT_W + SLOT_GAP_X);
+    }
+
+    private int slotY(int index) {
+        return SLOT_START_Y + (index / 4) * (SLOT_H + SLOT_GAP_Y);
+    }
+
+    private BufferedImage loadBackground() {
+        try (InputStream in = InventoryDialog.class.getResourceAsStream(BACKGROUND_ASSET)) {
+            if (in != null) {
+                return ImageIO.read(in);
+            }
+        } catch (Exception ignored) {
+            // Fallback UI handles missing/unreadable assets.
+        }
+        return null;
     }
 
     private String typeMarker(Item item) {
@@ -132,5 +174,20 @@ public class InventoryDialog extends JDialog {
             return new Color(60, 95, 130);
         }
         return new Color(95, 85, 120);
+    }
+
+    private static final class InventoryCanvas extends JPanel {
+        private final BufferedImage background;
+
+        InventoryCanvas(BufferedImage background) {
+            this.background = background;
+            setPreferredSize(new Dimension(background.getWidth(), background.getHeight()));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            g.drawImage(background, 0, 0, getWidth(), getHeight(), null);
+        }
     }
 }
