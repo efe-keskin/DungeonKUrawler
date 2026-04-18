@@ -6,19 +6,51 @@ import model.Hero;
 import model.Inventory;
 import model.Item;
 
-
 public class InteractionController {
 
-    private static final String TAKE_PREFIX = "TAKE ";
-
     private final GameEngine engine;
+    private final InventoryController inventoryController;
 
     public InteractionController(GameEngine engine) {
         this.engine = engine;
+        this.inventoryController = new InventoryController(engine);
     }
 
-    // looking action for ActionMenu and rule checker for 3x3 adjacent cell
-    public String getPrimaryAction(int targetX, int targetY) {
+    /**
+     * Lightweight data package for rendering a centered item interaction dialog.
+     */
+    public static final class ItemInteraction {
+        private final String itemName;
+        private final boolean takable;
+        private final int x;
+        private final int y;
+
+        ItemInteraction(String itemName, boolean takable, int x, int y) {
+            this.itemName = itemName;
+            this.takable = takable;
+            this.x = x;
+            this.y = y;
+        }
+
+        public String getItemName() {
+            return itemName;
+        }
+
+        public boolean isTakable() {
+            return takable;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+    }
+
+    // Returns the clicked item details when there is an interactable item in range.
+    public ItemInteraction getItemInteraction(int targetX, int targetY) {
         Hero hero = engine.getHero();
         DungeonMap map = engine.getDungeonMap();
 
@@ -28,69 +60,28 @@ public class InteractionController {
         }
 
         GridCell cell = map.getCell(targetX, targetY);
-        if (cell == null) return null;
+        if (cell == null) {
+            return null;
+        }
 
         // check for Items (Key, Gold, Potion, Armour, Book)
         if (!cell.getItemsView().isEmpty()) {
             Item first = cell.getItemsView().get(0);
-            if (first.isTakable()) {
-                // Returns e.g. "TAKE Potion", "TAKE Key" — shown in the popup menu
-                return TAKE_PREFIX + first.getName();
-            }
+            return new ItemInteraction(first.getName(), first.isTakable(), targetX, targetY);
         }
 
         return null;
     }
 
     /**
-     * Gate between UI and domain logic.
-     *
-     * <p>Supported actions:
-     * <ul>
-     *   <li>{@code "TAKE <itemName>"} — picks up the first takable item at {@code (x, y)}
-     *       into the hero's {@link Inventory}, then removes it from the map.
-     *       GameEngine fires {@code notifyListeners()} → GamePanel repaints automatically.
-     * </ul>
+     * Executes item pickup through {@link InventoryController} and returns a user-facing outcome.
      */
-    public void executeAction(String action, int x, int y) {
-        if (action == null) return;
-
-        if (action.startsWith(TAKE_PREFIX)) {
-            executeTake(x, y);
-        }
-        // future actions (OPEN, FIGHT, …) go here
-    }
-
-    // -----------------------------------------------------------------------
-    // Private helpers
-    // -----------------------------------------------------------------------
-
-    /**
-     * Full TAKE pipeline:
-     * isTakable → Inventory.hasFreeSlot → Inventory.addItem
-     *           → DungeonMap.removeItemFromCell → GameEngine.notifyListeners → repaint
-     */
-    private void executeTake(int x, int y) {
-        DungeonMap map = engine.getDungeonMap();
-        GridCell cell = map.getCell(x, y);
-        if (cell == null || cell.getItemsView().isEmpty()) return;
-
-        // Grab the first item; GameEngine.takeItem enforces takability + capacity
-        Item item = cell.getItemsView().get(0);
-
-        boolean ok = engine.takeItem(item, x, y);
-
-        if (ok) {
+    public InventoryController.PickupResult takeItemAt(int x, int y) {
+        InventoryController.PickupResult result = inventoryController.takeFirstItemFromCell(x, y);
+        if (result == InventoryController.PickupResult.SUCCESS) {
             Inventory inv = engine.getHero().getInventory();
-            System.out.println("TAKE OK: " + item.getName()
-                    + " now in inventory (" + inv.size() + "/" + inv.getCapacity() + ")");
-        } else {
-            if (!item.isTakable()) {
-                System.out.println("TAKE FAILED: " + item.getName() + " is not takable.");
-            } else {
-                System.out.println("TAKE FAILED: Inventory full ("
-                        + engine.getHero().getInventory().getCapacity() + " slots).");
-            }
+            System.out.println("TAKE OK: inventory now (" + inv.size() + "/" + inv.getCapacity() + ")");
         }
+        return result;
     }
 }

@@ -1,16 +1,24 @@
 package view;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.border.LineBorder;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
@@ -54,6 +62,38 @@ public class GameWindow extends JFrame {
         });
         controlPanel.add(returnToMenu);
 
+        // Bottom strip under the map for gameplay actions.
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
+        bottomPanel.setBackground(RetroTheme.BG_DUNGEON);
+        bottomPanel.setFocusable(false);
+        bottomPanel.setBorder(new EmptyBorder(8, 10, 8, 10));
+
+        JButton inventoryButton = new JButton("Inventory");
+        RetroTheme.styleRetroButton(inventoryButton, RetroTheme.BTN_PRIMARY);
+        try (InputStream in = GameWindow.class.getResourceAsStream("/inventorychest.png")) {
+            if (in != null) {
+                BufferedImage img = ImageIO.read(in);
+                java.awt.Image scaled = img.getScaledInstance(48, 48, java.awt.Image.SCALE_SMOOTH);
+                inventoryButton.setIcon(new ImageIcon(scaled));
+                inventoryButton.setText("");
+                inventoryButton.setPreferredSize(new Dimension(48, 48));
+                inventoryButton.setBorder(new LineBorder(new Color(255, 255, 255, 90), 1, true));
+                inventoryButton.setBorderPainted(true);
+                inventoryButton.setContentAreaFilled(false);
+                inventoryButton.setOpaque(false);
+            }
+        } catch (Exception ignored) {
+            // Fallback keeps text label if image cannot be loaded.
+        }
+        inventoryButton.setFocusable(false);
+        inventoryButton.addActionListener(e -> {
+            InventoryDialog dialog = new InventoryDialog(this, engine.getHero().getInventory());
+            dialog.setVisible(true);
+            // Keep keyboard movement controls on the map after popup closes.
+            panel.requestFocusInWindow();
+        });
+        bottomPanel.add(inventoryButton);
+
         // Clicks on the strip background (not consumed by the button) return focus to
         // the game.
         controlPanel.addMouseListener(new MouseAdapter() {
@@ -69,6 +109,7 @@ public class GameWindow extends JFrame {
         RetroTheme.stylePanelDark(wrap);
         wrap.add(controlPanel, BorderLayout.NORTH);
         wrap.add(panel, BorderLayout.CENTER);
+        wrap.add(bottomPanel, BorderLayout.SOUTH);
         add(wrap);
 
         addWindowListener(new WindowAdapter() {

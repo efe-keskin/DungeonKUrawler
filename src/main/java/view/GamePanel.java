@@ -4,16 +4,17 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
-import javax.swing.JPopupMenu;
-import javax.swing.JMenuItem;
 
 import engine.Direction;
 import engine.GameEngine;
+import engine.InventoryController;
 import engine.PlayerModeController;
 import engine.GameStateListener;
 import engine.InteractionController;
@@ -77,28 +78,56 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
-                int panelW = Math.max(1, GamePanel.this.getWidth());
-                int panelH = Math.max(1, GamePanel.this.getHeight());
+                int tileSize = getTileSize(map);
+                int mapPixelW = map.getWidth() * tileSize;
+                int mapPixelH = map.getHeight() * tileSize;
+                int offsetX = (Math.max(1, GamePanel.this.getWidth()) - mapPixelW) / 2;
+                int offsetY = (Math.max(1, GamePanel.this.getHeight()) - mapPixelH) / 2;
 
-                int gridX = Math.min(map.getWidth() - 1, Math.max(0, e.getX() * map.getWidth() / panelW));
-                int gridY = Math.min(map.getHeight() - 1, Math.max(0, e.getY() * map.getHeight() / panelH));
-
-                String actionName = GamePanel.this.interactionController.getPrimaryAction(gridX, gridY);
-
-                if (actionName != null) {
-                    JPopupMenu actionMenu = new JPopupMenu();
-
-                    JMenuItem actionBtn = new JMenuItem(actionName);
-                    actionBtn.addActionListener(event -> GamePanel.this.interactionController.executeAction(actionName,
-                            gridX, gridY));
-
-                    JMenuItem returnBtn = new JMenuItem("Return to map");
-
-                    actionMenu.add(actionBtn);
-                    actionMenu.add(returnBtn);
-
-                    actionMenu.show(GamePanel.this, e.getX(), e.getY());
+                // Ignore clicks outside the centered square map.
+                if (e.getX() < offsetX || e.getX() >= offsetX + mapPixelW
+                        || e.getY() < offsetY || e.getY() >= offsetY + mapPixelH) {
+                    return;
                 }
+
+                int gridX = (e.getX() - offsetX) / tileSize;
+                int gridY = (e.getY() - offsetY) / tileSize;
+
+                InteractionController.ItemInteraction interaction = GamePanel.this.interactionController
+                        .getItemInteraction(gridX, gridY);
+                if (interaction == null) {
+                    return;
+                }
+
+                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
+                String message = "Item: " + interaction.getItemName() + "\n"
+                        + "Takable: " + (interaction.isTakable() ? "Yes" : "No");
+
+                if (interaction.isTakable()) {
+                    Object[] options = { "Take", "Return to map" };
+                    int choice = JOptionPane.showOptionDialog(
+                            parent,
+                            message,
+                            "Item Interaction",
+                            JOptionPane.DEFAULT_OPTION,
+                            JOptionPane.INFORMATION_MESSAGE,
+                            null,
+                            options,
+                            options[0]);
+
+                    if (choice == 0) {
+                        InventoryController.PickupResult result = GamePanel.this.interactionController
+                                .takeItemAt(interaction.getX(), interaction.getY());
+                        if (result != InventoryController.PickupResult.SUCCESS) {
+                            JOptionPane.showMessageDialog(parent, getPickupFailureMessage(result),
+                                    "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
+                        }
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(parent, message, "Item Interaction", JOptionPane.INFORMATION_MESSAGE);
+                }
+
+                GamePanel.this.requestFocusInWindow();
             }
         });
 
@@ -131,18 +160,20 @@ public class GamePanel extends JPanel implements GameStateListener {
             DungeonMap map = engine.getDungeonMap();
             int mapW = Math.max(1, map.getWidth());
             int mapH = Math.max(1, map.getHeight());
+            int tileSize = getTileSize(map);
+            // Center the map and leave black background in the spare area.
+            int offsetX = (Math.max(1, getWidth()) - mapW * tileSize) / 2;
+            int offsetY = (Math.max(1, getHeight()) - mapH * tileSize) / 2;
             for (int x = 0; x < map.getWidth(); x++) {
                 for (int y = 0; y < map.getHeight(); y++) {
                     GridCell cell = map.getCell(x, y);
                     if (cell == null) {
                         continue;
                     }
-                    int px = x * getWidth() / mapW;
-                    int py = y * getHeight() / mapH;
-                    int px2 = (x + 1) * getWidth() / mapW;
-                    int py2 = (y + 1) * getHeight() / mapH;
-                    int cellW = Math.max(1, px2 - px);
-                    int cellH = Math.max(1, py2 - py);
+                    int px = offsetX + x * tileSize;
+                    int py = offsetY + y * tileSize;
+                    int cellW = tileSize;
+                    int cellH = tileSize;
                     g2.setColor(cell.isPassable() ? FLOOR : WALL);
                     g2.fillRect(px, py, cellW, cellH);
                     g2.setColor(GRID_LINE);
@@ -167,6 +198,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         } finally {
             g2.dispose();
         }
+    }
+
+    private int getTileSize(DungeonMap map) {
+        int mapW = Math.max(1, map.getWidth());
+        int mapH = Math.max(1, map.getHeight());
+        int availableW = Math.max(1, getWidth());
+        int availableH = Math.max(1, getHeight());
+        // Keep tile aspect ratio fixed by using the limiting dimension.
+        return Math.max(1, Math.min(availableW / mapW, availableH / mapH));
+    }
+
+    private String getPickupFailureMessage(InventoryController.PickupResult result) {
+        return switch (result) {
+            case NO_ITEM -> "No item is available in this tile.";
+            case NOT_ADJACENT -> "You can only take items from adjacent tiles.";
+            case NOT_TAKABLE -> "This item cannot be taken.";
+            case INVENTORY_FULL -> "Inventory is full.";
+            case SUCCESS -> "";
+        };
     }
 
     private void drawItemGold(Graphics2D g2, int px, int py, int cellW, int cellH) {
