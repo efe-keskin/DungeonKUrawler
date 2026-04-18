@@ -73,4 +73,15 @@ public class DungeonMap {
 
         return dx <= 1 && dy <= 1;
     }
+
+    /**
+     * Removes {@code item} from the ground at {@code (x, y)}.
+     *
+     * @return true if the item was found and removed; false otherwise
+     */
+    public boolean removeItemFromCell(model.Item item, int x, int y) {
+        GridCell cell = getCell(x, y);
+        if (cell == null) return false;
+        return cell.getItems().remove(item);
+    }
 }
