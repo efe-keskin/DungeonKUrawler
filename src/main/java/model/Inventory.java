@@ -39,6 +39,11 @@ public class Inventory {
         return items.size() >= capacity;
     }
 
+    /** Readable inverse of {@link #isFull()} — used by InteractionController. */
+    public boolean hasFreeSlot() {
+        return !isFull();
+    }
+
     /**
      * @return true if the item was added; false if inventory is full
      */

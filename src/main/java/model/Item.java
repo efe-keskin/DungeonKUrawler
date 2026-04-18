@@ -18,4 +18,12 @@ public abstract class Item {
     public void setName(String name) {
         this.name = name;
     }
+
+    /**
+     * Whether this item can be picked up by the hero.
+     * Subclasses may override to return {@code false} for fixtures (e.g. bolted chests).
+     */
+    public boolean isTakable() {
+        return true;
+    }
 }

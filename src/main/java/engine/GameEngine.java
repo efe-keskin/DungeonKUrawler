@@ -134,6 +134,31 @@ public class GameEngine {
     }
 
     /**
+     * Picks up {@code item} from cell {@code (x, y)} into the hero's inventory.
+     *
+     * <p>Preconditions are enforced here so callers don't need to duplicate the checks.
+     *
+     * @return {@code true}  — item moved to inventory and map updated;<br>
+     *         {@code false} — rejected (item not takable or inventory full).
+     */
+    public boolean takeItem(model.Item item, int x, int y) {
+        if (item == null || !item.isTakable()) {
+            return false;
+        }
+        model.Inventory inv = hero.getInventory();
+        if (!inv.hasFreeSlot()) {
+            return false;
+        }
+        boolean added = inv.tryAdd(item);
+        if (!added) {
+            return false;
+        }
+        dungeonMap.removeItemFromCell(item, x, y);
+        notifyListeners();
+        return true;
+    }
+
+    /**
      * Uses {@link EnemyFactory#createRandomEnemy(int, int)} for the 60/30/10 split.
      */
     public String spawnEnemyProcedurally() {
