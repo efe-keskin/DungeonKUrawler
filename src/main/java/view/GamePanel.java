@@ -131,6 +131,11 @@ public class GamePanel extends JPanel implements GameStateListener {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_T) {
+                    handleTakeKeyPress();
+                    return;
+                }
+
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {
                     GamePanel.this.playerModeController.moveHero(d);
@@ -201,6 +206,24 @@ public class GamePanel extends JPanel implements GameStateListener {
 
 
 
+    }
+
+    private void handleTakeKeyPress() {
+        if (engine.getHero().getInventory().isFull()) {
+            Window parent = SwingUtilities.getWindowAncestor(this);
+            JOptionPane.showMessageDialog(parent, getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL),
+                    "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
+            requestFocusInWindow();
+            return;
+        }
+
+        if (!engine.takeItemOnGround()) {
+            Window parent = SwingUtilities.getWindowAncestor(this);
+            JOptionPane.showMessageDialog(parent, "No takable item is available on this tile or an adjacent tile.",
+                    "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
+        }
+
+        requestFocusInWindow();
     }
 
     @Override
