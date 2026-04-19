@@ -91,12 +91,21 @@ public class GamePanel extends JPanel implements GameStateListener {
     private int heroAnimDx = 0;
     private int heroAnimDy = 0;
     private float heroAnimProgress = 1f;
+    private float heroPixelOffsetX = 0f;
+    private float heroPixelOffsetY = 0f;
+    private boolean heroFacingLeft = false;
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
         this.engine = engine;
         this.playerModeController = playerModeController;
         this.interactionController = interactionController;
+
+        Hero hero = engine.getHero();
+        if (hero != null) {
+            heroLastX = hero.getX();
+            heroLastY = hero.getY();
+        }
 
         engine.addGameStateListener(this);
         setBackground(Color.BLACK);
@@ -111,6 +120,8 @@ public class GamePanel extends JPanel implements GameStateListener {
                     heroFrame = 0;
                     heroAnimDx = 0;
                     heroAnimDy = 0;
+                    heroPixelOffsetX = 0f;
+                    heroPixelOffsetY = 0f;
                 }
                 repaint();
             }
@@ -203,15 +214,30 @@ public class GamePanel extends JPanel implements GameStateListener {
     public void onGameStateChanged() {
         Hero hero = engine.getHero();
         if (hero != null) {
+            DungeonMap map = engine.getDungeonMap();
+            int tileSize = map != null ? getTileSize(map) : BASE_CELL;
             int dx = hero.getX() - heroLastX;
             int dy = hero.getY() - heroLastY;
             if (heroLastX != Integer.MIN_VALUE
                     && (dx != 0 || dy != 0)
                     && Math.abs(dx) + Math.abs(dy) == 1) {
+                if (heroAnimProgress < 1f) {
+                    float remaining = 1f - heroAnimProgress;
+                    heroPixelOffsetX = -heroAnimDx * remaining * tileSize;
+                    heroPixelOffsetY = -heroAnimDy * remaining * tileSize;
+                } else {
+                    heroPixelOffsetX = 0f;
+                    heroPixelOffsetY = 0f;
+                }
+                heroPixelOffsetX += -dx * tileSize;
+                heroPixelOffsetY += -dy * tileSize;
                 heroAnimDx = dx;
                 heroAnimDy = dy;
                 heroAnimProgress = 0f;
                 heroFrame = 0;
+                if (dx != 0) {
+                    heroFacingLeft = dx < 0;
+                }
             }
             heroLastX = hero.getX();
             heroLastY = hero.getY();
@@ -264,29 +290,20 @@ public class GamePanel extends JPanel implements GameStateListener {
                     }
 
                     for (Entity ent : cell.getEntitiesView()) {
-                        BufferedImage heroSprite = ent instanceof Hero ? HERO_SPRITES[heroFrame] : null;
-                        if (heroSprite != null) {
-                            int spriteW = Math.round(heroSprite.getWidth() * HERO_SPRITE_SCALE);
-                            int spriteH = Math.round(heroSprite.getHeight() * HERO_SPRITE_SCALE);
-                            float remaining = 1f - heroAnimProgress;
-                            int slideX = Math.round(-heroAnimDx * remaining * tileSize);
-                            int slideY = Math.round(-heroAnimDy * remaining * tileSize);
-                            int drawX = px + (cellW - spriteW) / 2 + slideX;
-                            int drawY = py + (cellH - spriteH) / 2 + slideY;
-                            g2.drawImage(heroSprite, drawX, drawY, spriteW, spriteH, null);
-                        } else {
-                            g2.setColor(ent instanceof Hero ? HERO
-                                    : ent instanceof Knight ? KNIGHT
-                                            : ent instanceof Sorcerer ? SORCERER
-                                                    : Color.LIGHT_GRAY);
-                            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
-                            int entityW = Math.max(1, cellW - inset * 2);
-                            int entityH = Math.max(1, cellH - inset * 2);
-                            g2.fillRect(px + inset, py + inset, entityW, entityH);
+                        if (ent instanceof Hero) {
+                            continue;
                         }
+                        g2.setColor(ent instanceof Knight ? KNIGHT
+                                : ent instanceof Sorcerer ? SORCERER
+                                        : Color.LIGHT_GRAY);
+                        int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+                        int entityW = Math.max(1, cellW - inset * 2);
+                        int entityH = Math.max(1, cellH - inset * 2);
+                        g2.fillRect(px + inset, py + inset, entityW, entityH);
                     }
                 }
             }
+            drawHero(g2, map, tileSize, offsetX, offsetY);
             drawHud(g2);
         } finally {
             g2.dispose();
@@ -337,6 +354,43 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.fillRect(px + inset, py + inset, itemW, itemH);
         g2.setColor(GRID_LINE);
         g2.drawRect(px + inset, py + inset, itemW, itemH);
+    }
+
+    private void drawHero(Graphics2D g2, DungeonMap map, int tileSize, int offsetX, int offsetY) {
+        Hero hero = engine.getHero();
+        if (hero == null) {
+            return;
+        }
+
+        BufferedImage heroSprite = HERO_SPRITES[heroFrame];
+        if (heroSprite == null) {
+            GridCell cell = map.getCell(hero.getX(), hero.getY());
+            if (cell == null) {
+                return;
+            }
+            int px = offsetX + hero.getX() * tileSize;
+            int py = offsetY + hero.getY() * tileSize;
+            int inset = Math.max(1, tileSize / 5);
+            int entityW = Math.max(1, tileSize - inset * 2);
+            int entityH = Math.max(1, tileSize - inset * 2);
+            g2.setColor(HERO);
+            g2.fillRect(px + inset, py + inset, entityW, entityH);
+            return;
+        }
+
+        int spriteW = Math.round(heroSprite.getWidth() * HERO_SPRITE_SCALE);
+        int spriteH = Math.round(heroSprite.getHeight() * HERO_SPRITE_SCALE);
+        float remaining = 1f - heroAnimProgress;
+        float renderGridX = hero.getX() + ((heroPixelOffsetX * remaining) / tileSize);
+        float renderGridY = hero.getY() + ((heroPixelOffsetY * remaining) / tileSize);
+        int drawX = offsetX + Math.round(renderGridX * tileSize) + (tileSize - spriteW) / 2;
+        int drawY = offsetY + Math.round(renderGridY * tileSize) + (tileSize - spriteH) / 2;
+
+        if (heroFacingLeft) {
+            g2.drawImage(heroSprite, drawX + spriteW, drawY, -spriteW, spriteH, null);
+        } else {
+            g2.drawImage(heroSprite, drawX, drawY, spriteW, spriteH, null);
+        }
     }
 
     private void drawHud(Graphics2D g2) {
