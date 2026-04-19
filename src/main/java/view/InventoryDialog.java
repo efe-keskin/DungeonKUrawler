@@ -1,27 +1,36 @@
 package view;
 
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.util.List;
 
 import javax.imageio.ImageIO;
+import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.JComponent;
 import javax.swing.border.EmptyBorder;
 
+import engine.GameEngine;
 import model.Armor;
+import model.HealPotion;
 import model.Inventory;
 import model.Item;
+import model.ManaPotion;
 import model.Potion;
 import model.Weapon;
+import javax.swing.ImageIcon;
 
 /**
  * Image-backed modal inventory view with fixed 2x4 slot overlays (8 total).
@@ -42,17 +51,33 @@ public class InventoryDialog extends JDialog {
     private static final Color BADGE_FG = new Color(245, 245, 255);
     private static final Color NAME_FG = new Color(245, 245, 255);
 
-    public InventoryDialog(JDialog owner, Inventory inventory) {
+    private static BufferedImage healPotionImage;
+    private static BufferedImage manaPotionImage;
+    private static boolean potionImagesLoaded;
+
+    private final GameEngine engine;
+
+    public InventoryDialog(JDialog owner, GameEngine engine) {
         super(owner, "Inventory", Dialog.ModalityType.APPLICATION_MODAL);
-        buildUi(inventory);
+        this.engine = engine;
+        buildUi();
     }
 
-    public InventoryDialog(java.awt.Frame owner, Inventory inventory) {
+    public InventoryDialog(java.awt.Frame owner, GameEngine engine) {
         super(owner, "Inventory", true);
-        buildUi(inventory);
+        this.engine = engine;
+        buildUi();
     }
 
-    private void buildUi(Inventory inventory) {
+    private void rebuildUi() {
+        getContentPane().removeAll();
+        buildUi();
+        revalidate();
+        repaint();
+    }
+
+    private void buildUi() {
+        Inventory inventory = engine.getHero().getInventory();
         BufferedImage background = loadBackground();
         if (background == null) {
             JPanel fallback = new JPanel();
@@ -69,7 +94,9 @@ public class InventoryDialog extends JDialog {
             return;
         }
 
-        setUndecorated(true);
+        if (!isDisplayable()) {
+            setUndecorated(true);
+        }
 
         InventoryCanvas canvas = new InventoryCanvas(background);
         canvas.setLayout(null);
@@ -86,6 +113,19 @@ public class InventoryDialog extends JDialog {
         hint.setFont(RetroTheme.UI_MONO_SMALL);
         hint.setBounds(136, 430, 48, 20);
         canvas.add(hint);
+
+        JButton exitButton = new JButton("EXIT");
+        exitButton.setFont(RetroTheme.UI_MONO_SMALL);
+        exitButton.setForeground(new Color(245, 245, 255));
+        exitButton.setOpaque(false);
+        exitButton.setContentAreaFilled(false);
+        exitButton.setBorderPainted(false);
+        exitButton.setFocusPainted(false);
+        exitButton.setBorder(null);
+        exitButton.setBounds(background.getWidth() - 72, 10, 56, 22);
+        exitButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        exitButton.addActionListener(e -> dispose());
+        canvas.add(exitButton);
 
         setContentPane(canvas);
         setResizable(false);
@@ -113,6 +153,20 @@ public class InventoryDialog extends JDialog {
         overlay.setBounds(2, 2, SLOT_W - 4, SLOT_H - 4);
         overlay.setBorder(javax.swing.BorderFactory.createLineBorder(FILLED_SLOT_BORDER));
 
+        BufferedImage sprite = itemSprite(item);
+        if (sprite != null) {
+            JLabel icon = new JLabel(new ImageIcon(
+                    sprite.getScaledInstance(SLOT_W - 16, SLOT_H - 16, java.awt.Image.SCALE_SMOOTH)));
+            icon.setBounds(6, 6, SLOT_W - 16, SLOT_H - 16);
+            overlay.add(icon);
+            slot.add(overlay);
+
+            if (item instanceof Potion potion) {
+                attachDrinkHandler(slot, overlay, icon, potion);
+            }
+            return slot;
+        }
+
         JLabel marker = new JLabel(typeMarker(item), SwingConstants.CENTER);
         marker.setOpaque(true);
         marker.setBackground(typeColor(item));
@@ -128,7 +182,72 @@ public class InventoryDialog extends JDialog {
         overlay.add(marker);
         overlay.add(name);
         slot.add(overlay);
+
+        if (item instanceof Potion potion) {
+            attachDrinkHandler(slot, overlay, potion, marker, name);
+        }
+
         return slot;
+    }
+
+    private void attachDrinkHandler(JPanel slot, JPanel overlay, Potion potion, JComponent... extras) {
+        slot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        overlay.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        MouseAdapter drinkOnClick = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int choice = JOptionPane.showConfirmDialog(
+                        InventoryDialog.this,
+                        "Consume " + potion.getName() + "?",
+                        "Use Item",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.QUESTION_MESSAGE);
+                if (choice != JOptionPane.YES_OPTION) {
+                    return;
+                }
+                engine.consumePotion(potion);
+                rebuildUi();
+            }
+        };
+        slot.addMouseListener(drinkOnClick);
+        overlay.addMouseListener(drinkOnClick);
+        for (JComponent extra : extras) {
+            extra.addMouseListener(drinkOnClick);
+        }
+    }
+
+    private void attachDrinkHandler(JPanel slot, JPanel overlay, JLabel icon, Potion potion) {
+        attachDrinkHandler(slot, overlay, potion, icon);
+    }
+
+    private BufferedImage itemSprite(Item item) {
+        if (item instanceof HealPotion) {
+            return potionImage(true);
+        }
+        if (item instanceof ManaPotion) {
+            return potionImage(false);
+        }
+        return null;
+    }
+
+    private static synchronized BufferedImage potionImage(boolean heal) {
+        if (!potionImagesLoaded) {
+            healPotionImage = loadResource("/items_objects/healpotion.png");
+            manaPotionImage = loadResource("/items_objects/manapotion.png");
+            potionImagesLoaded = true;
+        }
+        return heal ? healPotionImage : manaPotionImage;
+    }
+
+    private static BufferedImage loadResource(String path) {
+        try (InputStream in = InventoryDialog.class.getResourceAsStream(path)) {
+            if (in != null) {
+                return ImageIO.read(in);
+            }
+        } catch (Exception ignored) {
+            // Missing sprite falls back to text badge.
+        }
+        return null;
     }
 
     private int slotX(int index) {

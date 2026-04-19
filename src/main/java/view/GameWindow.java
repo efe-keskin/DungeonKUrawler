@@ -87,7 +87,7 @@ public class GameWindow extends JFrame {
         }
         inventoryButton.setFocusable(false);
         inventoryButton.addActionListener(e -> {
-            InventoryDialog dialog = new InventoryDialog(this, engine.getHero().getInventory());
+            InventoryDialog dialog = new InventoryDialog(this, engine);
             dialog.setVisible(true);
             // Keep keyboard movement controls on the map after popup closes.
             panel.requestFocusInWindow();

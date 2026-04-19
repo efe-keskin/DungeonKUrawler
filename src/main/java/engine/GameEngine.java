@@ -11,7 +11,10 @@ import model.DungeonMap;
 import model.EnemyFactory;
 import model.Entity;
 import model.GridCell;
+import model.HealPotion;
 import model.Hero;
+import model.Item;
+import model.ManaPotion;
 import model.Potion;
 
 /**
@@ -92,12 +95,12 @@ public class GameEngine {
         // Temporary test items: hero should be able to move onto these cells.
         GridCell itemCell1 = map.getCell(3, 1);
         if (itemCell1 != null) {
-            itemCell1.getItems().add(new Potion("Potion", 25));
+            itemCell1.getItems().add(new HealPotion());
         }
 
         GridCell itemCell2 = map.getCell(5, 3);
         if (itemCell2 != null) {
-            itemCell2.getItems().add(new Potion("Potion", 25));
+            itemCell2.getItems().add(new ManaPotion());
         }
 
         return map;
@@ -153,18 +156,70 @@ public class GameEngine {
     }
 
     /**
-     * Removes {@code potion} from the hero's inventory and heals the hero by its heal amount.
+     * Removes {@code potion} from the hero's inventory and applies its effect.
      * No-op when the potion is not in the inventory.
      */
     public void consumePotion(Potion potion) {
         if (potion == null) {
             return;
         }
-        if (!hero.getInventory().remove(potion)) {
+        if (!hero.getInventory().remove((Item) potion)) {
             return;
         }
-        hero.heal(potion.getHealAmount());
+        potion.drink(hero);
         notifyListeners();
+    }
+
+    /**
+     * Picks up the first takable item found on the hero's current tile or any
+     * 8-adjacent tile and adds it to the inventory.
+     *
+     * @return true if an item was picked up, false otherwise.
+     */
+    public boolean takeItemOnGround() {
+        Hero hero = getHero();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        model.Inventory inv = hero.getInventory();
+        if (!inv.hasFreeSlot()) {
+            return false;
+        }
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int tx = hx + dx;
+                int ty = hy + dy;
+                GridCell cell = dungeonMap.getCell(tx, ty);
+                if (cell == null || cell.getItems().isEmpty()) {
+                    continue;
+                }
+                for (Item item : cell.getItems()) {
+                    if (item.isTakable()) {
+                        return takeItem(item, tx, ty);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Drinks the first potion on the hero's current tile, removing it from the map.
+     * @return true if a potion was drunk, false if none is present.
+     */
+    public boolean consumePotionOnGround() {
+        GridCell cell = dungeonMap.getCell(hero.getX(), hero.getY());
+        if (cell == null) {
+            return false;
+        }
+        for (Item item : cell.getItems()) {
+            if (item instanceof Potion potion) {
+                cell.getItems().remove(item);
+                potion.drink(hero);
+                notifyListeners();
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

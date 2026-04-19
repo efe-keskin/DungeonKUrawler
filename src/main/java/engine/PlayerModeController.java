@@ -49,7 +49,7 @@ public class PlayerModeController {
     }
 
     /**
-     * Consumes the first {@link Potion} in the hero's inventory and applies its heal.
+     * Consumes the first {@link Potion} in the hero's inventory and applies its effect.
      *
      * @return true if a potion was consumed; false if inventory has no potion.
      */
@@ -63,5 +63,15 @@ public class PlayerModeController {
             }
         }
         return false;
+    }
+
+    /**
+     * Drinks a potion lying on the hero's current tile (if any).
+     * Does not require the potion to be in the inventory.
+     *
+     * @return true if a ground potion was drunk.
+     */
+    public boolean consumePotionOnGround() {
+        return engine.consumePotionOnGround();
     }
 }

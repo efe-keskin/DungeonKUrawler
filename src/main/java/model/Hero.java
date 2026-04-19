@@ -6,6 +6,7 @@ package model;
 public class Hero extends Entity {
 
     private int hp;
+    private final int maxHp;
     private int str;
     private int mana;
     private int def;
@@ -17,12 +18,17 @@ public class Hero extends Entity {
     public Hero(int x, int y, String name, int hp, int str, int mana, int def, int energy) {
         super(x, y, name);
         this.hp = hp;
+        this.maxHp = hp;
         this.str = str;
         this.mana = mana;
         this.def = def;
         this.energy = energy;
         this.maxEnergy = energy;
         this.inventory = new Inventory(8);
+    }
+
+    public int getMaxHp() {
+        return maxHp;
     }
 
     public int getMaxEnergy() {
@@ -89,10 +95,13 @@ public class Hero extends Entity {
         this.energy = Math.min(maxEnergy, this.energy + amount);
     }
 
+    /**
+     * Capped heal — will not push HP past {@link #getMaxHp()}.
+     */
     public void heal(int amount) {
-        if (amount <= 0) {
+        if (amount <= 0 || this.hp >= maxHp) {
             return;
         }
-        this.hp = this.hp + amount;
+        this.hp = Math.min(maxHp, this.hp + amount);
     }
 }

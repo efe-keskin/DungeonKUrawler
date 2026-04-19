@@ -1,22 +1,17 @@
 package model;
 
+import java.awt.Color;
+
 /**
- * Consumable that restores HP when used (combat rules in later phases).
+ * Drinkable consumable. Subclasses decide effect and render color.
  */
-public class Potion extends Item {
+public abstract class Potion extends Item {
 
-    private int healAmount;
-
-    public Potion(String name, int healAmount) {
+    public Potion(String name) {
         super(name);
-        this.healAmount = healAmount;
     }
 
-    public int getHealAmount() {
-        return healAmount;
-    }
+    public abstract Color getColor();
 
-    public void setHealAmount(int healAmount) {
-        this.healAmount = healAmount;
-    }
+    public abstract void drink(Hero hero);
 }

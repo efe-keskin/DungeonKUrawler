@@ -7,7 +7,10 @@ import java.awt.Graphics2D;
 import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
 
+import javax.imageio.ImageIO;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -22,8 +25,12 @@ import engine.InteractionController;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
+import model.HealPotion;
 import model.Hero;
+import model.Item;
 import model.Knight;
+import model.ManaPotion;
+import model.Potion;
 import model.Sorcerer;
 
 /**
@@ -49,10 +56,41 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color HUD_ENERGY = new Color(230, 200, 60);
     private static final Color HUD_TEXT = new Color(240, 240, 240);
 
+    private static final BufferedImage HEAL_POTION_SPRITE = loadSprite("/items_objects/healpotion.png");
+    private static final BufferedImage MANA_POTION_SPRITE = loadSprite("/items_objects/manapotion.png");
+
+    private static final BufferedImage[] HERO_SPRITES = {
+            loadSprite("/characters/hero1.png"),
+            loadSprite("/characters/hero2.png"),
+            loadSprite("/characters/hero3.png"),
+            loadSprite("/characters/hero4.png"),
+            loadSprite("/characters/hero5.png"),
+    };
+    private static final int HERO_ANIM_INTERVAL_MS = 100;
+    private static final float HERO_ANIM_STEP = 0.20f;
+    private static final float HERO_SPRITE_SCALE = 1.15f;
+
+    private static BufferedImage loadSprite(String path) {
+        try (InputStream in = GamePanel.class.getResourceAsStream(path)) {
+            if (in != null) {
+                return ImageIO.read(in);
+            }
+        } catch (Exception ignored) {
+            // Missing sprite falls back to colored marker.
+        }
+        return null;
+    }
+
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
-    private final Timer energyRefillTimer;
+    private final Timer heroAnimTimer;
+    private int heroFrame = 0;
+    private int heroLastX = Integer.MIN_VALUE;
+    private int heroLastY = Integer.MIN_VALUE;
+    private int heroAnimDx = 0;
+    private int heroAnimDy = 0;
+    private float heroAnimProgress = 1f;
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
@@ -65,17 +103,23 @@ public class GamePanel extends JPanel implements GameStateListener {
         setOpaque(true);
         setFocusable(true);
 
-        // Ticks while idle; the engine decides whether the 5s idle window has elapsed.
-        energyRefillTimer = new Timer(1000, e -> engine.tickEnergyRefill());
-        energyRefillTimer.start();
+        heroAnimTimer = new Timer(HERO_ANIM_INTERVAL_MS, e -> {
+            if (heroAnimProgress < 1f) {
+                heroAnimProgress = Math.min(1f, heroAnimProgress + HERO_ANIM_STEP);
+                heroFrame = (heroFrame + 1) % HERO_SPRITES.length;
+                if (heroAnimProgress >= 1f) {
+                    heroFrame = 0;
+                    heroAnimDx = 0;
+                    heroAnimDy = 0;
+                }
+                repaint();
+            }
+        });
+        heroAnimTimer.start();
 
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_Q) {
-                    GamePanel.this.playerModeController.consumePotion();
-                    return;
-                }
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {
                     GamePanel.this.playerModeController.moveHero(d);
@@ -150,13 +194,28 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     @Override
     public void removeNotify() {
-        energyRefillTimer.stop();
+        heroAnimTimer.stop();
         engine.removeGameStateListener(this);
         super.removeNotify();
     }
 
     @Override
     public void onGameStateChanged() {
+        Hero hero = engine.getHero();
+        if (hero != null) {
+            int dx = hero.getX() - heroLastX;
+            int dy = hero.getY() - heroLastY;
+            if (heroLastX != Integer.MIN_VALUE
+                    && (dx != 0 || dy != 0)
+                    && Math.abs(dx) + Math.abs(dy) == 1) {
+                heroAnimDx = dx;
+                heroAnimDy = dy;
+                heroAnimProgress = 0f;
+                heroFrame = 0;
+            }
+            heroLastX = hero.getX();
+            heroLastY = hero.getY();
+        }
         SwingUtilities.invokeLater(this::repaint);
     }
 
@@ -194,18 +253,37 @@ public class GamePanel extends JPanel implements GameStateListener {
                     g2.drawRect(px, py, cellW, cellH);
 
                     if (!cell.getItemsView().isEmpty()) {
-                        drawItemGold(g2, px, py, cellW, cellH);
+                        Item first = cell.getItemsView().get(0);
+                        BufferedImage sprite = spriteFor(first);
+                        if (sprite != null) {
+                            drawItemSprite(g2, sprite, px, py, cellW, cellH);
+                        } else {
+                            Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
+                            drawItemMarker(g2, px, py, cellW, cellH, itemColor);
+                        }
                     }
 
                     for (Entity ent : cell.getEntitiesView()) {
-                        g2.setColor(ent instanceof Hero ? HERO
-                                : ent instanceof Knight ? KNIGHT
-                                        : ent instanceof Sorcerer ? SORCERER
-                                                : Color.LIGHT_GRAY);
-                        int inset = Math.max(1, Math.min(cellW, cellH) / 5);
-                        int entityW = Math.max(1, cellW - inset * 2);
-                        int entityH = Math.max(1, cellH - inset * 2);
-                        g2.fillRect(px + inset, py + inset, entityW, entityH);
+                        BufferedImage heroSprite = ent instanceof Hero ? HERO_SPRITES[heroFrame] : null;
+                        if (heroSprite != null) {
+                            int spriteW = Math.round(heroSprite.getWidth() * HERO_SPRITE_SCALE);
+                            int spriteH = Math.round(heroSprite.getHeight() * HERO_SPRITE_SCALE);
+                            float remaining = 1f - heroAnimProgress;
+                            int slideX = Math.round(-heroAnimDx * remaining * tileSize);
+                            int slideY = Math.round(-heroAnimDy * remaining * tileSize);
+                            int drawX = px + (cellW - spriteW) / 2 + slideX;
+                            int drawY = py + (cellH - spriteH) / 2 + slideY;
+                            g2.drawImage(heroSprite, drawX, drawY, spriteW, spriteH, null);
+                        } else {
+                            g2.setColor(ent instanceof Hero ? HERO
+                                    : ent instanceof Knight ? KNIGHT
+                                            : ent instanceof Sorcerer ? SORCERER
+                                                    : Color.LIGHT_GRAY);
+                            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+                            int entityW = Math.max(1, cellW - inset * 2);
+                            int entityH = Math.max(1, cellH - inset * 2);
+                            g2.fillRect(px + inset, py + inset, entityW, entityH);
+                        }
                     }
                 }
             }
@@ -213,28 +291,6 @@ public class GamePanel extends JPanel implements GameStateListener {
         } finally {
             g2.dispose();
         }
-    }
-
-    private void drawHud(Graphics2D g2) {
-        Hero hero = engine.getHero();
-        int x = 10;
-        int y = 10;
-        int w = 150;
-        int h = 48;
-        g2.setColor(new Color(0, 0, 0, 170));
-        g2.fillRect(x, y, w, h);
-        g2.setColor(new Color(90, 90, 100));
-        g2.drawRect(x, y, w, h);
-
-        g2.setColor(HUD_HP);
-        g2.fillRect(x + 8, y + 8, 12, 12);
-        g2.setColor(HUD_TEXT);
-        g2.drawString("HP: " + hero.getHp(), x + 26, y + 19);
-
-        g2.setColor(HUD_ENERGY);
-        g2.fillRect(x + 8, y + 26, 12, 12);
-        g2.setColor(HUD_TEXT);
-        g2.drawString("Energy: " + hero.getEnergy(), x + 26, y + 37);
     }
 
     private int getTileSize(DungeonMap map) {
@@ -256,14 +312,56 @@ public class GamePanel extends JPanel implements GameStateListener {
         };
     }
 
-    private void drawItemGold(Graphics2D g2, int px, int py, int cellW, int cellH) {
-        g2.setColor(ITEM);
+    private BufferedImage spriteFor(Item item) {
+        if (item instanceof HealPotion) {
+            return HEAL_POTION_SPRITE;
+        }
+        if (item instanceof ManaPotion) {
+            return MANA_POTION_SPRITE;
+        }
+        return null;
+    }
+
+    private void drawItemSprite(Graphics2D g2, BufferedImage sprite, int px, int py, int cellW, int cellH) {
+        int inset = Math.max(1, Math.min(cellW, cellH) / 6);
+        int w = Math.max(1, cellW - inset * 2);
+        int h = Math.max(1, cellH - inset * 2);
+        g2.drawImage(sprite, px + inset, py + inset, w, h, null);
+    }
+
+    private void drawItemMarker(Graphics2D g2, int px, int py, int cellW, int cellH, Color color) {
+        g2.setColor(color);
         int inset = Math.max(1, Math.min(cellW, cellH) / 3);
         int itemW = Math.max(1, cellW - inset * 2);
         int itemH = Math.max(1, cellH - inset * 2);
         g2.fillRect(px + inset, py + inset, itemW, itemH);
         g2.setColor(GRID_LINE);
         g2.drawRect(px + inset, py + inset, itemW, itemH);
+    }
+
+    private void drawHud(Graphics2D g2) {
+        Hero hero = engine.getHero();
+        if (hero == null) {
+            return;
+        }
+        int x = 10;
+        int y = 10;
+        int w = 150;
+        int h = 48;
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillRect(x, y, w, h);
+        g2.setColor(new Color(90, 90, 100));
+        g2.drawRect(x, y, w, h);
+
+        g2.setColor(HUD_HP);
+        g2.fillRect(x + 8, y + 8, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("HP: " + hero.getHp(), x + 26, y + 19);
+
+        g2.setColor(HUD_ENERGY);
+        g2.fillRect(x + 8, y + 26, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("Energy: " + hero.getEnergy(), x + 26, y + 37);
     }
 
 }
