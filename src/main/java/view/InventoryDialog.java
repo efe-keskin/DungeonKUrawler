@@ -23,13 +23,9 @@ import javax.swing.JComponent;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
-import model.Armor;
-import model.HealPotion;
 import model.Inventory;
 import model.Item;
-import model.ManaPotion;
 import model.Potion;
-import model.Weapon;
 import javax.swing.ImageIcon;
 
 /**
@@ -50,10 +46,6 @@ public class InventoryDialog extends JDialog {
     private static final Color FILLED_SLOT_BORDER = new Color(220, 225, 245, 120);
     private static final Color BADGE_FG = new Color(245, 245, 255);
     private static final Color NAME_FG = new Color(245, 245, 255);
-
-    private static BufferedImage healPotionImage;
-    private static BufferedImage manaPotionImage;
-    private static boolean potionImagesLoaded;
 
     private final GameEngine engine;
 
@@ -153,7 +145,8 @@ public class InventoryDialog extends JDialog {
         overlay.setBounds(2, 2, SLOT_W - 4, SLOT_H - 4);
         overlay.setBorder(javax.swing.BorderFactory.createLineBorder(FILLED_SLOT_BORDER));
 
-        BufferedImage sprite = itemSprite(item);
+        RenderCatalog.ItemRenderData renderData = RenderCatalog.getItemData(item);
+        BufferedImage sprite = RenderCatalog.loadSprite(renderData.spritePath());
         if (sprite != null) {
             JLabel icon = new JLabel(new ImageIcon(
                     sprite.getScaledInstance(SLOT_W - 16, SLOT_H - 16, java.awt.Image.SCALE_SMOOTH)));
@@ -167,9 +160,9 @@ public class InventoryDialog extends JDialog {
             return slot;
         }
 
-        JLabel marker = new JLabel(typeMarker(item), SwingConstants.CENTER);
+        JLabel marker = new JLabel(renderData.marker(), SwingConstants.CENTER);
         marker.setOpaque(true);
-        marker.setBackground(typeColor(item));
+        marker.setBackground(renderData.color());
         marker.setForeground(BADGE_FG);
         marker.setFont(RetroTheme.UI_MONO_SMALL);
         marker.setBounds(6, 6, SLOT_W - 16, 16);
@@ -220,36 +213,6 @@ public class InventoryDialog extends JDialog {
         attachDrinkHandler(slot, overlay, potion, icon);
     }
 
-    private BufferedImage itemSprite(Item item) {
-        if (item instanceof HealPotion) {
-            return potionImage(true);
-        }
-        if (item instanceof ManaPotion) {
-            return potionImage(false);
-        }
-        return null;
-    }
-
-    private static synchronized BufferedImage potionImage(boolean heal) {
-        if (!potionImagesLoaded) {
-            healPotionImage = loadResource("/items_objects/healpotion.png");
-            manaPotionImage = loadResource("/items_objects/manapotion.png");
-            potionImagesLoaded = true;
-        }
-        return heal ? healPotionImage : manaPotionImage;
-    }
-
-    private static BufferedImage loadResource(String path) {
-        try (InputStream in = InventoryDialog.class.getResourceAsStream(path)) {
-            if (in != null) {
-                return ImageIO.read(in);
-            }
-        } catch (Exception ignored) {
-            // Missing sprite falls back to text badge.
-        }
-        return null;
-    }
-
     private int slotX(int index) {
         return SLOT_START_X + (index % 4) * (SLOT_W + SLOT_GAP_X);
     }
@@ -267,32 +230,6 @@ public class InventoryDialog extends JDialog {
             // Fallback UI handles missing/unreadable assets.
         }
         return null;
-    }
-
-    private String typeMarker(Item item) {
-        if (item instanceof Potion) {
-            return "POT";
-        }
-        if (item instanceof Weapon) {
-            return "WPN";
-        }
-        if (item instanceof Armor) {
-            return "ARM";
-        }
-        return "ITM";
-    }
-
-    private Color typeColor(Item item) {
-        if (item instanceof Potion) {
-            return new Color(70, 120, 70);
-        }
-        if (item instanceof Weapon) {
-            return new Color(120, 85, 40);
-        }
-        if (item instanceof Armor) {
-            return new Color(60, 95, 130);
-        }
-        return new Color(95, 85, 120);
     }
 
     private static final class InventoryCanvas extends JPanel {

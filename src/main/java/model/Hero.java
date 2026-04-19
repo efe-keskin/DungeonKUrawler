@@ -39,47 +39,27 @@ public class Hero extends Entity {
         return hp;
     }
 
-    public void setHp(int hp) {
-        this.hp = hp;
-    }
-
     public int getStr() {
         return str;
-    }
-
-    public void setStr(int str) {
-        this.str = str;
     }
 
     public int getMana() {
         return mana;
     }
 
-    public void setMana(int mana) {
-        this.mana = mana;
-    }
-
     public int getDef() {
         return def;
-    }
-
-    public void setDef(int def) {
-        this.def = def;
     }
 
     public int getEnergy() {
         return energy;
     }
 
-    public void setEnergy(int energy) {
-        this.energy = energy;
-    }
-
     public Inventory getInventory() {
         return inventory;
     }
 
-    public void updatePosition(int x, int y) {
+    public void moveTo(int x, int y) {
         this.x = x;
         this.y = y;
     }
@@ -88,11 +68,18 @@ public class Hero extends Entity {
         this.energy = Math.max(0, this.energy - amount);
     }
 
-    public void refillEnergy(int amount) {
+    public void gainEnergy(int amount) {
         if (amount <= 0) {
             return;
         }
         this.energy = Math.min(maxEnergy, this.energy + amount);
+    }
+
+    public void gainOverflowEnergy(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.energy += amount;
     }
 
     /**
@@ -103,5 +90,16 @@ public class Hero extends Entity {
             return;
         }
         this.hp = Math.min(maxHp, this.hp + amount);
+    }
+
+    public void restoreFullHealth() {
+        this.hp = maxHp;
+    }
+
+    public void takeDamage(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.hp = Math.max(0, this.hp - amount);
     }
 }

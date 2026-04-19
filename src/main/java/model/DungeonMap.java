@@ -54,6 +54,15 @@ public class DungeonMap {
         return cells;
     }
 
+    public boolean setCellPassable(int x, int y, boolean passable) {
+        GridCell cell = getCell(x, y);
+        if (cell == null) {
+            return false;
+        }
+        cell.setPassable(passable);
+        return true;
+    }
+
     /**
      * Information Expert: the map knows whether a coordinate is in bounds and
      * walkable.
@@ -74,6 +83,14 @@ public class DungeonMap {
         return dx <= 1 && dy <= 1;
     }
 
+    public boolean addItem(int x, int y, Item item) {
+        GridCell cell = getCell(x, y);
+        if (cell == null) {
+            return false;
+        }
+        return cell.addItem(item);
+    }
+
     /**
      * Removes {@code item} from the ground at {@code (x, y)}.
      *
@@ -81,7 +98,32 @@ public class DungeonMap {
      */
     public boolean removeItemFromCell(model.Item item, int x, int y) {
         GridCell cell = getCell(x, y);
-        if (cell == null) return false;
-        return cell.getItems().remove(item);
+        if (cell == null) {
+            return false;
+        }
+        return cell.removeItem(item);
+    }
+
+    public boolean addEntity(int x, int y, Entity entity) {
+        GridCell cell = getCell(x, y);
+        if (cell == null) {
+            return false;
+        }
+        return cell.addEntity(entity);
+    }
+
+    public boolean moveEntity(Entity entity, int fromX, int fromY, int toX, int toY) {
+        GridCell destination = getCell(toX, toY);
+        if (entity == null || destination == null) {
+            return false;
+        }
+
+        GridCell source = getCell(fromX, fromY);
+        if (source != null) {
+            source.removeEntity(entity);
+        }
+
+        destination.addEntity(entity);
+        return true;
     }
 }

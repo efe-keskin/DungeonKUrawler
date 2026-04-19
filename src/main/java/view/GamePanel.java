@@ -8,9 +8,7 @@ import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
-import java.io.InputStream;
 
-import javax.imageio.ImageIO;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -25,20 +23,13 @@ import engine.InteractionController;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
-import model.HealPotion;
 import model.Hero;
 import model.Item;
-import model.Knight;
-import model.ManaPotion;
-import model.Potion;
-import model.Sorcerer;
 
 /**
  * Observer: implements {@link GameStateListener} and repaints when the engine
- * notifies — no direct
- * model mutation. Input is forwarded to {@link GameEngine#moveHero(Direction)}
- * only; movement rules
- * stay in the controller.
+ * notifies — no direct model mutation. Input is forwarded to controllers and
+ * engine timing stays outside the view.
  */
 public class GamePanel extends JPanel implements GameStateListener {
 
@@ -49,37 +40,20 @@ public class GamePanel extends JPanel implements GameStateListener {
     /** Visible grid lines (retro tile border). */
     private static final Color GRID_LINE = new Color(55, 55, 62);
     private static final Color HERO = new Color(50, 130, 255);
-    private static final Color KNIGHT = new Color(220, 55, 55);
-    private static final Color SORCERER = new Color(160, 70, 220);
-    private static final Color ITEM = new Color(255, 200, 40);
     private static final Color HUD_HP = new Color(220, 80, 80);
     private static final Color HUD_ENERGY = new Color(230, 200, 60);
     private static final Color HUD_TEXT = new Color(240, 240, 240);
 
-    private static final BufferedImage HEAL_POTION_SPRITE = loadSprite("/items_objects/healpotion.png");
-    private static final BufferedImage MANA_POTION_SPRITE = loadSprite("/items_objects/manapotion.png");
-
     private static final BufferedImage[] HERO_SPRITES = {
-            loadSprite("/characters/hero1.png"),
-            loadSprite("/characters/hero2.png"),
-            loadSprite("/characters/hero3.png"),
-            loadSprite("/characters/hero4.png"),
-            loadSprite("/characters/hero5.png"),
+            RenderCatalog.loadSprite("/characters/hero1.png"),
+            RenderCatalog.loadSprite("/characters/hero2.png"),
+            RenderCatalog.loadSprite("/characters/hero3.png"),
+            RenderCatalog.loadSprite("/characters/hero4.png"),
+            RenderCatalog.loadSprite("/characters/hero5.png"),
     };
     private static final int HERO_ANIM_INTERVAL_MS = 100;
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
-
-    private static BufferedImage loadSprite(String path) {
-        try (InputStream in = GamePanel.class.getResourceAsStream(path)) {
-            if (in != null) {
-                return ImageIO.read(in);
-            }
-        } catch (Exception ignored) {
-            // Missing sprite falls back to colored marker.
-        }
-        return null;
-    }
 
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
@@ -303,12 +277,12 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                     if (!cell.getItemsView().isEmpty()) {
                         Item first = cell.getItemsView().get(0);
-                        BufferedImage sprite = spriteFor(first);
+                        RenderCatalog.ItemRenderData itemData = RenderCatalog.getItemData(first);
+                        BufferedImage sprite = RenderCatalog.loadSprite(itemData.spritePath());
                         if (sprite != null) {
                             drawItemSprite(g2, sprite, px, py, cellW, cellH);
                         } else {
-                            Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
-                            drawItemMarker(g2, px, py, cellW, cellH, itemColor);
+                            drawItemMarker(g2, px, py, cellW, cellH, itemData.color());
                         }
                     }
 
@@ -316,9 +290,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                         if (ent instanceof Hero) {
                             continue;
                         }
-                        g2.setColor(ent instanceof Knight ? KNIGHT
-                                : ent instanceof Sorcerer ? SORCERER
-                                        : Color.LIGHT_GRAY);
+                        g2.setColor(RenderCatalog.getEntityData(ent).color());
                         int inset = Math.max(1, Math.min(cellW, cellH) / 5);
                         int entityW = Math.max(1, cellW - inset * 2);
                         int entityH = Math.max(1, cellH - inset * 2);
@@ -350,16 +322,6 @@ public class GamePanel extends JPanel implements GameStateListener {
             case INVENTORY_FULL -> "Inventory is full.";
             case SUCCESS -> "";
         };
-    }
-
-    private BufferedImage spriteFor(Item item) {
-        if (item instanceof HealPotion) {
-            return HEAL_POTION_SPRITE;
-        }
-        if (item instanceof ManaPotion) {
-            return MANA_POTION_SPRITE;
-        }
-        return null;
     }
 
     private void drawItemSprite(Graphics2D g2, BufferedImage sprite, int px, int py, int cellW, int cellH) {

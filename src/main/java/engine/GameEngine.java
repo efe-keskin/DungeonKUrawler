@@ -11,10 +11,8 @@ import model.DungeonMap;
 import model.EnemyFactory;
 import model.Entity;
 import model.GridCell;
-import model.HealPotion;
 import model.Hero;
 import model.Item;
-import model.ManaPotion;
 import model.Potion;
 
 /**
@@ -28,7 +26,8 @@ import model.Potion;
  */
 public class GameEngine {
 
-    private static final long IDLE_REFILL_DELAY_NANOS = TimeUnit.SECONDS.toNanos(2);
+    private static final long IDLE_REFILL_DELAY_NANOS = TimeUnit.SECONDS.toNanos(1);
+    private static final long ENERGY_REFILL_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(1);
     private static final int ENERGY_REFILL_PER_TICK = 5;
 
     private final DungeonMap dungeonMap;
@@ -37,6 +36,7 @@ public class GameEngine {
     private final EnemyFactory enemyFactory;
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
+    private long lastEnergyRefillNanos = lastMoveNanos;
 
     public GameEngine() {
         this(ThreadLocalRandom.current());
@@ -45,9 +45,9 @@ public class GameEngine {
     GameEngine(Random random) {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
-        this.dungeonMap = buildDemoMap("Phase 1 — Build Mode");
-        this.hero = new Hero(1, 1, "Hero", 100, 10, 20, 5, 100);
-        placeHeroOnMap();
+        GameInitializer.InitialGameState initialState = new GameInitializer().createInitialState("Phase 1 — Build Mode");
+        this.dungeonMap = initialState.map();
+        this.hero = initialState.hero();
     }
 
     public void addGameStateListener(GameStateListener listener) {
@@ -66,53 +66,6 @@ public class GameEngine {
         }
     }
 
-    // DEMO WALLS
-    private DungeonMap buildDemoMap(String levelName) {
-        int w = 16;
-        int h = 12;
-        DungeonMap map = new DungeonMap(levelName, w, h);
-
-        for (int x = 0; x < w; x++) {
-            for (int y = 0; y < h; y++) {
-                boolean wall = (x == 0 || y == 0 || x == w - 1 || y == h - 1);
-                GridCell c = map.getCell(x, y);
-                if (c != null) {
-                    c.setPassable(!wall);
-                }
-            }
-        }
-
-        // inner 2x2 wall block
-        for (int x = 6; x <= 7; x++) {
-            for (int y = 4; y <= 5; y++) {
-                GridCell c = map.getCell(x, y);
-                if (c != null) {
-                    c.setPassable(false);
-                }
-            }
-        }
-
-        // Temporary test items: hero should be able to move onto these cells.
-        GridCell itemCell1 = map.getCell(3, 1);
-        if (itemCell1 != null) {
-            itemCell1.getItems().add(new HealPotion());
-        }
-
-        GridCell itemCell2 = map.getCell(5, 3);
-        if (itemCell2 != null) {
-            itemCell2.getItems().add(new ManaPotion());
-        }
-
-        return map;
-    }
-
-    private void placeHeroOnMap() {
-        GridCell cell = dungeonMap.getCell(hero.getX(), hero.getY());
-        if (cell != null) {
-            cell.getEntities().add(hero);
-        }
-    }
-
     public DungeonMap getDungeonMap() {
         return dungeonMap;
     }
@@ -122,36 +75,35 @@ public class GameEngine {
     }
 
     public void updateHeroPosition(int nx, int ny) {
-        GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
-        GridCell to = dungeonMap.getCell(nx, ny);
-
-        if (from != null) {
-            from.getEntities().remove(hero);
-        }
-
-        hero.updatePosition(nx, ny);
-
-        if (to != null && !to.getEntities().contains(hero)) {
-            to.getEntities().add(hero);
-        }
+        int oldX = hero.getX();
+        int oldY = hero.getY();
+        hero.moveTo(nx, ny);
+        dungeonMap.moveEntity(hero, oldX, oldY, nx, ny);
 
         lastMoveNanos = System.nanoTime();
+        lastEnergyRefillNanos = lastMoveNanos;
         notifyListeners();
     }
 
     /**
-     * Refills a small amount of energy if the hero has been idle for at least 2s.
-     * Safe to call on every UI tick — no-ops when still within the idle window or
-     * when energy is already full.
+     * Refills a small amount of energy if the hero has been idle for at least 1s.
+     * Safe to call on every UI tick — no-ops when still within the idle window,
+     * when energy is already full, or until the next refill interval elapses.
      */
     public void tickEnergyRefill() {
+        long now = System.nanoTime();
         if (hero.getEnergy() >= hero.getMaxEnergy()) {
             return;
         }
-        if (System.nanoTime() - lastMoveNanos < IDLE_REFILL_DELAY_NANOS) {
+        if (now - lastMoveNanos < IDLE_REFILL_DELAY_NANOS) {
+            lastEnergyRefillNanos = now;
             return;
         }
-        hero.refillEnergy(ENERGY_REFILL_PER_TICK);
+        if (now - lastEnergyRefillNanos < ENERGY_REFILL_INTERVAL_NANOS) {
+            return;
+        }
+        hero.gainEnergy(ENERGY_REFILL_PER_TICK);
+        lastEnergyRefillNanos = now;
         notifyListeners();
     }
 
@@ -189,10 +141,10 @@ public class GameEngine {
                 int tx = hx + dx;
                 int ty = hy + dy;
                 GridCell cell = dungeonMap.getCell(tx, ty);
-                if (cell == null || cell.getItems().isEmpty()) {
+                if (cell == null || !cell.hasItems()) {
                     continue;
                 }
-                for (Item item : cell.getItems()) {
+                for (Item item : cell.getItemsView()) {
                     if (item.isTakable()) {
                         return takeItem(item, tx, ty);
                     }
@@ -211,13 +163,17 @@ public class GameEngine {
         if (cell == null) {
             return false;
         }
-        for (Item item : cell.getItems()) {
+        Potion potionToConsume = null;
+        for (Item item : cell.getItemsView()) {
             if (item instanceof Potion potion) {
-                cell.getItems().remove(item);
-                potion.drink(hero);
-                notifyListeners();
-                return true;
+                potionToConsume = potion;
+                break;
             }
+        }
+        if (potionToConsume != null && cell.removeItem(potionToConsume)) {
+            potionToConsume.drink(hero);
+            notifyListeners();
+            return true;
         }
         return false;
     }
@@ -261,7 +217,7 @@ public class GameEngine {
                 if (x == hero.getX() && y == hero.getY()) {
                     continue;
                 }
-                if (!c.getEntities().isEmpty()) {
+                if (c.hasEntities()) {
                     continue;
                 }
                 candidates.add(new int[] { x, y });
@@ -277,7 +233,7 @@ public class GameEngine {
         }
         GridCell cell = dungeonMap.getCell(pick[0], pick[1]);
         if (cell != null) {
-            cell.getEntities().add(enemy);
+            cell.addEntity(enemy);
         }
         notifyListeners();
         return "spawnEnemyProcedurally: " + enemy.getName() + " at (" + pick[0] + "," + pick[1] + ")";

@@ -23,6 +23,6 @@ public class ManaPotion extends Potion {
 
     @Override
     public void drink(Hero hero) {
-        hero.setEnergy(hero.getEnergy() + OVERFLOW_AMOUNT);
+        hero.gainOverflowEnergy(OVERFLOW_AMOUNT);
     }
 }

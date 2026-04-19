@@ -21,7 +21,7 @@ public class HealPotion extends Potion {
     @Override
     public void drink(Hero hero) {
         if (hero.getHp() < hero.getMaxHp()) {
-            hero.setHp(hero.getMaxHp());
+            hero.restoreFullHealth();
         }
     }
 }

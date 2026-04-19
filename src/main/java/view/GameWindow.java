@@ -22,6 +22,7 @@ import javax.swing.border.LineBorder;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
+import engine.GameLoopController;
 import engine.PlayerModeController;
 import engine.InteractionController;
 
@@ -36,12 +37,16 @@ public class GameWindow extends JFrame {
 
     private static final int WINDOW_W = 920;
     private static final int WINDOW_H = 560;
+    private static final int ENGINE_TICK_INTERVAL_MS = 100;
+
+    private final GameLoopController gameLoopController;
 
     public GameWindow(GameEngine engine) {
         setTitle("Dungeon Krawler — Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
         RetroTheme.styleFrameDark(this);
+        gameLoopController = new GameLoopController(engine, ENGINE_TICK_INTERVAL_MS);
 
         PlayerModeController playerModeController = new PlayerModeController(engine);
         InteractionController interactionController = new InteractionController(engine);
@@ -115,7 +120,13 @@ public class GameWindow extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
+                gameLoopController.start();
                 panel.requestFocusInWindow();
+            }
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                gameLoopController.stop();
             }
         });
 

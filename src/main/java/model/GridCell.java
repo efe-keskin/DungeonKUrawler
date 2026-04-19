@@ -58,19 +58,38 @@ public class GridCell {
         return passable;
     }
 
-    /**
-     * Live list — game logic mutates this; the view should only read via
-     * {@link engine.GameEngine} snapshots or getters.
-     */
-    public List<Item> getItems() {
-        return items;
+    public boolean addItem(Item item) {
+        if (item == null) {
+            return false;
+        }
+        return items.add(item);
     }
 
-    /**
-     * Live list of entities on this tile.
-     */
-    public List<Entity> getEntities() {
-        return entities;
+    public boolean removeItem(Item item) {
+        return items.remove(item);
+    }
+
+    public boolean hasItems() {
+        return !items.isEmpty();
+    }
+
+    public boolean addEntity(Entity entity) {
+        if (entity == null || entities.contains(entity)) {
+            return false;
+        }
+        return entities.add(entity);
+    }
+
+    public boolean removeEntity(Entity entity) {
+        return entities.remove(entity);
+    }
+
+    public boolean hasEntities() {
+        return !entities.isEmpty();
+    }
+
+    public boolean containsEntity(Entity entity) {
+        return entities.contains(entity);
     }
 
     /**
