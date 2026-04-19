@@ -10,6 +10,7 @@ public class Hero extends Entity {
     private int mana;
     private int def;
     private int energy;
+    private final int maxEnergy;
     /** Strict capacity of 8 — enforced by {@link Inventory}. */
     private final Inventory inventory;
 
@@ -20,7 +21,12 @@ public class Hero extends Entity {
         this.mana = mana;
         this.def = def;
         this.energy = energy;
+        this.maxEnergy = energy;
         this.inventory = new Inventory(8);
+    }
+
+    public int getMaxEnergy() {
+        return maxEnergy;
     }
 
     public int getHp() {
@@ -65,5 +71,28 @@ public class Hero extends Entity {
 
     public Inventory getInventory() {
         return inventory;
+    }
+
+    public void updatePosition(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public void consumeEnergy(int amount) {
+        this.energy = Math.max(0, this.energy - amount);
+    }
+
+    public void refillEnergy(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.energy = Math.min(maxEnergy, this.energy + amount);
+    }
+
+    public void heal(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.hp = this.hp + amount;
     }
 }

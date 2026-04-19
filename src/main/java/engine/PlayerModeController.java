@@ -1,6 +1,9 @@
 package engine;
 
 import model.Hero;
+import model.Inventory;
+import model.Item;
+import model.Potion;
 
 /**
  * GRASP Controller for movement in Play Mode.
@@ -8,6 +11,8 @@ import model.Hero;
  * and asks GameEngine to update state if the move is valid.
  */
 public class PlayerModeController {
+
+    private static final int ENERGY_PER_MOVE = 5;
 
     private final GameEngine engine;
 
@@ -21,6 +26,9 @@ public class PlayerModeController {
         }
 
         Hero hero = engine.getHero();
+        if (hero.getEnergy() < ENERGY_PER_MOVE) {
+            return;
+        }
 
         int nx = hero.getX();
         int ny = hero.getY();
@@ -36,6 +44,24 @@ public class PlayerModeController {
             return;
         }
 
+        hero.consumeEnergy(ENERGY_PER_MOVE);
         engine.updateHeroPosition(nx, ny);
+    }
+
+    /**
+     * Consumes the first {@link Potion} in the hero's inventory and applies its heal.
+     *
+     * @return true if a potion was consumed; false if inventory has no potion.
+     */
+    public boolean consumePotion() {
+        Hero hero = engine.getHero();
+        Inventory inv = hero.getInventory();
+        for (Item item : inv.getItems()) {
+            if (item instanceof Potion potion) {
+                engine.consumePotion(potion);
+                return true;
+            }
+        }
+        return false;
     }
 }

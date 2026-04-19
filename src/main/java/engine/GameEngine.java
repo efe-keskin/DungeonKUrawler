@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import model.DungeonMap;
 import model.EnemyFactory;
@@ -24,11 +25,15 @@ import model.Potion;
  */
 public class GameEngine {
 
+    private static final long IDLE_REFILL_DELAY_NANOS = TimeUnit.SECONDS.toNanos(2);
+    private static final int ENERGY_REFILL_PER_TICK = 5;
+
     private final DungeonMap dungeonMap;
     private final Hero hero;
     private final Random random;
     private final EnemyFactory enemyFactory;
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
+    private long lastMoveNanos = System.nanoTime();
 
     public GameEngine() {
         this(ThreadLocalRandom.current());
@@ -121,13 +126,44 @@ public class GameEngine {
             from.getEntities().remove(hero);
         }
 
-        hero.setX(nx);
-        hero.setY(ny);
+        hero.updatePosition(nx, ny);
 
         if (to != null && !to.getEntities().contains(hero)) {
             to.getEntities().add(hero);
         }
 
+        lastMoveNanos = System.nanoTime();
+        notifyListeners();
+    }
+
+    /**
+     * Refills a small amount of energy if the hero has been idle for at least 2s.
+     * Safe to call on every UI tick — no-ops when still within the idle window or
+     * when energy is already full.
+     */
+    public void tickEnergyRefill() {
+        if (hero.getEnergy() >= hero.getMaxEnergy()) {
+            return;
+        }
+        if (System.nanoTime() - lastMoveNanos < IDLE_REFILL_DELAY_NANOS) {
+            return;
+        }
+        hero.refillEnergy(ENERGY_REFILL_PER_TICK);
+        notifyListeners();
+    }
+
+    /**
+     * Removes {@code potion} from the hero's inventory and heals the hero by its heal amount.
+     * No-op when the potion is not in the inventory.
+     */
+    public void consumePotion(Potion potion) {
+        if (potion == null) {
+            return;
+        }
+        if (!hero.getInventory().remove(potion)) {
+            return;
+        }
+        hero.heal(potion.getHealAmount());
         notifyListeners();
     }
 

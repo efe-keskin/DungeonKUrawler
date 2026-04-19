@@ -11,6 +11,7 @@ import java.awt.event.KeyEvent;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 import engine.Direction;
 import engine.GameEngine;
@@ -44,10 +45,14 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color KNIGHT = new Color(220, 55, 55);
     private static final Color SORCERER = new Color(160, 70, 220);
     private static final Color ITEM = new Color(255, 200, 40);
+    private static final Color HUD_HP = new Color(220, 80, 80);
+    private static final Color HUD_ENERGY = new Color(230, 200, 60);
+    private static final Color HUD_TEXT = new Color(240, 240, 240);
 
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
+    private final Timer energyRefillTimer;
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
@@ -60,9 +65,17 @@ public class GamePanel extends JPanel implements GameStateListener {
         setOpaque(true);
         setFocusable(true);
 
+        // Ticks while idle; the engine decides whether the 5s idle window has elapsed.
+        energyRefillTimer = new Timer(1000, e -> engine.tickEnergyRefill());
+        energyRefillTimer.start();
+
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_Q) {
+                    GamePanel.this.playerModeController.consumePotion();
+                    return;
+                }
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {
                     GamePanel.this.playerModeController.moveHero(d);
@@ -137,6 +150,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     @Override
     public void removeNotify() {
+        energyRefillTimer.stop();
         engine.removeGameStateListener(this);
         super.removeNotify();
     }
@@ -195,9 +209,32 @@ public class GamePanel extends JPanel implements GameStateListener {
                     }
                 }
             }
+            drawHud(g2);
         } finally {
             g2.dispose();
         }
+    }
+
+    private void drawHud(Graphics2D g2) {
+        Hero hero = engine.getHero();
+        int x = 10;
+        int y = 10;
+        int w = 150;
+        int h = 48;
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillRect(x, y, w, h);
+        g2.setColor(new Color(90, 90, 100));
+        g2.drawRect(x, y, w, h);
+
+        g2.setColor(HUD_HP);
+        g2.fillRect(x + 8, y + 8, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("HP: " + hero.getHp(), x + 26, y + 19);
+
+        g2.setColor(HUD_ENERGY);
+        g2.fillRect(x + 8, y + 26, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("Energy: " + hero.getEnergy(), x + 26, y + 37);
     }
 
     private int getTileSize(DungeonMap map) {
