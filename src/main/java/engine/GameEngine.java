@@ -16,6 +16,11 @@ import model.Hero;
 import model.Item;
 import model.ManaPotion;
 import model.Potion;
+import javax.swing.Timer;
+
+import model.AIState;
+import model.Knight;
+import model.Sorcerer;
 
 /**
  * Game state owner and observer subject.
@@ -38,6 +43,15 @@ public class GameEngine {
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
 
+    private Timer spawnTimer;
+    private Timer detectionTimer;
+
+    private static final int SPAWN_INTERVAL_MS = 9000;
+    private static final int DETECTION_TICK_MS = 300;
+    private static final int MAX_ENEMIES = 5;
+    private static final double KNIGHT_VISION_RANGE = 5.0;
+    private static final double SORCERER_VISION_RANGE = Double.POSITIVE_INFINITY; // sees hero always
+
     public GameEngine() {
         this(ThreadLocalRandom.current());
     }
@@ -48,6 +62,7 @@ public class GameEngine {
         this.dungeonMap = buildDemoMap("Phase 1 — Build Mode");
         this.hero = new Hero(1, 1, "Hero", 100, 10, 20, 5, 100);
         placeHeroOnMap();
+        startEnemyTimers();
     }
 
     public void addGameStateListener(GameStateListener listener) {
@@ -281,5 +296,113 @@ public class GameEngine {
         }
         notifyListeners();
         return "spawnEnemyProcedurally: " + enemy.getName() + " at (" + pick[0] + "," + pick[1] + ")";
+    }
+
+    /**
+     * Kicks off the spawn loop (every 9s, capped at {@value #MAX_ENEMIES}) and the AI
+     * detection tick (every {@value #DETECTION_TICK_MS}ms). Swing Timers run on the EDT,
+     * so mutations here are safe w.r.t. the painter.
+     */
+    private void startEnemyTimers() {
+        spawnTimer = new Timer(SPAWN_INTERVAL_MS, e -> {
+            if (countEnemies() >= MAX_ENEMIES) {
+                return;
+            }
+            String msg = spawnEnemyProcedurally();
+            System.out.println("[spawn] " + msg);
+        });
+        spawnTimer.setRepeats(true);
+        spawnTimer.start();
+
+        detectionTimer = new Timer(DETECTION_TICK_MS, e -> updateEnemyDetection());
+        detectionTimer.setRepeats(true);
+        detectionTimer.start();
+    }
+
+    /** Counts all Knight/Sorcerer entities currently on the map. */
+    private int countEnemies() {
+        int count = 0;
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell c = dungeonMap.getCell(x, y);
+                if (c == null) continue;
+                for (Entity e : c.getEntities()) {
+                    if (e instanceof Knight || e instanceof Sorcerer) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Visits every enemy on the map, computes Euclidean distance to the hero, and flips
+     * its {@link AIState} to CHASING when within vision range (else ROAMING). Prints to
+     * console only on state transitions to avoid log spam.
+     */
+    private void updateEnemyDetection() {
+        boolean changed = false;
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell c = dungeonMap.getCell(x, y);
+                if (c == null) continue;
+                for (Entity e : c.getEntities()) {
+                    if (updateAiStateFor(e)) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    /**
+     * Updates a single enemy's AI state based on distance to the hero.
+     * @return true if the state actually changed (so we can log + repaint)
+     */
+    private boolean updateAiStateFor(Entity e) {
+        double dist = euclideanDistanceToHero(e.getX(), e.getY());
+        AIState next;
+        AIState current;
+        String label;
+
+        if (e instanceof Knight k) {
+            next = dist <= KNIGHT_VISION_RANGE ? AIState.CHASING : AIState.ROAMING;
+            current = k.getAiState();
+            label = "Knight";
+            if (next != current) {
+                k.setAiState(next);
+                System.out.printf("[AI] %s at (%d,%d) dist=%.2f -> %s%n",
+                        label, e.getX(), e.getY(), dist, next);
+                return true;
+            }
+        } else if (e instanceof Sorcerer s) {
+            // Sorcerer sees hero regardless of LoS per design doc 2.5.2
+            next = dist <= SORCERER_VISION_RANGE ? AIState.CHASING : AIState.ROAMING;
+            current = s.getAiState();
+            label = "Sorcerer";
+            if (next != current) {
+                s.setAiState(next);
+                System.out.printf("[AI] %s at (%d,%d) dist=%.2f -> %s%n",
+                        label, e.getX(), e.getY(), dist, next);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private double euclideanDistanceToHero(int x, int y) {
+        int dx = x - hero.getX();
+        int dy = y - hero.getY();
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /** Stops timers — call this on shutdown if you wire it up later. */
+    public void shutdown() {
+        if (spawnTimer != null) spawnTimer.stop();
+        if (detectionTimer != null) detectionTimer.stop();
     }
 }

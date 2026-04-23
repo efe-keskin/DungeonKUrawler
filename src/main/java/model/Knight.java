@@ -9,6 +9,7 @@ public class Knight extends Entity {
     private int str;
     private int def;
     private int visionRange;
+    private AIState aiState = AIState.ROAMING;
 
     public Knight(int x, int y, String name, int hp, int str, int def, int visionRange) {
         super(x, y, name);
@@ -17,6 +18,7 @@ public class Knight extends Entity {
         this.def = def;
         this.visionRange = visionRange;
     }
+
 
     public int getHp() {
         return hp;
@@ -48,5 +50,13 @@ public class Knight extends Entity {
 
     public void setVisionRange(int visionRange) {
         this.visionRange = visionRange;
+    }
+
+    public AIState getAiState() {
+        return aiState;
+    }
+
+    public void setAiState(AIState aiState) {
+        this.aiState = aiState;
     }
 }

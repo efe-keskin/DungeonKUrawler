@@ -27,7 +27,7 @@ public class EnemyFactory {
             return null;
         }
         if (roll < 60) {
-            return new Knight(x, y, "Knight", 40, 8, 4, 4);
+            return new Knight(x, y, "Knight", 40, 8, 4, 5);
         }
         return new Sorcerer(x, y, "Sorcerer", 25, 30, 3, random.nextBoolean());
     }

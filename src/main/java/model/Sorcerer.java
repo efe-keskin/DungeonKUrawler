@@ -9,6 +9,7 @@ public class Sorcerer extends Entity {
     private int mana;
     private int def;
     private boolean hasMagicRing;
+    private AIState aiState = AIState.ROAMING;
 
     public Sorcerer(int x, int y, String name, int hp, int mana, int def, boolean hasMagicRing) {
         super(x, y, name);
@@ -48,5 +49,13 @@ public class Sorcerer extends Entity {
 
     public void setHasMagicRing(boolean hasMagicRing) {
         this.hasMagicRing = hasMagicRing;
+    }
+
+    public AIState getAiState() {
+        return aiState;
+    }
+
+    public void setAiState(AIState aiState) {
+        this.aiState = aiState;
     }
 }

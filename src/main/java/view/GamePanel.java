@@ -323,6 +323,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                         int entityW = Math.max(1, cellW - inset * 2);
                         int entityH = Math.max(1, cellH - inset * 2);
                         g2.fillRect(px + inset, py + inset, entityW, entityH);
+                        drawAiStateLabel(g2, ent, px, py, cellW);
                     }
                 }
             }
@@ -439,6 +440,34 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.fillRect(x + 8, y + 26, 12, 12);
         g2.setColor(HUD_TEXT);
         g2.drawString("Energy: " + hero.getEnergy(), x + 26, y + 37);
+    }
+
+    /**
+     * Renders a small Chasing/Roaming tag just above the enemy sprite for debug visibility.
+     * Keeps rendering work tight so it stays cheap even with 5 enemies on screen.
+     */
+    private void drawAiStateLabel(Graphics2D g2, Entity ent, int px, int py, int cellW) {
+        String label;
+        Color color;
+        if (ent instanceof Knight k) {
+            label = k.getAiState().name();
+            color = k.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
+        } else if (ent instanceof Sorcerer s) {
+            label = s.getAiState().name();
+            color = s.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
+        } else {
+            return;
+        }
+        g2.setFont(g2.getFont().deriveFont(10f));
+        java.awt.FontMetrics fm = g2.getFontMetrics();
+        int textW = fm.stringWidth(label);
+        int textX = px + (cellW - textW) / 2;
+        int textY = py - 2;
+        // background for readability
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRect(textX - 2, textY - fm.getAscent(), textW + 4, fm.getHeight());
+        g2.setColor(color);
+        g2.drawString(label, textX, textY - 2);
     }
 
 }
