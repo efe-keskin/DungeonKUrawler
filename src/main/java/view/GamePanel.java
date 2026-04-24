@@ -58,6 +58,9 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     private static final BufferedImage HEAL_POTION_SPRITE = loadSprite("/items_objects/healpotion.png");
     private static final BufferedImage MANA_POTION_SPRITE = loadSprite("/items_objects/manapotion.png");
+    private static final BufferedImage KNIGHT_SPRITE = loadSprite("/characters/knight1.png");
+    private static final BufferedImage SORCERER_SPRITE = loadSprite("/characters/sorcerer1.png");
+    private static final BufferedImage WIZARD_SPRITE = loadSprite("/characters/wizard1.png");
 
     private static final BufferedImage[] HERO_SPRITES = {
             loadSprite("/characters/hero1.png"),
@@ -316,13 +319,21 @@ public class GamePanel extends JPanel implements GameStateListener {
                         if (ent instanceof Hero) {
                             continue;
                         }
-                        g2.setColor(ent instanceof Knight ? KNIGHT
-                                : ent instanceof Sorcerer ? SORCERER
-                                        : Color.LIGHT_GRAY);
-                        int inset = Math.max(1, Math.min(cellW, cellH) / 5);
-                        int entityW = Math.max(1, cellW - inset * 2);
-                        int entityH = Math.max(1, cellH - inset * 2);
-                        g2.fillRect(px + inset, py + inset, entityW, entityH);
+                        BufferedImage enemySprite = spriteFor(ent);
+                        if (enemySprite != null) {
+                            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+                            int scaledW = Math.max(1, cellW - inset * 2);
+                            int scaledH = Math.max(1, cellH - inset * 2);
+                            g2.drawImage(enemySprite, px + inset, py + inset, scaledW, scaledH, null);
+                        } else {
+                            g2.setColor(ent instanceof Knight ? KNIGHT
+                                    : ent instanceof Sorcerer ? SORCERER
+                                            : Color.LIGHT_GRAY);
+                            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+                            int entityW = Math.max(1, cellW - inset * 2);
+                            int entityH = Math.max(1, cellH - inset * 2);
+                            g2.fillRect(px + inset, py + inset, entityW, entityH);
+                        }
                         drawAiStateLabel(g2, ent, px, py, cellW);
                     }
                 }
@@ -359,6 +370,16 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
         if (item instanceof ManaPotion) {
             return MANA_POTION_SPRITE;
+        }
+        return null;
+    }
+
+    private BufferedImage spriteFor(Entity entity) {
+        if (entity instanceof Knight) {
+            return KNIGHT_SPRITE;
+        }
+        if (entity instanceof Sorcerer) {
+            return SORCERER_SPRITE != null ? SORCERER_SPRITE : WIZARD_SPRITE;
         }
         return null;
     }
