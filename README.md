@@ -56,8 +56,4 @@ Packages:
 
 The project was developed collaboratively using GitHub with branching, commits, merges, and issue-based task management.
 
-## Run
 
-```bash
-mvn clean install
-mvn exec:java
