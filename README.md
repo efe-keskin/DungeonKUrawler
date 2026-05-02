@@ -37,7 +37,7 @@ Packages:
 ### Inventory System
 - Items can be picked from the map using the **TAKE** action  
 - Picked items are transferred into the 2x4 inventory grid  
-- Items disappear from the ground after pickup  
+- Items disappear from the ground after pickup   
 
 ### Stat Binding
 - Hero stats (HP / Energy) update through in-game actions and are reflected in the UI  
