@@ -40,7 +40,7 @@ Packages:
 - Items disappear from the ground after pickup  
 
 ### Stat Binding
-- Hero stats (such as HP / Energy) update through in-game actions and are reflected in the UI  
+- Hero stats (HP / Energy) update through in-game actions and are reflected in the UI  
 
 ### Enemy Spawn & AI State
 - Enemies spawn periodically  
