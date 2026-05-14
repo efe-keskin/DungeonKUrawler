@@ -10,9 +10,8 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.InputStream;
 
-import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -20,6 +19,8 @@ import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
+import view.assets.AssetId;
+import view.assets.AssetManager;
 
 /**
  * Main menu hub with a simple dungeon-themed backdrop. UC-1 flows unchanged
@@ -89,17 +90,10 @@ public class MainMenuWindow extends JFrame {
                 JOptionPane.INFORMATION_MESSAGE));
 
         JButton help = new JButton();
-        try {
-            InputStream is = MainMenuWindow.class.getResourceAsStream("/questionmark_minecraft.png");
-            if (is != null) {
-                BufferedImage img = ImageIO.read(is);
-                java.awt.Image scaled = img.getScaledInstance(40, 40, java.awt.Image.SCALE_SMOOTH);
-                help.setIcon(new javax.swing.ImageIcon(scaled));
-            } else {
-                help.setText("?");
-                help.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
-            }
-        } catch (Exception ex) {
+        ImageIcon helpIcon = AssetManager.get().icon(AssetId.HELP_QUESTION_MARK, 40, 40);
+        if (helpIcon != null) {
+            help.setIcon(helpIcon);
+        } else {
             help.setText("?");
             help.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
         }
@@ -155,23 +149,11 @@ public class MainMenuWindow extends JFrame {
      */
     private static final class FantasyMenuBackgroundPanel extends JPanel {
 
-        private static final String ASSET_PATH = "/mainmenu_background.jpg";
         private final BufferedImage backgroundImage;
 
         FantasyMenuBackgroundPanel() {
             setOpaque(true);
-            backgroundImage = loadBackgroundImage();
-        }
-
-        private static BufferedImage loadBackgroundImage() {
-            try (InputStream in = FantasyMenuBackgroundPanel.class.getResourceAsStream(ASSET_PATH)) {
-                if (in != null) {
-                    return ImageIO.read(in);
-                }
-            } catch (Exception ignored) {
-                // Fall back to the gradient if the asset cannot be read.
-            }
-            return null;
+            backgroundImage = AssetManager.get().image(AssetId.MAIN_MENU_BACKGROUND);
         }
 
         @Override

@@ -8,10 +8,8 @@ import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.io.InputStream;
 import java.util.List;
 
-import javax.imageio.ImageIO;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -24,20 +22,19 @@ import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
 import model.Armor;
-import model.HealPotion;
 import model.Inventory;
 import model.Item;
-import model.ManaPotion;
 import model.Potion;
 import model.Weapon;
+import view.assets.AssetId;
+import view.assets.AssetManager;
+import view.assets.SpriteRegistry;
 import javax.swing.ImageIcon;
 
 /**
  * Image-backed modal inventory view with fixed 2x4 slot overlays (8 total).
  */
 public class InventoryDialog extends JDialog {
-
-    private static final String BACKGROUND_ASSET = "/Inventory x4.png";
 
     private static final int SLOT_START_X = 36;
     private static final int SLOT_START_Y = 176;
@@ -50,10 +47,6 @@ public class InventoryDialog extends JDialog {
     private static final Color FILLED_SLOT_BORDER = new Color(220, 225, 245, 120);
     private static final Color BADGE_FG = new Color(245, 245, 255);
     private static final Color NAME_FG = new Color(245, 245, 255);
-
-    private static BufferedImage healPotionImage;
-    private static BufferedImage manaPotionImage;
-    private static boolean potionImagesLoaded;
 
     private final GameEngine engine;
 
@@ -221,33 +214,7 @@ public class InventoryDialog extends JDialog {
     }
 
     private BufferedImage itemSprite(Item item) {
-        if (item instanceof HealPotion) {
-            return potionImage(true);
-        }
-        if (item instanceof ManaPotion) {
-            return potionImage(false);
-        }
-        return null;
-    }
-
-    private static synchronized BufferedImage potionImage(boolean heal) {
-        if (!potionImagesLoaded) {
-            healPotionImage = loadResource("/items_objects/healpotion.png");
-            manaPotionImage = loadResource("/items_objects/manapotion.png");
-            potionImagesLoaded = true;
-        }
-        return heal ? healPotionImage : manaPotionImage;
-    }
-
-    private static BufferedImage loadResource(String path) {
-        try (InputStream in = InventoryDialog.class.getResourceAsStream(path)) {
-            if (in != null) {
-                return ImageIO.read(in);
-            }
-        } catch (Exception ignored) {
-            // Missing sprite falls back to text badge.
-        }
-        return null;
+        return SpriteRegistry.spriteFor(item);
     }
 
     private int slotX(int index) {
@@ -259,14 +226,7 @@ public class InventoryDialog extends JDialog {
     }
 
     private BufferedImage loadBackground() {
-        try (InputStream in = InventoryDialog.class.getResourceAsStream(BACKGROUND_ASSET)) {
-            if (in != null) {
-                return ImageIO.read(in);
-            }
-        } catch (Exception ignored) {
-            // Fallback UI handles missing/unreadable assets.
-        }
-        return null;
+        return AssetManager.get().image(AssetId.INVENTORY_BACKGROUND);
     }
 
     private String typeMarker(Item item) {

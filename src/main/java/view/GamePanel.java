@@ -8,9 +8,7 @@ import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
-import java.io.InputStream;
 
-import javax.imageio.ImageIO;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -25,13 +23,12 @@ import engine.InteractionController;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
-import model.HealPotion;
 import model.Hero;
 import model.Item;
 import model.Knight;
-import model.ManaPotion;
 import model.Potion;
 import model.Sorcerer;
+import view.assets.SpriteRegistry;
 
 /**
  * Observer: implements {@link GameStateListener} and repaints when the engine
@@ -56,33 +53,9 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color HUD_ENERGY = new Color(230, 200, 60);
     private static final Color HUD_TEXT = new Color(240, 240, 240);
 
-    private static final BufferedImage HEAL_POTION_SPRITE = loadSprite("/items_objects/healpotion.png");
-    private static final BufferedImage MANA_POTION_SPRITE = loadSprite("/items_objects/manapotion.png");
-    private static final BufferedImage KNIGHT_SPRITE = loadSprite("/characters/knight1.png");
-    private static final BufferedImage SORCERER_SPRITE = loadSprite("/characters/sorcerer1.png");
-    private static final BufferedImage WIZARD_SPRITE = loadSprite("/characters/wizard1.png");
-
-    private static final BufferedImage[] HERO_SPRITES = {
-            loadSprite("/characters/hero1.png"),
-            loadSprite("/characters/hero2.png"),
-            loadSprite("/characters/hero3.png"),
-            loadSprite("/characters/hero4.png"),
-            loadSprite("/characters/hero5.png"),
-    };
     private static final int HERO_ANIM_INTERVAL_MS = 100;
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
-
-    private static BufferedImage loadSprite(String path) {
-        try (InputStream in = GamePanel.class.getResourceAsStream(path)) {
-            if (in != null) {
-                return ImageIO.read(in);
-            }
-        } catch (Exception ignored) {
-            // Missing sprite falls back to colored marker.
-        }
-        return null;
-    }
 
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
@@ -118,7 +91,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         heroAnimTimer = new Timer(HERO_ANIM_INTERVAL_MS, e -> {
             if (heroAnimProgress < 1f) {
                 heroAnimProgress = Math.min(1f, heroAnimProgress + HERO_ANIM_STEP);
-                heroFrame = (heroFrame + 1) % HERO_SPRITES.length;
+                heroFrame = (heroFrame + 1) % SpriteRegistry.heroFrameCount();
                 if (heroAnimProgress >= 1f) {
                     heroFrame = 0;
                     heroAnimDx = 0;
@@ -365,23 +338,11 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private BufferedImage spriteFor(Item item) {
-        if (item instanceof HealPotion) {
-            return HEAL_POTION_SPRITE;
-        }
-        if (item instanceof ManaPotion) {
-            return MANA_POTION_SPRITE;
-        }
-        return null;
+        return SpriteRegistry.spriteFor(item);
     }
 
     private BufferedImage spriteFor(Entity entity) {
-        if (entity instanceof Knight) {
-            return KNIGHT_SPRITE;
-        }
-        if (entity instanceof Sorcerer) {
-            return SORCERER_SPRITE != null ? SORCERER_SPRITE : WIZARD_SPRITE;
-        }
-        return null;
+        return SpriteRegistry.spriteFor(entity);
     }
 
     private void drawItemSprite(Graphics2D g2, BufferedImage sprite, int px, int py, int cellW, int cellH) {
@@ -407,7 +368,7 @@ public class GamePanel extends JPanel implements GameStateListener {
             return;
         }
 
-        BufferedImage heroSprite = HERO_SPRITES[heroFrame];
+        BufferedImage heroSprite = SpriteRegistry.heroFrame(heroFrame);
         if (heroSprite == null) {
             GridCell cell = map.getCell(hero.getX(), hero.getY());
             if (cell == null) {
