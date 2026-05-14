@@ -35,7 +35,7 @@ Packages:
 - Action Menu appears only when the hero is adjacent to an interactable object (8 surrounding tiles)
 
 ### Inventory System
-- Items can be picked from the map using the **TAKE** action  
+- Items can be picked from the map using the **TAKE** action   
 - Picked items are transferred into the 2x4 inventory grid  
 - Items disappear from the ground after pickup   
 
