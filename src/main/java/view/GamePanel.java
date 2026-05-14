@@ -29,6 +29,7 @@ import model.Knight;
 import model.Potion;
 import model.Sorcerer;
 import view.assets.SpriteRegistry;
+import view.render.AmbienceRenderer;
 
 /**
  * Observer: implements {@link GameStateListener} and repaints when the engine
@@ -41,8 +42,6 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     private static final int BASE_CELL = 28;
 
-    private static final Color FLOOR = new Color(32, 36, 48);
-    private static final Color WALL = new Color(200, 60, 60);
     /** Visible grid lines (retro tile border). */
     private static final Color GRID_LINE = new Color(55, 55, 62);
     private static final Color HERO = new Color(50, 130, 255);
@@ -60,6 +59,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
+    private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
@@ -262,6 +262,24 @@ public class GamePanel extends JPanel implements GameStateListener {
             // Center the map and leave black background in the spare area.
             int offsetX = (Math.max(1, getWidth()) - mapW * tileSize) / 2;
             int offsetY = (Math.max(1, getHeight()) - mapH * tileSize) / 2;
+            // Pass 1: floor sprite under every passable cell.
+            for (int x = 0; x < map.getWidth(); x++) {
+                for (int y = 0; y < map.getHeight(); y++) {
+                    GridCell cell = map.getCell(x, y);
+                    if (cell == null || !cell.isPassable()) {
+                        continue;
+                    }
+                    int px = offsetX + x * tileSize;
+                    int py = offsetY + y * tileSize;
+                    ambienceRenderer.drawFloor(g2, px, py, tileSize);
+                }
+            }
+
+            // Pass 2: walls (renderer owns the layout — multi-cell sprites span
+            // their CSV-derived number of cells).
+            ambienceRenderer.drawWalls(g2, map, tileSize, offsetX, offsetY);
+
+            // Pass 3: items, entities, and AI labels on top of the ambience.
             for (int x = 0; x < map.getWidth(); x++) {
                 for (int y = 0; y < map.getHeight(); y++) {
                     GridCell cell = map.getCell(x, y);
@@ -272,10 +290,6 @@ public class GamePanel extends JPanel implements GameStateListener {
                     int py = offsetY + y * tileSize;
                     int cellW = tileSize;
                     int cellH = tileSize;
-                    g2.setColor(cell.isPassable() ? FLOOR : WALL);
-                    g2.fillRect(px, py, cellW, cellH);
-                    g2.setColor(GRID_LINE);
-                    g2.drawRect(px, py, cellW, cellH);
 
                     if (!cell.getItemsView().isEmpty()) {
                         Item first = cell.getItemsView().get(0);
