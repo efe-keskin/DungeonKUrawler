@@ -8,10 +8,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.image.BufferedImage;
-import java.io.InputStream;
 
-import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
 import javax.swing.JButton;
@@ -24,6 +21,8 @@ import javax.swing.border.EmptyBorder;
 import engine.GameEngine;
 import engine.PlayerModeController;
 import engine.InteractionController;
+import view.assets.AssetId;
+import view.assets.AssetManager;
 
 /**
  * Gameplay shell: dark frame; {@link GamePanel} is the observer and input
@@ -70,20 +69,15 @@ public class GameWindow extends JFrame {
 
         JButton inventoryButton = new JButton("Inventory");
         RetroTheme.styleRetroButton(inventoryButton, RetroTheme.BTN_PRIMARY);
-        try (InputStream in = GameWindow.class.getResourceAsStream("/inventorychest.png")) {
-            if (in != null) {
-                BufferedImage img = ImageIO.read(in);
-                java.awt.Image scaled = img.getScaledInstance(48, 48, java.awt.Image.SCALE_SMOOTH);
-                inventoryButton.setIcon(new ImageIcon(scaled));
-                inventoryButton.setText("");
-                inventoryButton.setPreferredSize(new Dimension(48, 48));
-                inventoryButton.setBorder(new LineBorder(new Color(255, 255, 255, 90), 1, true));
-                inventoryButton.setBorderPainted(true);
-                inventoryButton.setContentAreaFilled(false);
-                inventoryButton.setOpaque(false);
-            }
-        } catch (Exception ignored) {
-            // Fallback keeps text label if image cannot be loaded.
+        ImageIcon chestIcon = AssetManager.get().icon(AssetId.INVENTORY_CHEST_ICON, 48, 48);
+        if (chestIcon != null) {
+            inventoryButton.setIcon(chestIcon);
+            inventoryButton.setText("");
+            inventoryButton.setPreferredSize(new Dimension(48, 48));
+            inventoryButton.setBorder(new LineBorder(new Color(255, 255, 255, 90), 1, true));
+            inventoryButton.setBorderPainted(true);
+            inventoryButton.setContentAreaFilled(false);
+            inventoryButton.setOpaque(false);
         }
         inventoryButton.setFocusable(false);
         inventoryButton.addActionListener(e -> {
