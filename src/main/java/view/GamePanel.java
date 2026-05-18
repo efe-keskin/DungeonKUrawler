@@ -20,6 +20,7 @@ import engine.InventoryController;
 import engine.PlayerModeController;
 import engine.GameStateListener;
 import engine.InteractionController;
+import model.Container;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
@@ -112,6 +113,11 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                if (e.getKeyCode() == KeyEvent.VK_O) {
+                    handleOpenKeyPress();
+                    return;
+                }
+
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {
                     GamePanel.this.playerModeController.moveHero(d);
@@ -182,6 +188,21 @@ public class GamePanel extends JPanel implements GameStateListener {
 
 
 
+    }
+
+    private void handleOpenKeyPress() {
+        Container container = engine.findOpenableContainerNearHero();
+        Window parent = SwingUtilities.getWindowAncestor(this);
+        if (container == null) {
+            JOptionPane.showMessageDialog(parent,
+                    "No container is within reach to open.",
+                    "Cannot Open", JOptionPane.WARNING_MESSAGE);
+            requestFocusInWindow();
+            return;
+        }
+        ChestDialog dialog = new ChestDialog(parent, engine, container);
+        dialog.setVisible(true);
+        requestFocusInWindow();
     }
 
     private void handleTakeKeyPress() {

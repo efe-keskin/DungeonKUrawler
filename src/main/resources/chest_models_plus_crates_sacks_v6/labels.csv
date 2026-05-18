@@ -1,0 +1,21 @@
+index,filename,label,category,description,source_file,bbox_left,bbox_top,bbox_right,bbox_bottom,source_width,source_height,output_width,output_height
+1,01_chest_closed_blue_trim.png,chest_closed_blue_trim,chest,closed chest with blue trim,7c185efc-1786-5c12-b361-d7731b22ce0e.png,0,6,32,30,32,24,32,24
+2,02_chest_closed_gold_trim.png,chest_closed_gold_trim,chest,closed chest with gold trim,7c185efc-1786-5c12-b361-d7731b22ce0e.png,32,6,64,30,32,24,32,24
+3,03_chest_open_empty_blue_trim.png,chest_open_empty_blue_trim,chest,open empty chest with blue trim,7c185efc-1786-5c12-b361-d7731b22ce0e.png,0,32,32,64,32,32,32,32
+4,04_chest_open_empty_gold_trim.png,chest_open_empty_gold_trim,chest,open empty chest with gold trim,7c185efc-1786-5c12-b361-d7731b22ce0e.png,32,32,64,64,32,32,32,32
+5,05_chest_open_loot_blue_trim.png,chest_open_loot_blue_trim,chest,open loot chest with blue trim,7c185efc-1786-5c12-b361-d7731b22ce0e.png,0,64,32,96,32,32,32,32
+6,06_chest_open_loot_gold_trim.png,chest_open_loot_gold_trim,chest,open loot chest with gold trim,7c185efc-1786-5c12-b361-d7731b22ce0e.png,32,64,64,96,32,32,32,32
+7,07_ornate_chest_gold_tan.png,ornate_chest_gold_tan,chest,ornate chest gold and tan,7c185efc-1786-5c12-b361-d7731b22ce0e.png,0,96,32,128,32,32,28,26
+8,08_ornate_chest_gold_red.png,ornate_chest_gold_red,chest,ornate chest gold and red,7c185efc-1786-5c12-b361-d7731b22ce0e.png,32,96,64,128,32,32,28,26
+9,09_ornate_chest_gold_blue.png,ornate_chest_gold_blue,chest,ornate chest gold and blue,7c185efc-1786-5c12-b361-d7731b22ce0e.png,64,96,96,128,32,32,28,26
+10,10_orange_chest_closed_frame1.png,orange_chest_closed_frame1,chest,orange chest closed frame 1,7c185efc-1786-5c12-b361-d7731b22ce0e.png,0,128,32,160,32,32,32,28
+11,11_orange_chest_open_empty_frame1.png,orange_chest_open_empty_frame1,chest,orange chest open empty frame 1,7c185efc-1786-5c12-b361-d7731b22ce0e.png,32,128,64,160,32,32,32,30
+12,12_orange_chest_open_empty_frame2.png,orange_chest_open_empty_frame2,chest,orange chest open empty frame 2,7c185efc-1786-5c12-b361-d7731b22ce0e.png,64,128,96,160,32,32,32,32
+13,13_orange_chest_closed_frame2.png,orange_chest_closed_frame2,chest,orange chest closed frame 2,7c185efc-1786-5c12-b361-d7731b22ce0e.png,0,160,32,192,32,32,32,28
+14,14_orange_chest_open_loot_frame1.png,orange_chest_open_loot_frame1,chest,orange chest open with loot frame 1,7c185efc-1786-5c12-b361-d7731b22ce0e.png,32,160,64,192,32,32,32,30
+15,15_orange_chest_open_loot_frame2.png,orange_chest_open_loot_frame2,chest,orange chest open with loot frame 2,7c185efc-1786-5c12-b361-d7731b22ce0e.png,64,160,96,192,32,32,32,32
+16,16_crate_wood_tall_right.png,crate_wood_tall_right,crate,tall wooden crate on the right,7c185efc-1786-5c12-b361-d7731b22ce0e.png,96,0,128,64,32,64,32,64
+17,17_crate_wood_tall_corrected.png,crate_wood_tall_corrected,crate,corrected wooden crate with white margins removed,381af504-118e-54f7-8322-730bb3361ae4.png,,,,,68,86,68,86
+18,18_crate_orange_tall_corrected.png,crate_orange_tall_corrected,crate,corrected orange crate with white margins removed,2b35ca42-e259-51c5-9605-4db4e31ae94b.png,,,,,56,80,56,80
+19,19_bag_brown.png,bag_brown,item,brown bag / sack,7c185efc-1786-5c12-b361-d7731b22ce0e.png,96,128,128,160,32,32,24,26
+20,20_bag_blue.png,bag_blue,item,blue bag / sack,7c185efc-1786-5c12-b361-d7731b22ce0e.png,96,160,128,192,32,32,24,26

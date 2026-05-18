@@ -50,12 +50,19 @@ public class GridCell {
 
     /**
      * Information Expert: the cell itself decides whether it can be walked on.
-     * Currently equivalent to {@link #isPassable()}, but kept separate so future
-     * conditions (traps, locked doors, etc.) can be added here without changing
-     * callers.
+     * A cell is walkable when its tile is passable AND no occupying item is
+     * physically blocking (chests, crates, etc.).
      */
     public boolean isWalkable() {
-        return passable;
+        if (!passable) {
+            return false;
+        }
+        for (Item item : items) {
+            if (item.isBlocking()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

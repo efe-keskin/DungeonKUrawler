@@ -27,9 +27,14 @@ public enum AssetId {
     HEAL_POTION("/items_objects/healpotion.png"),
     MANA_POTION("/items_objects/manapotion.png"),
 
+    // Containers.
+    CHEST_CLOSED("/chest_models_plus_crates_sacks_v6/assets/01_chest_closed_blue_trim.png"),
+    CHEST_OPEN("/chest_models_plus_crates_sacks_v6/assets/05_chest_open_loot_blue_trim.png"),
+
     // UI surfaces.
     INVENTORY_BACKGROUND("/Inventory x4.png"),
     INVENTORY_CHEST_ICON("/inventorychest.png"),
+    CHEST_BACKGROUND("/chest_models_plus_crates_sacks_v6/bag - empty.png"),
     MAIN_MENU_BACKGROUND("/mainmenu_background.jpg"),
     HELP_QUESTION_MARK("/questionmark_minecraft.png");
 
