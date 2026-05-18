@@ -17,6 +17,7 @@ import javax.swing.Timer;
 import engine.Direction;
 import engine.GameEngine;
 import engine.InventoryController;
+import engine.LockController;
 import engine.PlayerModeController;
 import engine.GameStateListener;
 import engine.InteractionController;
@@ -191,7 +192,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private void handleOpenKeyPress() {
-        Container container = engine.findOpenableContainerNearHero();
+        Container container = engine.findContainerNearHero();
         Window parent = SwingUtilities.getWindowAncestor(this);
         if (container == null) {
             JOptionPane.showMessageDialog(parent,
@@ -200,6 +201,35 @@ public class GamePanel extends JPanel implements GameStateListener {
             requestFocusInWindow();
             return;
         }
+
+        if (container.isLocked()) {
+            model.Key match = engine.getHero().getInventory().findKey(container.getRequiredKeyId());
+            if (match == null) {
+                JOptionPane.showMessageDialog(parent,
+                        container.getName() + " is locked.",
+                        "Locked", JOptionPane.WARNING_MESSAGE);
+                requestFocusInWindow();
+                return;
+            }
+            int choice = JOptionPane.showConfirmDialog(parent,
+                    "Open " + container.getName() + " with " + match.getName() + "?",
+                    "Locked Container",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE);
+            if (choice != JOptionPane.YES_OPTION) {
+                requestFocusInWindow();
+                return;
+            }
+            LockController.UnlockResult result = engine.tryUnlock(container);
+            if (result == LockController.UnlockResult.NO_MATCHING_KEY) {
+                JOptionPane.showMessageDialog(parent,
+                        container.getName() + " is locked.",
+                        "Locked", JOptionPane.WARNING_MESSAGE);
+                requestFocusInWindow();
+                return;
+            }
+        }
+
         ChestDialog dialog = new ChestDialog(parent, engine, container);
         dialog.setVisible(true);
         requestFocusInWindow();
@@ -316,7 +346,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                         Item first = cell.getItemsView().get(0);
                         BufferedImage sprite = spriteFor(first);
                         if (sprite != null) {
-                            drawItemSprite(g2, sprite, px, py, cellW, cellH);
+                            drawItemSprite(g2, first, sprite, px, py, cellW, cellH);
                         } else {
                             Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
                             drawItemMarker(g2, px, py, cellW, cellH, itemColor);
@@ -380,11 +410,18 @@ public class GamePanel extends JPanel implements GameStateListener {
         return SpriteRegistry.spriteFor(entity);
     }
 
-    private void drawItemSprite(Graphics2D g2, BufferedImage sprite, int px, int py, int cellW, int cellH) {
+    private void drawItemSprite(Graphics2D g2, Item item, BufferedImage sprite, int px, int py, int cellW, int cellH) {
         int inset = Math.max(1, Math.min(cellW, cellH) / 6);
-        int w = Math.max(1, cellW - inset * 2);
-        int h = Math.max(1, cellH - inset * 2);
-        g2.drawImage(sprite, px + inset, py + inset, w, h, null);
+        int boxW = Math.max(1, cellW - inset * 2);
+        int boxH = Math.max(1, cellH - inset * 2);
+        if (item instanceof model.Key) {
+            // Keys are tiny pixel art — draw at native size, centered, never enlarged.
+            int drawX = px + (cellW - sprite.getWidth()) / 2;
+            int drawY = py + (cellH - sprite.getHeight()) / 2;
+            g2.drawImage(sprite, drawX, drawY, sprite.getWidth(), sprite.getHeight(), null);
+            return;
+        }
+        g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
     }
 
     private void drawItemMarker(Graphics2D g2, int px, int py, int cellW, int cellH, Color color) {

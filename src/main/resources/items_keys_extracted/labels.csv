@@ -1,0 +1,27 @@
+index,filename,label,category,description,bbox_left,bbox_top,bbox_right,bbox_bottom,source_width,source_height,output_width,output_height
+1,01_key_olive.png,key_olive,key,olive-colored key,8,4,24,28,16,24,12,24
+2,02_key_silver.png,key_silver,key,silver key,40,4,56,28,16,24,12,24
+3,03_key_gold.png,key_gold,key,gold key,72,4,88,28,16,24,12,24
+4,04_key_orange.png,key_orange,key,orange key,104,4,120,28,16,24,12,24
+5,05_key_bent_silver.png,key_bent_silver,key,bent silver key with brown accent,136,4,158,30,22,26,18,24
+6,06_key_long_gold.png,key_long_gold,key,long horizontal gold key,160,8,191,22,31,14,28,14
+7,07_potion_red.png,potion_red,potion,red potion bottle,8,36,24,60,16,24,16,24
+8,08_potion_blue.png,potion_blue,potion,blue potion bottle,40,36,56,60,16,24,16,24
+9,09_potion_green.png,potion_green,potion,green potion bottle,72,36,88,60,16,24,16,24
+10,10_ring_red_gem.png,ring_red_gem,ring,gold ring with red gem,104,38,120,54,16,16,12,16
+11,11_ring_green_gem.png,ring_green_gem,ring,gold ring with green gem,136,38,152,54,16,16,12,16
+12,12_ring_blue_gem.png,ring_blue_gem,ring,gold ring with blue gem,168,38,184,54,16,16,12,16
+13,13_skull_beige.png,skull_beige,item,beige skull icon,8,78,24,90,16,12,12,12
+14,14_skull_dark.png,skull_dark,item,dark skull icon,40,78,56,90,16,12,12,12
+15,15_coin_gold_single.png,coin_gold_single,currency,single gold coin / nugget,64,64,80,80,16,16,12,14
+16,16_gem_white.png,gem_white,item,white gem / shard,82,64,94,80,12,16,8,14
+17,17_bar_orange.png,bar_orange,item,orange bar / candle-like item,100,64,108,80,8,16,4,14
+18,18_bar_gold_orange.png,bar_gold_orange,item,gold-orange bar / candle-like item,114,64,126,80,12,16,8,14
+19,19_nugget_gold.png,nugget_gold,currency,gold nugget cluster small,136,72,152,88,16,16,12,14
+20,20_coin_pile_gold.png,coin_pile_gold,currency,gold coin pile large,160,64,192,96,32,32,26,24
+21,21_ring_blue_white.png,ring_blue_white,ring,blue-white ring / portal icon,8,104,24,120,16,16,16,16
+22,22_book_red.png,book_red,book,red book,32,96,64,128,32,32,22,28
+23,23_tombstone_crack.png,tombstone_crack,tombstone,stone tablet / tombstone with crack,64,96,96,128,32,32,26,24
+24,24_tombstone_lines.png,tombstone_lines,tombstone,stone tablet / tombstone with horizontal lines,96,96,128,128,32,32,26,24
+25,25_tombstone_cross.png,tombstone_cross,tombstone,stone tablet / tombstone with cross pattern,128,96,160,128,32,32,26,24
+26,26_tombstone_skull.png,tombstone_skull,tombstone,stone tablet / tombstone with skull emblem,160,96,192,128,32,32,26,24

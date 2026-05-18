@@ -16,6 +16,9 @@ import model.GridCell;
 import model.HealPotion;
 import model.Hero;
 import model.Item;
+import model.Key;
+import model.KeyColor;
+import model.Lockable;
 import model.ManaPotion;
 import model.Potion;
 import javax.swing.Timer;
@@ -124,17 +127,47 @@ public class GameEngine {
         if (chestCell != null) {
             Chest chest = new Chest("Wooden Chest", 16);
             chest.addItem(new HealPotion());
+            chest.addItem(new Key("silver", KeyColor.SILVER));
             chestCell.getItems().add(chest);
+        }
+
+        GridCell keyCell = map.getCell(8, 2);
+        if (keyCell != null) {
+            keyCell.getItems().add(new Key("olive", KeyColor.OLIVE));
+        }
+
+        GridCell lockedChestCell = map.getCell(10, 6);
+        if (lockedChestCell != null) {
+            Chest lockedChest = Chest.locked("Silver Chest", 16, "silver");
+            lockedChest.addItem(new ManaPotion());
+            lockedChest.addItem(new Key("gold", KeyColor.GOLD));
+            lockedChestCell.getItems().add(lockedChest);
         }
 
         return map;
     }
 
     /**
-     * Returns the first openable {@link Container} on the hero's current cell
-     * or any 8-adjacent cell. Used by the "open" interaction (O key).
+     * Attempts to unlock {@code target} with whatever matching key the hero
+     * is carrying. Delegates to {@link LockController} so unlock rules stay
+     * in one place; this helper just notifies observers on success.
      */
-    public Container findOpenableContainerNearHero() {
+    public LockController.UnlockResult tryUnlock(Lockable target) {
+        LockController controller = new LockController();
+        LockController.UnlockResult result = controller.tryUnlock(target, hero.getInventory());
+        if (result == LockController.UnlockResult.UNLOCKED
+                || result == LockController.UnlockResult.UNLOCKED_KEY_CONSUMED) {
+            notifyListeners();
+        }
+        return result;
+    }
+
+    /**
+     * Returns the first {@link Container} on the hero's current cell or any
+     * 8-adjacent cell — locked or not. Caller decides whether to unlock
+     * (via {@link #tryUnlock(Lockable)}) or open directly.
+     */
+    public Container findContainerNearHero() {
         int hx = hero.getX();
         int hy = hero.getY();
         for (int dy = -1; dy <= 1; dy++) {
@@ -144,7 +177,7 @@ public class GameEngine {
                     continue;
                 }
                 for (Item item : cell.getItems()) {
-                    if (item instanceof Container container && container.canOpen(hero)) {
+                    if (item instanceof Container container) {
                         return container;
                     }
                 }
