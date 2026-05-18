@@ -26,4 +26,13 @@ public abstract class Item {
     public boolean isTakable() {
         return true;
     }
+
+    /**
+     * Whether this item physically blocks the hero from entering its tile.
+     * Default {@code false} — loose loot is walk-through. Fixtures like
+     * chests/crates override this.
+     */
+    public boolean isBlocking() {
+        return false;
+    }
 }

@@ -7,6 +7,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import model.Chest;
+import model.Container;
 import model.DungeonMap;
 import model.EnemyFactory;
 import model.Entity;
@@ -118,7 +120,59 @@ public class GameEngine {
             itemCell2.getItems().add(new ManaPotion());
         }
 
+        GridCell chestCell = map.getCell(4, 2);
+        if (chestCell != null) {
+            Chest chest = new Chest("Wooden Chest", 16);
+            chest.addItem(new HealPotion());
+            chestCell.getItems().add(chest);
+        }
+
         return map;
+    }
+
+    /**
+     * Returns the first openable {@link Container} on the hero's current cell
+     * or any 8-adjacent cell. Used by the "open" interaction (O key).
+     */
+    public Container findOpenableContainerNearHero() {
+        int hx = hero.getX();
+        int hy = hero.getY();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                GridCell cell = dungeonMap.getCell(hx + dx, hy + dy);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItems()) {
+                    if (item instanceof Container container && container.canOpen(hero)) {
+                        return container;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Moves {@code item} from {@code container} into the hero's inventory.
+     * @return true if the transfer succeeded.
+     */
+    public boolean takeFromContainer(Container container, Item item) {
+        if (container == null || item == null) {
+            return false;
+        }
+        if (!hero.getInventory().hasFreeSlot()) {
+            return false;
+        }
+        if (!container.getContents().contains(item)) {
+            return false;
+        }
+        if (!hero.getInventory().tryAdd(item)) {
+            return false;
+        }
+        container.removeItem(item);
+        notifyListeners();
+        return true;
     }
 
     private void placeHeroOnMap() {

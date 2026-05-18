@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import model.Chest;
 import model.Entity;
 import model.HealPotion;
 import model.Item;
@@ -39,6 +40,7 @@ public final class SpriteRegistry {
 
         registerItem(HealPotion.class, AssetId.HEAL_POTION);
         registerItem(ManaPotion.class, AssetId.MANA_POTION);
+        registerItem(Chest.class, AssetId.CHEST_CLOSED);
     }
 
     private SpriteRegistry() {
