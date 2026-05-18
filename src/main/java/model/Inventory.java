@@ -58,4 +58,24 @@ public class Inventory {
     public boolean remove(Item item) {
         return items.remove(item);
     }
+
+    /**
+     * Finds the first {@link Key} whose id matches {@code requiredKeyId}.
+     * @return the matching key, or {@code null} when none is carried.
+     */
+    public Key findKey(String requiredKeyId) {
+        if (requiredKeyId == null) {
+            return null;
+        }
+        for (Item item : items) {
+            if (item instanceof Key key && key.matches(requiredKeyId)) {
+                return key;
+            }
+        }
+        return null;
+    }
+
+    public boolean containsKey(String requiredKeyId) {
+        return findKey(requiredKeyId) != null;
+    }
 }

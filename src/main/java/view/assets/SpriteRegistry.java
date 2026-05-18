@@ -1,6 +1,7 @@
 package view.assets;
 
 import java.awt.image.BufferedImage;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,8 @@ import model.Chest;
 import model.Entity;
 import model.HealPotion;
 import model.Item;
+import model.Key;
+import model.KeyColor;
 import model.Knight;
 import model.ManaPotion;
 import model.Sorcerer;
@@ -26,6 +29,8 @@ public final class SpriteRegistry {
 
     private static final Map<Class<? extends Entity>, AssetId> ENTITY_SPRITES = new HashMap<>();
     private static final Map<Class<? extends Item>, AssetId> ITEM_SPRITES = new HashMap<>();
+    /** Keys share one class but render per-color, so they get their own table. */
+    private static final Map<KeyColor, AssetId> KEY_SPRITES = new EnumMap<>(KeyColor.class);
 
     private static final List<AssetId> HERO_ANIMATION_FRAMES = List.of(
             AssetId.HERO_FRAME_1,
@@ -41,6 +46,17 @@ public final class SpriteRegistry {
         registerItem(HealPotion.class, AssetId.HEAL_POTION);
         registerItem(ManaPotion.class, AssetId.MANA_POTION);
         registerItem(Chest.class, AssetId.CHEST_CLOSED);
+
+        registerKey(KeyColor.OLIVE, AssetId.KEY_OLIVE);
+        registerKey(KeyColor.SILVER, AssetId.KEY_SILVER);
+        registerKey(KeyColor.GOLD, AssetId.KEY_GOLD);
+        registerKey(KeyColor.ORANGE, AssetId.KEY_ORANGE);
+        registerKey(KeyColor.BENT_SILVER, AssetId.KEY_BENT_SILVER);
+        registerKey(KeyColor.LONG_GOLD, AssetId.KEY_LONG_GOLD);
+    }
+
+    public static void registerKey(KeyColor color, AssetId id) {
+        KEY_SPRITES.put(color, id);
     }
 
     private SpriteRegistry() {
@@ -59,7 +75,13 @@ public final class SpriteRegistry {
     }
 
     public static AssetId assetFor(Item item) {
-        return item == null ? null : ITEM_SPRITES.get(item.getClass());
+        if (item == null) {
+            return null;
+        }
+        if (item instanceof Key key) {
+            return KEY_SPRITES.get(key.getColor());
+        }
+        return ITEM_SPRITES.get(item.getClass());
     }
 
     /**

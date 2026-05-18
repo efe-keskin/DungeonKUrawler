@@ -12,7 +12,7 @@ import java.util.List;
  * currently exposed as flags; they can be lifted to a Strategy later
  * without changing callers.
  */
-public class Container extends Item {
+public class Container extends Item implements Lockable {
 
     private boolean isLocked;
     private boolean requiresKey;

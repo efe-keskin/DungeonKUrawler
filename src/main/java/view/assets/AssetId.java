@@ -31,6 +31,14 @@ public enum AssetId {
     CHEST_CLOSED("/chest_models_plus_crates_sacks_v6/assets/01_chest_closed_blue_trim.png"),
     CHEST_OPEN("/chest_models_plus_crates_sacks_v6/assets/05_chest_open_loot_blue_trim.png"),
 
+    // Keys.
+    KEY_OLIVE("/items_keys_extracted/assets/01_key_olive.png"),
+    KEY_SILVER("/items_keys_extracted/assets/02_key_silver.png"),
+    KEY_GOLD("/items_keys_extracted/assets/03_key_gold.png"),
+    KEY_ORANGE("/items_keys_extracted/assets/04_key_orange.png"),
+    KEY_BENT_SILVER("/items_keys_extracted/assets/05_key_bent_silver.png"),
+    KEY_LONG_GOLD("/items_keys_extracted/assets/06_key_long_gold.png"),
+
     // UI surfaces.
     INVENTORY_BACKGROUND("/Inventory x4.png"),
     INVENTORY_CHEST_ICON("/inventorychest.png"),
