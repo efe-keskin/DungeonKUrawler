@@ -49,9 +49,12 @@ public class GridCell {
     }
 
     /**
-     * Information Expert: the cell itself decides whether it can be walked on.
-     * A cell is walkable when its tile is passable AND no occupying item is
-     * physically blocking (chests, crates, etc.).
+     * requires: No special precondition.
+     * modifies: Nothing.
+     * effects:
+     *   Returns false if the cell itself is not passable.
+     *   Returns false if the cell contains at least one blocking item.
+     *   Returns true only if the cell is passable and none of its items are blocking.
      */
     public boolean isWalkable() {
         if (!passable) {
