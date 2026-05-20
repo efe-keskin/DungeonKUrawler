@@ -5,12 +5,26 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * World object that may hold loot.
+ * Overview:
+ *   Container represents a game item that can store other items up to a fixed
+ *   capacity. A container may be locked, may require a key to unlock, may be
+ *   breakable, and may or may not be portable.
  *
- * <p>Information Expert: the container owns its contents, capacity, and
- * access rules (lock / key / break / portability). Access policies are
- * currently exposed as flags; they can be lifted to a Strategy later
- * without changing callers.
+ * Abstract Function:
+ *   AF(c) = a container named c.name whose stored items are c.contents, whose
+ *   maximum number of stored items is c.capacity, whose lock state is
+ *   c.isLocked, whose key requirement is represented by c.requiresKey and
+ *   c.requiredKeyId, whose break behavior is represented by c.breakable and
+ *   c.breakStrengthRequired, and whose portability is represented by c.portable.
+ *
+ * Representation Invariant:
+ *   - name is not null or blank
+ *   - capacity is non-negative
+ *   - contents is not null
+ *   - contents.size() is less than or equal to capacity
+ *   - contents does not contain null
+ *   - if requiresKey is true, requiredKeyId is not null or blank
+ *   - breakStrengthRequired is non-negative
  */
 public class Container extends Item implements Lockable {
 
@@ -111,6 +125,31 @@ public class Container extends Item implements Lockable {
 
     public boolean removeItem(Item item) {
         return contents.remove(item);
+    }
+
+    /**
+     * Checks whether this container satisfies its representation invariant.
+     */
+    public boolean repOk() {
+        if (name == null || name.isBlank()) {
+            return false;
+        }
+        if (capacity < 0) {
+            return false;
+        }
+        if (contents == null) {
+            return false;
+        }
+        if (contents.size() > capacity) {
+            return false;
+        }
+        if (contents.contains(null)) {
+            return false;
+        }
+        if (requiresKey && (requiredKeyId == null || requiredKeyId.isBlank())) {
+            return false;
+        }
+        return breakStrengthRequired >= 0;
     }
 
     /**
