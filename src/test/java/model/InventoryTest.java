@@ -71,7 +71,7 @@ class InventoryTest {
     @Test
     void findKeyReturnsKeyWhenItExists() {
         Inventory inventory = new Inventory(10);
-        Key goldenKey = new Key("GoldenKey", KeyColor.GOLD); // GOLD enum'da var, sorun yok
+        Key goldenKey = new Key("GoldenKey", KeyColor.GOLD); 
         inventory.tryAdd(goldenKey);
 
         assertEquals(goldenKey, inventory.findKey("GoldenKey"));
@@ -80,7 +80,7 @@ class InventoryTest {
     @Test
     void findKeyIsCaseInsensitive() {
         Inventory inventory = new Inventory(10);
-        // RED yerine enum'da var olan ORANGE rengini kullandık
+        
         Key bossKey = new Key("BossRoom", KeyColor.ORANGE); 
         inventory.tryAdd(bossKey);
 
