@@ -358,11 +358,13 @@ public class GamePanel extends JPanel implements GameStateListener {
                             continue;
                         }
                         BufferedImage enemySprite = spriteFor(ent);
-                        if (enemySprite != null) {
-                            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
-                            int scaledW = Math.max(1, cellW - inset * 2);
-                            int scaledH = Math.max(1, cellH - inset * 2);
-                            g2.drawImage(enemySprite, px + inset, py + inset, scaledW, scaledH, null);
+                        if (enemySprite != null) {    
+                            int spriteW = Math.round(enemySprite.getWidth() * HERO_SPRITE_SCALE);
+                            int spriteH = Math.round(enemySprite.getHeight() * HERO_SPRITE_SCALE);    
+                            int drawX = px + (cellW - spriteW) / 2;
+                            int drawY = py + (cellH - spriteH) / 2;
+    
+                            g2.drawImage(enemySprite, drawX, drawY, spriteW, spriteH, null);
                         } else {
                             g2.setColor(ent instanceof Knight ? KNIGHT
                                     : ent instanceof Sorcerer ? SORCERER
