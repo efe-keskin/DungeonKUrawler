@@ -64,6 +64,15 @@ public class DungeonMap {
         return cell != null && cell.isWalkable();
     }
 
+    /**
+     * REQUIRES: hero is not null
+     * MODIFIES: nothing
+     * EFFECTS: returns true if the target coordinates are
+     *          adjacent to the hero's current position,
+     *          including diagonal neighbors and the same cell;
+     *          returns false otherwise
+     */
+
     public boolean isHeroAdjacent(Hero hero, int targetX, int targetY) {
         int heroX = hero.getX();
         int heroY = hero.getY();
