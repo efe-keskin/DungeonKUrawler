@@ -64,9 +64,14 @@ public class Inventory {
         return items.remove(item);
     }
 
-    /**
-     * Finds the first {@link Key} whose id matches {@code requiredKeyId}.
-     * @return the matching key, or {@code null} when none is carried.
+    /*
+     * requires: No special precondition. requiredKeyId may be null.
+     * modifies: Nothing.
+     * effects:
+     * If requiredKeyId is null, returns null.
+     * Searches inventory items for the first Key whose keyId matches requiredKeyId.
+     * Matching is case-insensitive.
+     * Returns the matching Key if found; otherwise returns null.
      */
     public Key findKey(String requiredKeyId) {
         if (requiredKeyId == null) {
@@ -83,4 +88,7 @@ public class Inventory {
     public boolean containsKey(String requiredKeyId) {
         return findKey(requiredKeyId) != null;
     }
+
+    
+
 }
