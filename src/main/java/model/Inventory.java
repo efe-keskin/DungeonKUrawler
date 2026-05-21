@@ -45,7 +45,12 @@ public class Inventory {
     }
 
     /**
-     * @return true if the item was added; false if inventory is full
+     * requires: No special precondition. item may be null.
+     * modifies: this.items
+     * effects:
+     *   If item is null, returns false and inventory does not change.
+     *   If inventory is full, returns false and item is not added.
+     *   Otherwise, adds item to inventory and returns true.
      */
     public boolean tryAdd(Item item) {
         if (item == null || isFull()) {
