@@ -2,6 +2,7 @@ package model;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -64,4 +65,34 @@ class InventoryTest {
         assertEquals(1, inventory.size());
         assertFalse(inventory.getItems().contains(overflow));
     }
+
+
+
+    @Test
+    void findKeyReturnsKeyWhenItExists() {
+        Inventory inventory = new Inventory(10);
+        Key goldenKey = new Key("GoldenKey", KeyColor.GOLD); // GOLD enum'da var, sorun yok
+        inventory.tryAdd(goldenKey);
+
+        assertEquals(goldenKey, inventory.findKey("GoldenKey"));
+    }
+
+    @Test
+    void findKeyIsCaseInsensitive() {
+        Inventory inventory = new Inventory(10);
+        // RED yerine enum'da var olan ORANGE rengini kullandık
+        Key bossKey = new Key("BossRoom", KeyColor.ORANGE); 
+        inventory.tryAdd(bossKey);
+
+        assertEquals(bossKey, inventory.findKey("bossroom"));
+    }
+
+    @Test
+    void findKeyReturnsNullWhenNotFound() {
+        Inventory inventory = new Inventory(10);
+        inventory.tryAdd(new HealPotion()); 
+
+        assertNull(inventory.findKey("GoldenKey"));
+    }
+
 }
