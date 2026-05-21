@@ -31,10 +31,19 @@ public class LockController {
         return inventory.findKey(target.getRequiredKeyId()) != null;
     }
 
-    /**
-     * Tries to unlock {@code target} using whatever matching key is in
-     * {@code inventory}. Consumes the key if it is single-use.
-     */
+/**
+ * Tries to unlock {@code target} using whatever matching key is in
+ * {@code inventory}. Consumes the key if it is single-use.
+ * * @requires No special precondition. target or inventory may be null.
+ * @modifies target, inventory
+ * @effects 
+ * If target is null, returns UnlockResult.NO_MATCHING_KEY.
+ * If target is already unlocked, returns UnlockResult.ALREADY_UNLOCKED.
+ * If inventory has a matching key, unlocks target.
+ * If the matching key is single-use, removes it from inventory and returns UnlockResult.UNLOCKED_KEY_CONSUMED.
+ * If the matching key is reusable, returns UnlockResult.UNLOCKED.
+ * If no matching key exists, returns UnlockResult.NO_MATCHING_KEY.
+ */
     public UnlockResult tryUnlock(Lockable target, Inventory inventory) {
         if (target == null) {
             return UnlockResult.NO_MATCHING_KEY;
