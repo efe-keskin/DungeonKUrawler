@@ -38,7 +38,7 @@ import model.Sorcerer;
  */
 public class GameEngine {
 
-    private static final long IDLE_REFILL_DELAY_NANOS = TimeUnit.SECONDS.toNanos(2);
+    private static final long IDLE_REFILL_DELAY_NANOS = TimeUnit.SECONDS.toNanos(1);
     private static final int ENERGY_REFILL_PER_TICK = 5;
 
     private final DungeonMap dungeonMap;
@@ -242,7 +242,7 @@ public class GameEngine {
     }
 
     /**
-     * Refills a small amount of energy if the hero has been idle for at least 2s.
+     * Refills a small amount of energy if the hero has been idle for at least 1s.
      * Safe to call on every UI tick — no-ops when still within the idle window or
      * when energy is already full.
      */

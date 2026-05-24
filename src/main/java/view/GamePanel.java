@@ -55,6 +55,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color HUD_TEXT = new Color(240, 240, 240);
 
     private static final int HERO_ANIM_INTERVAL_MS = 100;
+    private static final int ENERGY_REFILL_INTERVAL_MS = 300;
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
 
@@ -63,6 +64,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final InteractionController interactionController;
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
+    private final Timer energyRefillTimer;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
     private int heroLastY = Integer.MIN_VALUE;
@@ -105,6 +107,9 @@ public class GamePanel extends JPanel implements GameStateListener {
             }
         });
         heroAnimTimer.start();
+
+        energyRefillTimer = new Timer(ENERGY_REFILL_INTERVAL_MS, e -> engine.tickEnergyRefill());
+        energyRefillTimer.start();
 
         addKeyListener(new KeyAdapter() {
             @Override
@@ -256,6 +261,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     @Override
     public void removeNotify() {
         heroAnimTimer.stop();
+        energyRefillTimer.stop();
         engine.removeGameStateListener(this);
         super.removeNotify();
     }
