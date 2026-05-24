@@ -24,16 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link InventoryController#takeFirstItemFromCell(int, int)}.
- *
- * requires: No special precondition.
- * modifies: hero inventory, target cell items
- * effects:
- *   If target cell is not adjacent to the hero, returns NOT_ADJACENT.
- *   If target cell does not exist or has no items, returns NO_ITEM.
- *   If the first item in the cell is not takable, returns NOT_TAKABLE.
- *   If the hero inventory is full, returns INVENTORY_FULL.
- *   Otherwise, moves the first item from the target cell to the hero inventory
- *   and returns SUCCESS.
  */
 class InventoryControllerTest {
 
