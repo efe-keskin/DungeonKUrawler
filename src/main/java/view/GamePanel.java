@@ -95,6 +95,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
+    private Timer continuousMoveTimer;
+    private Direction currentMovementDirection = null;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
     private int heroLastY = Integer.MIN_VALUE;
@@ -165,8 +167,21 @@ public class GamePanel extends JPanel implements GameStateListener {
                 }
 
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
-                if (d != null) {
-                    GamePanel.this.playerModeController.moveHero(d);
+                if (d != null) {                    
+                    currentMovementDirection = d;
+                    if (!continuousMoveTimer.isRunning()) {
+                        GamePanel.this.playerModeController.moveHero(currentMovementDirection); // İlk adımı hemen at
+                        continuousMoveTimer.start(); // Peşinden timer'ı devreye sok
+                    }
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                Direction d = Direction.fromKeyCode(e.getKeyCode());                
+                if (d != null && d == currentMovementDirection) {
+                    currentMovementDirection = null;
+                    continuousMoveTimer.stop();
                 }
             }
         });
@@ -241,6 +256,12 @@ public class GamePanel extends JPanel implements GameStateListener {
                 }
 
                 GamePanel.this.requestFocusInWindow();
+            }
+        });
+
+        continuousMoveTimer = new Timer(300, e -> {
+            if (currentMovementDirection != null) {
+                GamePanel.this.playerModeController.moveHero(currentMovementDirection);
             }
         });
 
