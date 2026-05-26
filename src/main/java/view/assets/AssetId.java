@@ -27,6 +27,9 @@ public enum AssetId {
     HEAL_POTION("/items_objects/healpotion.png"),
     MANA_POTION("/items_objects/manapotion.png"),
     COIN_PILE("/items_keys_extracted/assets/20_coin_pile_gold.png"),
+    RING_RED_GEM("/items_keys_extracted/assets/10_ring_red_gem.png"),
+    BOOK_RED("/items_keys_extracted/assets/22_book_red.png"),
+    GEM_WHITE("/items_keys_extracted/assets/16_gem_white.png"),
 
     // Containers.
     CHEST_CLOSED("/chest_models_plus_crates_sacks_v6/assets/01_chest_closed_blue_trim.png"),

@@ -15,6 +15,9 @@ public class Hero extends Entity {
     private int coinBalance;
     /** Strict capacity of 8 — enforced by {@link Inventory}. */
     private final Inventory inventory;
+    private Armor equippedArmor;
+    private Weapon equippedWeapon;
+    private Ring equippedRing;
 
     public Hero(int x, int y, String name, int hp, int str, int mana, int def, int energy) {
         super(x, y, name);
@@ -45,7 +48,7 @@ public class Hero extends Entity {
     }
 
     public int getStr() {
-        return str;
+        return str + (equippedWeapon == null ? 0 : equippedWeapon.getAtkValue());
     }
 
     public void setStr(int str) {
@@ -61,7 +64,9 @@ public class Hero extends Entity {
     }
 
     public int getDef() {
-        return def;
+        int armorBonus = equippedArmor == null ? 0 : equippedArmor.getDefModifier();
+        int ringBonus = equippedRing == null ? 0 : equippedRing.getDefBonus();
+        return def + armorBonus + ringBonus;
     }
 
     public void setDef(int def) {
@@ -78,6 +83,62 @@ public class Hero extends Entity {
 
     public Inventory getInventory() {
         return inventory;
+    }
+
+    public Armor getEquippedArmor() {
+        return equippedArmor;
+    }
+
+    public Weapon getEquippedWeapon() {
+        return equippedWeapon;
+    }
+
+    public Ring getEquippedRing() {
+        return equippedRing;
+    }
+
+    public boolean wearArmor(Armor armor) {
+        if (armor == null || !inventory.getItems().contains(armor)) {
+            return false;
+        }
+        equippedArmor = armor;
+        return true;
+    }
+
+    public boolean equipWeapon(Weapon weapon) {
+        if (weapon == null || !inventory.getItems().contains(weapon)) {
+            return false;
+        }
+        equippedWeapon = weapon;
+        return true;
+    }
+
+    public boolean wearRing(Ring ring) {
+        if (ring == null || !inventory.getItems().contains(ring)) {
+            return false;
+        }
+        equippedRing = ring;
+        return true;
+    }
+
+    public boolean isEquipped(Item item) {
+        return item != null && (item == equippedArmor || item == equippedWeapon || item == equippedRing);
+    }
+
+    public boolean removeEquipment(Item item) {
+        if (item == equippedArmor) {
+            equippedArmor = null;
+            return true;
+        }
+        if (item == equippedWeapon) {
+            equippedWeapon = null;
+            return true;
+        }
+        if (item == equippedRing) {
+            equippedRing = null;
+            return true;
+        }
+        return false;
     }
 
     public int getCoinBalance() {

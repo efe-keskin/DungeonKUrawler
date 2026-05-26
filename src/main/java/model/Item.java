@@ -1,5 +1,7 @@
 package model;
 
+import java.util.List;
+
 /**
  * Base type for anything that can sit on a {@link GridCell} or inside an {@link Inventory}.
  */
@@ -34,5 +36,13 @@ public abstract class Item {
      */
     public boolean isBlocking() {
         return false;
+    }
+
+    /**
+     * Inventory actions supported by this item. Loose collectibles can always
+     * be discarded; specialized items add their own actions.
+     */
+    public List<ItemAction> getInventoryActions() {
+        return List.of(ItemAction.DISCARD);
     }
 }

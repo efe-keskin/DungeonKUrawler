@@ -1,5 +1,7 @@
 package model;
 
+import java.util.List;
+
 /**
  * Equipment that contributes attack; {@code isRanged} distinguishes bow vs sword, etc.
  */
@@ -28,5 +30,10 @@ public class Weapon extends Item {
 
     public void setRanged(boolean ranged) {
         isRanged = ranged;
+    }
+
+    @Override
+    public List<ItemAction> getInventoryActions() {
+        return List.of(ItemAction.EQUIP, ItemAction.DISCARD);
     }
 }

@@ -53,6 +53,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color HUD_HP = new Color(220, 80, 80);
     private static final Color HUD_ENERGY = new Color(230, 200, 60);
     private static final Color HUD_COINS = new Color(235, 178, 45);
+    private static final Color HUD_STR = new Color(205, 90, 70);
+    private static final Color HUD_DEF = new Color(90, 140, 225);
     private static final Color HUD_TEXT = new Color(240, 240, 240);
 
     private static final int HERO_ANIM_INTERVAL_MS = 100;
@@ -486,7 +488,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         int x = 10;
         int y = 10;
         int w = 150;
-        int h = 66;
+        int h = 102;
         g2.setColor(new Color(0, 0, 0, 170));
         g2.fillRect(x, y, w, h);
         g2.setColor(new Color(90, 90, 100));
@@ -506,6 +508,16 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.fillRect(x + 8, y + 44, 12, 12);
         g2.setColor(HUD_TEXT);
         g2.drawString("Coins: " + hero.getCoinBalance(), x + 26, y + 55);
+
+        g2.setColor(HUD_STR);
+        g2.fillRect(x + 8, y + 62, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("STR: " + hero.getStr(), x + 26, y + 73);
+
+        g2.setColor(HUD_DEF);
+        g2.fillRect(x + 8, y + 80, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("DEF: " + hero.getDef(), x + 26, y + 91);
     }
 
     /**
