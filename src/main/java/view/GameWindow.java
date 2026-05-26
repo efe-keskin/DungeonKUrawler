@@ -2,20 +2,23 @@ package view;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
+import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
-
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
-import javax.swing.border.LineBorder;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
@@ -35,6 +38,8 @@ public class GameWindow extends JFrame {
 
     private static final int WINDOW_W = 920;
     private static final int WINDOW_H = 560;
+    private static final Color CONTROL_BACKGROUND = new Color(18, 17, 22);
+    private static final Color CONTROL_BORDER = new Color(103, 91, 75);
 
     public GameWindow(GameEngine engine) {
         setTitle("Dungeon Krawler — Build Mode");
@@ -47,12 +52,14 @@ public class GameWindow extends JFrame {
         GamePanel panel = new GamePanel(engine, playerModeController, interactionController);
 
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        controlPanel.setBackground(RetroTheme.BG_DUNGEON);
+        controlPanel.setBackground(CONTROL_BACKGROUND);
         controlPanel.setFocusable(false);
-        controlPanel.setBorder(new EmptyBorder(8, 10, 8, 10));
+        controlPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, CONTROL_BORDER),
+                new EmptyBorder(9, 12, 9, 12)));
 
-        JButton returnToMenu = new JButton("Return to Main Menu");
-        RetroTheme.styleRetroButton(returnToMenu, RetroTheme.BTN_SECONDARY);
+        JButton returnToMenu = new GameplayButton("RETURN TO MENU", false);
+        returnToMenu.setPreferredSize(new Dimension(198, 45));
         // Keeps WASD/arrows on GamePanel: the button still activates on mouse click.
         returnToMenu.setFocusable(false);
         returnToMenu.addActionListener(e -> {
@@ -63,22 +70,19 @@ public class GameWindow extends JFrame {
 
         // Bottom strip under the map for gameplay actions.
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        bottomPanel.setBackground(RetroTheme.BG_DUNGEON);
+        bottomPanel.setBackground(CONTROL_BACKGROUND);
         bottomPanel.setFocusable(false);
-        bottomPanel.setBorder(new EmptyBorder(8, 10, 8, 10));
+        bottomPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, CONTROL_BORDER),
+                new EmptyBorder(9, 10, 9, 10)));
 
-        JButton inventoryButton = new JButton("Inventory");
-        RetroTheme.styleRetroButton(inventoryButton, RetroTheme.BTN_PRIMARY);
-        ImageIcon chestIcon = AssetManager.get().icon(AssetId.INVENTORY_CHEST_ICON, 48, 48);
+        JButton inventoryButton = new GameplayButton("INVENTORY", true);
+        ImageIcon chestIcon = AssetManager.get().icon(AssetId.INVENTORY_CHEST_ICON, 44, 44);
         if (chestIcon != null) {
             inventoryButton.setIcon(chestIcon);
             inventoryButton.setText("");
-            inventoryButton.setPreferredSize(new Dimension(48, 48));
-            inventoryButton.setBorder(new LineBorder(new Color(255, 255, 255, 90), 1, true));
-            inventoryButton.setBorderPainted(true);
-            inventoryButton.setContentAreaFilled(false);
-            inventoryButton.setOpaque(false);
         }
+        inventoryButton.setPreferredSize(new Dimension(70, 64));
         inventoryButton.setFocusable(false);
         inventoryButton.addActionListener(e -> {
             InventoryDialog dialog = new InventoryDialog(this, engine);
@@ -128,5 +132,77 @@ public class GameWindow extends JFrame {
 
         setSize(WINDOW_W, WINDOW_H);
         setLocationRelativeTo(null);
+    }
+
+    private static Font controlFont(float size) {
+        Font base = RetroTheme.UI_MONO == null
+                ? new Font(Font.MONOSPACED, Font.BOLD, Math.round(size))
+                : RetroTheme.UI_MONO;
+        return base.deriveFont(Font.PLAIN, size);
+    }
+
+    /**
+     * Hard-edged gameplay control styled to match the retro overlay surfaces.
+     */
+    private static final class GameplayButton extends JButton {
+        private static final Color OUTLINE = new Color(5, 5, 9);
+        private static final Color STONE = new Color(103, 91, 75);
+        private static final Color STONE_HIGHLIGHT = new Color(156, 131, 85);
+        private static final Color GOLD = new Color(214, 170, 70);
+        private static final Color GOLD_BRIGHT = new Color(244, 205, 103);
+        private static final Color TEXT = new Color(240, 222, 180);
+
+        private final boolean primary;
+        private boolean hovered;
+
+        GameplayButton(String label, boolean primary) {
+            super(label);
+            this.primary = primary;
+            setFont(controlFont(13f));
+            setForeground(TEXT);
+            setBorder(new EmptyBorder(13, 18, 13, 18));
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    hovered = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    hovered = false;
+                    repaint();
+                }
+            });
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                Color background = primary
+                        ? (hovered ? new Color(126, 84, 31) : new Color(92, 61, 28))
+                        : (hovered ? new Color(65, 55, 47) : new Color(43, 38, 37));
+                Color border = primary
+                        ? (hovered ? GOLD_BRIGHT : GOLD)
+                        : (hovered ? STONE_HIGHLIGHT : STONE);
+                g2.setColor(OUTLINE);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(background);
+                g2.fillRect(3, 3, getWidth() - 6, getHeight() - 6);
+                g2.setColor(border);
+                g2.drawRect(2, 2, getWidth() - 5, getHeight() - 5);
+                g2.setColor(hovered ? GOLD_BRIGHT : new Color(155, 122, 62));
+                g2.fillRect(5, 5, getWidth() - 10, 2);
+            } finally {
+                g2.dispose();
+            }
+            super.paintComponent(graphics);
+        }
     }
 }

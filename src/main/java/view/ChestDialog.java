@@ -15,7 +15,6 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
@@ -194,23 +193,25 @@ public class ChestDialog extends JDialog {
         MouseAdapter takeOnClick = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                String action = item instanceof Coin ? "Collect " : "Take ";
-                int choice = JOptionPane.showConfirmDialog(
+                String detail = item instanceof Coin
+                        ? "Add this reward to your coin balance?"
+                        : "Move this object into your inventory?";
+                int choice = ItemActionMenuDialog.show(
                         ChestDialog.this,
-                        action + item.getName() + "?",
-                        item instanceof Coin ? "Collect Coins" : "Take Item",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.QUESTION_MESSAGE);
-                if (choice != JOptionPane.YES_OPTION) {
+                        "Chest Item",
+                        item.getName(),
+                        detail,
+                        item instanceof Coin ? "Collect" : "Take",
+                        "Leave");
+                if (choice != 0) {
                     return;
                 }
                 boolean taken = engine.takeFromContainer(container, item);
                 if (!taken) {
-                    JOptionPane.showMessageDialog(
-                            ChestDialog.this,
-                            item instanceof Coin ? "Coin reward is no longer available." : "Inventory is full.",
+                    ItemActionMenuDialog.showNotice(
+                            ChestDialog.this, "Warning",
                             item instanceof Coin ? "Cannot Collect Coins" : "Cannot Take Item",
-                            JOptionPane.WARNING_MESSAGE);
+                            item instanceof Coin ? "Coin reward is no longer available." : "Inventory is full.");
                     return;
                 }
                 rebuildUi();
