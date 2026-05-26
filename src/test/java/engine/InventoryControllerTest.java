@@ -6,7 +6,7 @@ import model.HealPotion;
 import model.Hero;
 import model.Inventory;
 import model.Item;
-import model.ManaPotion;
+import model.EnergyPotion;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -129,7 +129,7 @@ class InventoryControllerTest {
 
     private void fillInventory(Inventory inventory) {
         while (inventory.hasFreeSlot()) {
-            inventory.tryAdd(new ManaPotion());
+            inventory.tryAdd(new EnergyPotion());
         }
     }
 }

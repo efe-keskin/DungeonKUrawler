@@ -15,7 +15,7 @@ import model.Item;
 import model.Key;
 import model.KeyColor;
 import model.Knight;
-import model.ManaPotion;
+import model.EnergyPotion;
 import model.Ring;
 import model.Sorcerer;
 import model.ValuableItem;
@@ -48,7 +48,7 @@ public final class SpriteRegistry {
         registerEntity(Sorcerer.class, AssetId.SORCERER);
 
         registerItem(HealPotion.class, AssetId.HEAL_POTION);
-        registerItem(ManaPotion.class, AssetId.MANA_POTION);
+        registerItem(EnergyPotion.class, AssetId.ENERGY_POTION);
         registerItem(Coin.class, AssetId.COIN_PILE);
         registerItem(Ring.class, AssetId.RING_RED_GEM);
         registerItem(Book.class, AssetId.BOOK_RED);

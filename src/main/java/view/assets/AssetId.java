@@ -25,7 +25,7 @@ public enum AssetId {
 
     // Items.
     HEAL_POTION("/items_objects/healpotion.png"),
-    MANA_POTION("/items_objects/manapotion.png"),
+    ENERGY_POTION("/items_objects/energypotion.png"),
     COIN_PILE("/items_keys_extracted/assets/20_coin_pile_gold.png"),
     RING_RED_GEM("/items_keys_extracted/assets/10_ring_red_gem.png"),
     BOOK_RED("/items_keys_extracted/assets/22_book_red.png"),

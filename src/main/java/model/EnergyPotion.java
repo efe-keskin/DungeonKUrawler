@@ -7,13 +7,13 @@ import java.awt.Color;
  * Passive energy regeneration still respects the cap, so overflowed energy
  * is a one-shot buffer that depletes as the hero moves.
  */
-public class ManaPotion extends Potion {
+public class EnergyPotion extends Potion {
 
     private static final Color COLOR = new Color(50, 130, 255);
     private static final int OVERFLOW_AMOUNT = 100;
 
-    public ManaPotion() {
-        super("Mana Potion");
+    public EnergyPotion() {
+        super("Energy Potion");
     }
 
     @Override

@@ -25,15 +25,15 @@ class ContainerTest {
     void containerCanStoreItemsUpToCapacity() {
         Container container = new Container("Wooden Chest", false, false, 2);
         Item healPotion = new HealPotion();
-        Item manaPotion = new ManaPotion();
+        Item energyPotion = new EnergyPotion();
 
         assertTrue(container.addItem(healPotion));
-        assertTrue(container.addItem(manaPotion));
+        assertTrue(container.addItem(energyPotion));
 
         assertEquals(2, container.size());
         assertTrue(container.isFull());
         assertTrue(container.getContents().contains(healPotion));
-        assertTrue(container.getContents().contains(manaPotion));
+        assertTrue(container.getContents().contains(energyPotion));
         assertTrue(container.repOk());
     }
 
@@ -44,7 +44,7 @@ class ContainerTest {
     void fullContainerRejectsAdditionalItem() {
         Container container = new Container("Small Chest", false, false, 1);
         Item storedItem = new HealPotion();
-        Item rejectedItem = new ManaPotion();
+        Item rejectedItem = new EnergyPotion();
 
         assertTrue(container.addItem(storedItem));
         assertFalse(container.addItem(rejectedItem));

@@ -21,7 +21,7 @@ import model.ItemAction;
 import model.Key;
 import model.KeyColor;
 import model.Lockable;
-import model.ManaPotion;
+import model.EnergyPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
@@ -133,7 +133,7 @@ public class GameEngine {
 
         GridCell itemCell2 = map.getCell(5, 3);
         if (itemCell2 != null) {
-            itemCell2.getItems().add(new ManaPotion());
+            itemCell2.getItems().add(new EnergyPotion());
         }
 
         GridCell ringCell = map.getCell(3, 3);
@@ -169,7 +169,7 @@ public class GameEngine {
         GridCell lockedChestCell = map.getCell(10, 6);
         if (lockedChestCell != null) {
             Chest lockedChest = Chest.locked("Silver Chest", 16, "silver");
-            lockedChest.addItem(new ManaPotion());
+            lockedChest.addItem(new EnergyPotion());
             lockedChest.addItem(new Key("gold", KeyColor.GOLD));
             lockedChest.addItem(new Armor("Leather Armor", 3));
             lockedChestCell.getItems().add(lockedChest);

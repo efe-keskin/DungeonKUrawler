@@ -57,7 +57,7 @@ class InventoryTest {
     void tryAdd_whenFull_rejectsNewItem() {
         Inventory inventory = new Inventory(1);
         inventory.tryAdd(new HealPotion());
-        Item overflow = new ManaPotion();
+        Item overflow = new EnergyPotion();
 
         boolean added = inventory.tryAdd(overflow);
 
