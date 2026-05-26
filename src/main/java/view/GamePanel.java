@@ -9,11 +9,17 @@ import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.Set;
 
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
+import engine.CombatController;
+import engine.CombatManager;
 import engine.Direction;
 import engine.GameEngine;
 import engine.InventoryController;
@@ -22,6 +28,7 @@ import engine.PlayerModeController;
 import engine.GameStateListener;
 import engine.InteractionController;
 import model.Container;
+import model.DefeatedEnemyMarker;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
@@ -76,11 +83,15 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final int HERO_ANIM_INTERVAL_MS = 100;
     private static final int ENERGY_REFILL_INTERVAL_MS = 300;
     private static final float HERO_ANIM_STEP = 0.20f;
+    private static final float ENEMY_ANIM_STEP = 0.25f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
+    private static final int KNIGHT_MAX_HP = 40;
+    private static final int SORCERER_MAX_HP = 25;
 
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
+    private final CombatController combatController;
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
@@ -93,12 +104,15 @@ public class GamePanel extends JPanel implements GameStateListener {
     private float heroPixelOffsetX = 0f;
     private float heroPixelOffsetY = 0f;
     private boolean heroFacingLeft = false;
+    private final Map<Entity, GridPosition> lastEnemyPositions = new IdentityHashMap<>();
+    private final Map<Entity, EnemyMoveAnimation> enemyMoveAnimations = new IdentityHashMap<>();
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
         this.engine = engine;
         this.playerModeController = playerModeController;
         this.interactionController = interactionController;
+        this.combatController = new CombatController(engine);
 
         Hero hero = engine.getHero();
         if (hero != null) {
@@ -112,6 +126,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         setFocusable(true);
 
         heroAnimTimer = new Timer(HERO_ANIM_INTERVAL_MS, e -> {
+            boolean repaintNeeded = false;
             if (heroAnimProgress < 1f) {
                 heroAnimProgress = Math.min(1f, heroAnimProgress + HERO_ANIM_STEP);
                 heroFrame = (heroFrame + 1) % SpriteRegistry.heroFrameCount();
@@ -122,6 +137,12 @@ public class GamePanel extends JPanel implements GameStateListener {
                     heroPixelOffsetX = 0f;
                     heroPixelOffsetY = 0f;
                 }
+                repaintNeeded = true;
+            }
+            if (advanceEnemyAnimations()) {
+                repaintNeeded = true;
+            }
+            if (repaintNeeded) {
                 repaint();
             }
         });
@@ -172,6 +193,16 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                 int gridX = (e.getX() - offsetX) / tileSize;
                 int gridY = (e.getY() - offsetY) / tileSize;
+                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
+
+                CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
+                if (attackResult != null) {
+                    if (attackResult.isDefenderDefeated()) {
+                        leaveDefeatMarker(gridX, gridY);
+                    }
+                    GamePanel.this.requestFocusInWindow();
+                    return;
+                }
 
                 InteractionController.ItemInteraction interaction = GamePanel.this.interactionController
                         .getItemInteraction(gridX, gridY);
@@ -179,10 +210,10 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
-                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
                 String message = interaction.isTakable()
                         ? "This object is within reach."
                         : "This object cannot be taken.";
+
                 if (interaction.getDetail() != null) {
                     message += "\n" + interaction.getDetail();
                 }
@@ -215,6 +246,14 @@ public class GamePanel extends JPanel implements GameStateListener {
 
 
 
+    }
+
+    private void leaveDefeatMarker(int gridX, int gridY) {
+        GridCell cell = engine.getDungeonMap().getCell(gridX, gridY);
+        if (cell != null) {
+            cell.getItems().add(new DefeatedEnemyMarker());
+            repaint();
+        }
     }
 
     private void handleOpenKeyPress() {
@@ -311,6 +350,7 @@ public class GamePanel extends JPanel implements GameStateListener {
             heroLastX = hero.getX();
             heroLastY = hero.getY();
         }
+        updateEnemyAnimationState();
         SwingUtilities.invokeLater(this::repaint);
     }
 
@@ -379,11 +419,12 @@ public class GamePanel extends JPanel implements GameStateListener {
                             continue;
                         }
                         BufferedImage enemySprite = spriteFor(ent);
+                        EnemyDrawPosition enemyDrawPosition = enemyDrawPosition(ent, px, py, tileSize);
                         if (enemySprite != null) {    
                             int spriteW = Math.round(enemySprite.getWidth() * HERO_SPRITE_SCALE);
                             int spriteH = Math.round(enemySprite.getHeight() * HERO_SPRITE_SCALE);    
-                            int drawX = px + (cellW - spriteW) / 2;
-                            int drawY = py + (cellH - spriteH) / 2;
+                            int drawX = enemyDrawPosition.x + (cellW - spriteW) / 2;
+                            int drawY = enemyDrawPosition.y + (cellH - spriteH) / 2;
     
                             g2.drawImage(enemySprite, drawX, drawY, spriteW, spriteH, null);
                         } else {
@@ -393,9 +434,10 @@ public class GamePanel extends JPanel implements GameStateListener {
                             int inset = Math.max(1, Math.min(cellW, cellH) / 5);
                             int entityW = Math.max(1, cellW - inset * 2);
                             int entityH = Math.max(1, cellH - inset * 2);
-                            g2.fillRect(px + inset, py + inset, entityW, entityH);
+                            g2.fillRect(enemyDrawPosition.x + inset, enemyDrawPosition.y + inset, entityW, entityH);
                         }
-                        drawAiStateLabel(g2, ent, px, py, cellW);
+                        drawAiStateLabel(g2, ent, enemyDrawPosition.x, enemyDrawPosition.y, cellW);
+                        drawEnemyHpBar(g2, ent, enemyDrawPosition.x, enemyDrawPosition.y, cellW, cellH);
                     }
                 }
             }
@@ -503,6 +545,67 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.drawRect(px + inset, py + inset, itemW, itemH);
     }
 
+    private boolean advanceEnemyAnimations() {
+        boolean changed = false;
+        java.util.Iterator<EnemyMoveAnimation> iterator = enemyMoveAnimations.values().iterator();
+        while (iterator.hasNext()) {
+            EnemyMoveAnimation animation = iterator.next();
+            animation.progress = Math.min(1f, animation.progress + ENEMY_ANIM_STEP);
+            changed = true;
+            if (animation.progress >= 1f) {
+                iterator.remove();
+            }
+        }
+        return changed;
+    }
+
+    private void updateEnemyAnimationState() {
+        DungeonMap map = engine.getDungeonMap();
+        if (map == null) {
+            return;
+        }
+        Set<Entity> seen = new HashSet<>();
+        for (int x = 0; x < map.getWidth(); x++) {
+            for (int y = 0; y < map.getHeight(); y++) {
+                GridCell cell = map.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Entity entity : cell.getEntitiesView()) {
+                    if (!(entity instanceof Knight || entity instanceof Sorcerer)) {
+                        continue;
+                    }
+                    seen.add(entity);
+                    GridPosition previous = lastEnemyPositions.get(entity);
+                    GridPosition current = new GridPosition(entity.getX(), entity.getY());
+                    if (previous != null && isSingleStep(previous, current)) {
+                        enemyMoveAnimations.put(entity, new EnemyMoveAnimation(previous, current));
+                    }
+                    lastEnemyPositions.put(entity, current);
+                }
+            }
+        }
+        lastEnemyPositions.keySet().removeIf(entity -> !seen.contains(entity));
+        enemyMoveAnimations.keySet().removeIf(entity -> !seen.contains(entity));
+    }
+
+    private boolean isSingleStep(GridPosition previous, GridPosition current) {
+        int dx = Math.abs(previous.x - current.x);
+        int dy = Math.abs(previous.y - current.y);
+        return dx + dy == 1;
+    }
+
+    private EnemyDrawPosition enemyDrawPosition(Entity entity, int px, int py, int tileSize) {
+        EnemyMoveAnimation animation = enemyMoveAnimations.get(entity);
+        if (animation == null) {
+            return new EnemyDrawPosition(px, py);
+        }
+        float remaining = 1f - animation.progress;
+        int offsetX = Math.round((animation.from.x - animation.to.x) * remaining * tileSize);
+        int offsetY = Math.round((animation.from.y - animation.to.y) * remaining * tileSize);
+        return new EnemyDrawPosition(px + offsetX, py + offsetY);
+    }
+
     private void drawHero(Graphics2D g2, DungeonMap map, int tileSize, int offsetX, int offsetY) {
         Hero hero = engine.getHero();
         if (hero == null) {
@@ -600,6 +703,34 @@ public class GamePanel extends JPanel implements GameStateListener {
         return base.deriveFont(java.awt.Font.PLAIN, size);
     }
 
+    private void drawEnemyHpBar(Graphics2D g2, Entity ent, int px, int py, int cellW, int cellH) {
+        int currentHp;
+        int maxHp;
+        if (ent instanceof Knight knight) {
+            currentHp = knight.getHp();
+            maxHp = KNIGHT_MAX_HP;
+        } else if (ent instanceof Sorcerer sorcerer) {
+            currentHp = sorcerer.getHp();
+            maxHp = SORCERER_MAX_HP;
+        } else {
+            return;
+        }
+
+        maxHp = Math.max(maxHp, currentHp);
+        int barW = Math.max(10, cellW - 8);
+        int barH = Math.max(3, cellH / 10);
+        int barX = px + (cellW - barW) / 2;
+        int barY = py + cellH - barH - 2;
+        int fillW = Math.round(barW * Math.max(0, currentHp) / (float) maxHp);
+
+        g2.setColor(new Color(20, 20, 24, 210));
+        g2.fillRect(barX, barY, barW, barH);
+        g2.setColor(new Color(70, 210, 90));
+        g2.fillRect(barX, barY, fillW, barH);
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.drawRect(barX, barY, barW, barH);
+    }
+
     /**
      * Renders a small Chasing/Roaming tag just above the enemy sprite for debug visibility.
      * Keeps rendering work tight so it stays cheap even with 5 enemies on screen.
@@ -626,6 +757,23 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.fillRect(textX - 2, textY - fm.getAscent(), textW + 4, fm.getHeight());
         g2.setColor(color);
         g2.drawString(label, textX, textY - 2);
+    }
+
+    private record GridPosition(int x, int y) {
+    }
+
+    private record EnemyDrawPosition(int x, int y) {
+    }
+
+    private static final class EnemyMoveAnimation {
+        private final GridPosition from;
+        private final GridPosition to;
+        private float progress;
+
+        private EnemyMoveAnimation(GridPosition from, GridPosition to) {
+            this.from = from;
+            this.to = to;
+        }
     }
 
 }
