@@ -12,6 +12,7 @@ public class Hero extends Entity {
     private int def;
     private int energy;
     private final int maxEnergy;
+    private int coinBalance;
     /** Strict capacity of 8 — enforced by {@link Inventory}. */
     private final Inventory inventory;
 
@@ -77,6 +78,23 @@ public class Hero extends Entity {
 
     public Inventory getInventory() {
         return inventory;
+    }
+
+    public int getCoinBalance() {
+        return coinBalance;
+    }
+
+    /**
+     * Adds a positive reward to the hero's coin balance.
+     *
+     * @return true when the balance changed; false for zero or negative rewards.
+     */
+    public boolean earnCoins(int amount) {
+        if (amount <= 0) {
+            return false;
+        }
+        coinBalance += amount;
+        return true;
     }
 
     public void updatePosition(int x, int y) {

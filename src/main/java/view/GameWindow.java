@@ -111,6 +111,11 @@ public class GameWindow extends JFrame {
             public void windowOpened(WindowEvent e) {
                 panel.requestFocusInWindow();
             }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                engine.shutdown();
+            }
         });
 
         // After Alt+Tab or dialogs, keep movement keys on the game surface.

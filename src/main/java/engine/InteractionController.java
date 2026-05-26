@@ -1,5 +1,6 @@
 package engine;
 
+import model.Coin;
 import model.DungeonMap;
 import model.GridCell;
 import model.Hero;
@@ -22,12 +23,16 @@ public class InteractionController {
     public static final class ItemInteraction {
         private final String itemName;
         private final boolean takable;
+        private final String actionLabel;
+        private final String detail;
         private final int x;
         private final int y;
 
-        ItemInteraction(String itemName, boolean takable, int x, int y) {
+        ItemInteraction(String itemName, boolean takable, String actionLabel, String detail, int x, int y) {
             this.itemName = itemName;
             this.takable = takable;
+            this.actionLabel = actionLabel;
+            this.detail = detail;
             this.x = x;
             this.y = y;
         }
@@ -38,6 +43,14 @@ public class InteractionController {
 
         public boolean isTakable() {
             return takable;
+        }
+
+        public String getActionLabel() {
+            return actionLabel;
+        }
+
+        public String getDetail() {
+            return detail;
         }
 
         public int getX() {
@@ -67,7 +80,11 @@ public class InteractionController {
         // check for Items (Key, Gold, Potion, Armour, Book)
         if (!cell.getItemsView().isEmpty()) {
             Item first = cell.getItemsView().get(0);
-            return new ItemInteraction(first.getName(), first.isTakable(), targetX, targetY);
+            if (first instanceof Coin coin) {
+                return new ItemInteraction(first.getName(), true, "Collect",
+                        "Reward: " + coin.getValue() + " coins", targetX, targetY);
+            }
+            return new ItemInteraction(first.getName(), first.isTakable(), "Take", null, targetX, targetY);
         }
 
         return null;
@@ -80,7 +97,8 @@ public class InteractionController {
         InventoryController.PickupResult result = inventoryController.takeFirstItemFromCell(x, y);
         if (result == InventoryController.PickupResult.SUCCESS) {
             Inventory inv = engine.getHero().getInventory();
-            System.out.println("TAKE OK: inventory now (" + inv.size() + "/" + inv.getCapacity() + ")");
+            System.out.println("COLLECT OK: coins=" + engine.getHero().getCoinBalance()
+                    + ", inventory=(" + inv.size() + "/" + inv.getCapacity() + ")");
         }
         return result;
     }

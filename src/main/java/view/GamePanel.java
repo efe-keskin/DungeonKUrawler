@@ -52,6 +52,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color ITEM = new Color(255, 200, 40);
     private static final Color HUD_HP = new Color(220, 80, 80);
     private static final Color HUD_ENERGY = new Color(230, 200, 60);
+    private static final Color HUD_COINS = new Color(235, 178, 45);
     private static final Color HUD_TEXT = new Color(240, 240, 240);
 
     private static final int HERO_ANIM_INTERVAL_MS = 100;
@@ -158,9 +159,12 @@ public class GamePanel extends JPanel implements GameStateListener {
                 Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
                 String message = "Item: " + interaction.getItemName() + "\n"
                         + "Takable: " + (interaction.isTakable() ? "Yes" : "No");
+                if (interaction.getDetail() != null) {
+                    message += "\n" + interaction.getDetail();
+                }
 
                 if (interaction.isTakable()) {
-                    Object[] options = { "Take", "Return to map" };
+                    Object[] options = { interaction.getActionLabel(), "Return to map" };
                     int choice = JOptionPane.showOptionDialog(
                             parent,
                             message,
@@ -236,17 +240,12 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private void handleTakeKeyPress() {
-        if (engine.getHero().getInventory().isFull()) {
-            Window parent = SwingUtilities.getWindowAncestor(this);
-            JOptionPane.showMessageDialog(parent, getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL),
-                    "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
-            requestFocusInWindow();
-            return;
-        }
-
         if (!engine.takeItemOnGround()) {
             Window parent = SwingUtilities.getWindowAncestor(this);
-            JOptionPane.showMessageDialog(parent, "No takable item is available on this tile or an adjacent tile.",
+            String message = engine.getHero().getInventory().isFull()
+                    ? getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL)
+                    : "No takable item is available on this tile or an adjacent tile.";
+            JOptionPane.showMessageDialog(parent, message,
                     "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
         }
 
@@ -481,7 +480,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         int x = 10;
         int y = 10;
         int w = 150;
-        int h = 48;
+        int h = 66;
         g2.setColor(new Color(0, 0, 0, 170));
         g2.fillRect(x, y, w, h);
         g2.setColor(new Color(90, 90, 100));
@@ -496,6 +495,11 @@ public class GamePanel extends JPanel implements GameStateListener {
         g2.fillRect(x + 8, y + 26, 12, 12);
         g2.setColor(HUD_TEXT);
         g2.drawString("Energy: " + hero.getEnergy(), x + 26, y + 37);
+
+        g2.setColor(HUD_COINS);
+        g2.fillRect(x + 8, y + 44, 12, 12);
+        g2.setColor(HUD_TEXT);
+        g2.drawString("Coins: " + hero.getCoinBalance(), x + 26, y + 55);
     }
 
     /**

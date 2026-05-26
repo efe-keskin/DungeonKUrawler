@@ -8,6 +8,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import model.Chest;
+import model.Coin;
 import model.Container;
 import model.DungeonMap;
 import model.EnemyFactory;
@@ -49,11 +50,16 @@ public class GameEngine {
     private long lastMoveNanos = System.nanoTime();
 
     private Timer spawnTimer;
+    private Timer coinSpawnTimer;
     private Timer detectionTimer;
 
     private static final int SPAWN_INTERVAL_MS = 9000;
+    private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int MAX_ENEMIES = 5;
+    private static final int MIN_GROUND_COINS = 3;
+    private static final int MAX_GROUND_COINS = 7;
+    private static final int COIN_REWARD_VALUE = 10;
     private static final double KNIGHT_VISION_RANGE = 5.0;
     private static final double SORCERER_VISION_RANGE = Double.POSITIVE_INFINITY; // sees hero always
 
@@ -67,7 +73,8 @@ public class GameEngine {
         this.dungeonMap = buildDemoMap("Phase 1 — Build Mode");
         this.hero = new Hero(1, 1, "Hero", 100, 10, 20, 5, 100);
         placeHeroOnMap();
-        startEnemyTimers();
+        fillMinimumGroundCoins(-1, -1);
+        startGameTimers();
     }
 
     public void addGameStateListener(GameStateListener listener) {
@@ -187,17 +194,25 @@ public class GameEngine {
     }
 
     /**
-     * Moves {@code item} from {@code container} into the hero's inventory.
+     * Collects {@code item} from a container. Coin rewards are credited directly
+     * to the hero; other items move into the inventory.
+     *
      * @return true if the transfer succeeded.
      */
     public boolean takeFromContainer(Container container, Item item) {
         if (container == null || item == null) {
             return false;
         }
-        if (!hero.getInventory().hasFreeSlot()) {
+        if (!container.getContents().contains(item)) {
             return false;
         }
-        if (!container.getContents().contains(item)) {
+        if (item instanceof Coin coin) {
+            container.removeItem(coin);
+            hero.earnCoins(coin.getValue());
+            notifyListeners();
+            return true;
+        }
+        if (!hero.getInventory().hasFreeSlot()) {
             return false;
         }
         if (!hero.getInventory().tryAdd(item)) {
@@ -221,6 +236,19 @@ public class GameEngine {
 
     public Hero getHero() {
         return hero;
+    }
+
+    /**
+     * Credits a coin reward from a future gameplay event such as enemy defeat.
+     *
+     * @return true if a positive amount was credited.
+     */
+    public boolean awardCoins(int amount) {
+        if (!hero.earnCoins(amount)) {
+            return false;
+        }
+        notifyListeners();
+        return true;
     }
 
     public void updateHeroPosition(int nx, int ny) {
@@ -274,7 +302,8 @@ public class GameEngine {
 
     /**
      * Picks up the first takable item found on the hero's current tile or any
-     * 8-adjacent tile and adds it to the inventory.
+     * 8-adjacent tile. Coin rewards are collected into the coin balance; other
+     * items are added to the inventory.
      *
      * @return true if an item was picked up, false otherwise.
      */
@@ -282,10 +311,6 @@ public class GameEngine {
         Hero hero = getHero();
         int hx = hero.getX();
         int hy = hero.getY();
-        model.Inventory inv = hero.getInventory();
-        if (!inv.hasFreeSlot()) {
-            return false;
-        }
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
                 int tx = hx + dx;
@@ -295,7 +320,8 @@ public class GameEngine {
                     continue;
                 }
                 for (Item item : cell.getItems()) {
-                    if (item.isTakable()) {
+                    boolean canCollect = item instanceof Coin || hero.getInventory().hasFreeSlot();
+                    if (item.isTakable() && canCollect) {
                         return takeItem(item, tx, ty);
                     }
                 }
@@ -325,7 +351,8 @@ public class GameEngine {
     }
 
     /**
-     * Picks up {@code item} from cell {@code (x, y)} into the hero's inventory.
+     * Picks up {@code item} from cell {@code (x, y)}. Coin rewards are credited
+     * directly; other items enter the hero's inventory.
      *
      * <p>Preconditions are enforced here so callers don't need to duplicate the checks.
      *
@@ -335,6 +362,9 @@ public class GameEngine {
     public boolean takeItem(model.Item item, int x, int y) {
         if (item == null || !item.isTakable()) {
             return false;
+        }
+        if (item instanceof Coin coin) {
+            return collectCoin(coin, x, y);
         }
         model.Inventory inv = hero.getInventory();
         if (!inv.hasFreeSlot()) {
@@ -349,6 +379,74 @@ public class GameEngine {
         return true;
     }
 
+    private boolean collectCoin(Coin coin, int x, int y) {
+        GridCell cell = dungeonMap.getCell(x, y);
+        if (cell == null || !cell.getItemsView().contains(coin)) {
+            return false;
+        }
+        if (!dungeonMap.removeItemFromCell(coin, x, y)) {
+            return false;
+        }
+        hero.earnCoins(coin.getValue());
+        fillMinimumGroundCoins(x, y);
+        notifyListeners();
+        return true;
+    }
+
+    /**
+     * Adds one coin pile on a random empty floor cell, excluding the cell just
+     * collected when replenishing the minimum visible rewards.
+     */
+    private boolean spawnCoinPile(int excludedX, int excludedY) {
+        List<GridCell> candidates = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                if (x == excludedX && y == excludedY) {
+                    continue;
+                }
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null || !cell.isWalkable()
+                        || !cell.getItemsView().isEmpty()
+                        || !cell.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+                candidates.add(cell);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return false;
+        }
+        GridCell cell = candidates.get(random.nextInt(candidates.size()));
+        cell.getItems().add(new Coin(COIN_REWARD_VALUE));
+        return true;
+    }
+
+    private void fillMinimumGroundCoins(int excludedX, int excludedY) {
+        while (countGroundCoins() < MIN_GROUND_COINS) {
+            if (!spawnCoinPile(excludedX, excludedY)) {
+                return;
+            }
+        }
+    }
+
+    private int countGroundCoins() {
+        int count = 0;
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    if (item instanceof Coin) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
     /**
      * Uses {@link EnemyFactory#createRandomEnemy(int, int)} for the 60/30/10 split.
      */
@@ -357,7 +455,7 @@ public class GameEngine {
         for (int x = 0; x < dungeonMap.getWidth(); x++) {
             for (int y = 0; y < dungeonMap.getHeight(); y++) {
                 GridCell c = dungeonMap.getCell(x, y);
-                if (c == null || !c.isPassable()) {
+                if (c == null || !c.isWalkable() || !c.getItemsView().isEmpty()) {
                     continue;
                 }
                 if (x == hero.getX() && y == hero.getY()) {
@@ -386,11 +484,10 @@ public class GameEngine {
     }
 
     /**
-     * Kicks off the spawn loop (every 9s, capped at {@value #MAX_ENEMIES}) and the AI
-     * detection tick (every {@value #DETECTION_TICK_MS}ms). Swing Timers run on the EDT,
-     * so mutations here are safe w.r.t. the painter.
+     * Kicks off enemy, coin-reward, and detection loops. Swing Timers run on
+     * the EDT, so mutations here are safe w.r.t. the painter.
      */
-    private void startEnemyTimers() {
+    private void startGameTimers() {
         spawnTimer = new Timer(SPAWN_INTERVAL_MS, e -> {
             if (countEnemies() >= MAX_ENEMIES) {
                 return;
@@ -400,6 +497,17 @@ public class GameEngine {
         });
         spawnTimer.setRepeats(true);
         spawnTimer.start();
+
+        coinSpawnTimer = new Timer(COIN_SPAWN_INTERVAL_MS, e -> {
+            if (countGroundCoins() >= MAX_GROUND_COINS) {
+                return;
+            }
+            if (spawnCoinPile(-1, -1)) {
+                notifyListeners();
+            }
+        });
+        coinSpawnTimer.setRepeats(true);
+        coinSpawnTimer.start();
 
         detectionTimer = new Timer(DETECTION_TICK_MS, e -> updateEnemyDetection());
         detectionTimer.setRepeats(true);
@@ -490,6 +598,7 @@ public class GameEngine {
     /** Stops timers — call this on shutdown if you wire it up later. */
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
+        if (coinSpawnTimer != null) coinSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
     }
 }

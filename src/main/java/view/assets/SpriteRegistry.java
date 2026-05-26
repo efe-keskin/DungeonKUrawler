@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import model.Chest;
+import model.Coin;
 import model.Entity;
 import model.HealPotion;
 import model.Item;
@@ -45,6 +46,7 @@ public final class SpriteRegistry {
 
         registerItem(HealPotion.class, AssetId.HEAL_POTION);
         registerItem(ManaPotion.class, AssetId.MANA_POTION);
+        registerItem(Coin.class, AssetId.COIN_PILE);
         registerItem(Chest.class, AssetId.CHEST_CLOSED);
 
         registerKey(KeyColor.OLIVE, AssetId.KEY_OLIVE);
