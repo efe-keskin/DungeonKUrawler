@@ -9,6 +9,7 @@ public class Hero extends Entity {
     private final int maxHp;
     private int str;
     private int mana;
+    private final int maxMana;
     private int def;
     private int energy;
     private final int maxEnergy;
@@ -25,6 +26,7 @@ public class Hero extends Entity {
         this.maxHp = hp;
         this.str = str;
         this.mana = mana;
+        this.maxMana = mana;
         this.def = def;
         this.energy = energy;
         this.maxEnergy = energy;
@@ -48,7 +50,7 @@ public class Hero extends Entity {
     }
 
     public int getStr() {
-        return str + (equippedWeapon == null ? 0 : equippedWeapon.getAtkValue());
+        return str;
     }
 
     public void setStr(int str) {
@@ -57,6 +59,10 @@ public class Hero extends Entity {
 
     public int getMana() {
         return mana;
+    }
+
+    public int getMaxMana() {
+        return maxMana;
     }
 
     public void setMana(int mana) {
@@ -182,5 +188,20 @@ public class Hero extends Entity {
             return;
         }
         this.hp = Math.min(maxHp, this.hp + amount);
+    }
+
+    public void restoreMana(int amount) {
+        if (amount <= 0 || this.mana >= maxMana) {
+            return;
+        }
+        this.mana = Math.min(maxMana, this.mana + amount);
+    }
+
+    public boolean spendMana(int amount) {
+        if (amount <= 0 || this.mana < amount) {
+            return false;
+        }
+        this.mana -= amount;
+        return true;
     }
 }
