@@ -1,5 +1,6 @@
 package engine;
 
+import model.Coin;
 import model.DungeonMap;
 import model.GridCell;
 import model.Hero;
@@ -51,6 +52,11 @@ public class InventoryController {
         Item item = cell.getItemsView().get(0);
         if (!item.isTakable()) {
             return PickupResult.NOT_TAKABLE;
+        }
+
+        if (item instanceof Coin) {
+            boolean collected = engine.takeItem(item, x, y);
+            return collected ? PickupResult.SUCCESS : PickupResult.NO_ITEM;
         }
 
         if (!hero.getInventory().hasFreeSlot()) {

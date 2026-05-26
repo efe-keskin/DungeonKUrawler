@@ -22,6 +22,7 @@ import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
+import model.Coin;
 import model.Container;
 import model.Item;
 import view.assets.AssetId;
@@ -193,10 +194,11 @@ public class ChestDialog extends JDialog {
         MouseAdapter takeOnClick = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                String action = item instanceof Coin ? "Collect " : "Take ";
                 int choice = JOptionPane.showConfirmDialog(
                         ChestDialog.this,
-                        "Take " + item.getName() + "?",
-                        "Take Item",
+                        action + item.getName() + "?",
+                        item instanceof Coin ? "Collect Coins" : "Take Item",
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.QUESTION_MESSAGE);
                 if (choice != JOptionPane.YES_OPTION) {
@@ -206,8 +208,8 @@ public class ChestDialog extends JDialog {
                 if (!taken) {
                     JOptionPane.showMessageDialog(
                             ChestDialog.this,
-                            "Inventory is full.",
-                            "Cannot Take Item",
+                            item instanceof Coin ? "Coin reward is no longer available." : "Inventory is full.",
+                            item instanceof Coin ? "Cannot Collect Coins" : "Cannot Take Item",
                             JOptionPane.WARNING_MESSAGE);
                     return;
                 }
