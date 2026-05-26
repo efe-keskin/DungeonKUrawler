@@ -2,6 +2,7 @@ package view;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Window;
@@ -9,7 +10,6 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -55,7 +55,23 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color HUD_COINS = new Color(235, 178, 45);
     private static final Color HUD_STR = new Color(205, 90, 70);
     private static final Color HUD_DEF = new Color(90, 140, 225);
-    private static final Color HUD_TEXT = new Color(240, 240, 240);
+    private static final Color HUD_STONE_OUTLINE = new Color(5, 5, 9);
+    private static final Color HUD_STONE_BORDER = new Color(103, 91, 75);
+    private static final Color HUD_STONE_HIGHLIGHT = new Color(156, 131, 85);
+    private static final Color HUD_PANEL_FILL = new Color(18, 17, 22);
+    private static final Color HUD_PANEL_INSET = new Color(28, 25, 27);
+    private static final Color HUD_GOLD = new Color(214, 170, 70);
+    private static final Color HUD_TITLE = new Color(240, 222, 180);
+    private static final Color HUD_TEXT = new Color(198, 190, 170);
+    private static final Color ARENA_BACKDROP_TOP = new Color(18, 16, 20);
+    private static final Color ARENA_BACKDROP_BOTTOM = new Color(9, 9, 13);
+    private static final Color ARENA_FRAME_OUTLINE = new Color(5, 5, 9);
+    private static final Color ARENA_FRAME_BORDER = new Color(71, 62, 54);
+    private static final Color ARENA_FRAME_HIGHLIGHT = new Color(125, 103, 65);
+    private static final Color ARENA_GOLD = new Color(164, 127, 53);
+    private static final int ARENA_SHIFT_X = 30;
+    private static final int ARENA_FRAME_PADDING = 12;
+    private static final int ARENA_EDGE_MARGIN = 10;
 
     private static final int HERO_ANIM_INTERVAL_MS = 100;
     private static final int ENERGY_REFILL_INTERVAL_MS = 300;
@@ -91,7 +107,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
 
         engine.addGameStateListener(this);
-        setBackground(Color.BLACK);
+        setBackground(ARENA_BACKDROP_BOTTOM);
         setOpaque(true);
         setFocusable(true);
 
@@ -145,10 +161,10 @@ public class GamePanel extends JPanel implements GameStateListener {
                 int tileSize = getTileSize(map);
                 int mapPixelW = map.getWidth() * tileSize;
                 int mapPixelH = map.getHeight() * tileSize;
-                int offsetX = (Math.max(1, GamePanel.this.getWidth()) - mapPixelW) / 2;
-                int offsetY = (Math.max(1, GamePanel.this.getHeight()) - mapPixelH) / 2;
+                int offsetX = getArenaOffsetX(mapPixelW);
+                int offsetY = getArenaOffsetY(mapPixelH);
 
-                // Ignore clicks outside the centered square map.
+                // Ignore clicks outside the shifted arena map.
                 if (e.getX() < offsetX || e.getX() >= offsetX + mapPixelW
                         || e.getY() < offsetY || e.getY() >= offsetY + mapPixelH) {
                     return;
@@ -164,34 +180,33 @@ public class GamePanel extends JPanel implements GameStateListener {
                 }
 
                 Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
-                String message = "Item: " + interaction.getItemName() + "\n"
-                        + "Takable: " + (interaction.isTakable() ? "Yes" : "No");
+                String message = interaction.isTakable()
+                        ? "This object is within reach."
+                        : "This object cannot be taken.";
                 if (interaction.getDetail() != null) {
                     message += "\n" + interaction.getDetail();
                 }
 
                 if (interaction.isTakable()) {
-                    Object[] options = { interaction.getActionLabel(), "Return to map" };
-                    int choice = JOptionPane.showOptionDialog(
+                    int choice = ItemActionMenuDialog.show(
                             parent,
+                            "Nearby Object",
+                            interaction.getItemName(),
                             message,
-                            "Item Interaction",
-                            JOptionPane.DEFAULT_OPTION,
-                            JOptionPane.INFORMATION_MESSAGE,
-                            null,
-                            options,
-                            options[0]);
+                            interaction.getActionLabel(),
+                            "Return to map");
 
                     if (choice == 0) {
                         InventoryController.PickupResult result = GamePanel.this.interactionController
                                 .takeItemAt(interaction.getX(), interaction.getY());
                         if (result != InventoryController.PickupResult.SUCCESS) {
-                            JOptionPane.showMessageDialog(parent, getPickupFailureMessage(result),
-                                    "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
+                            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
+                                    getPickupFailureMessage(result));
                         }
                     }
                 } else {
-                    JOptionPane.showMessageDialog(parent, message, "Item Interaction", JOptionPane.INFORMATION_MESSAGE);
+                    ItemActionMenuDialog.show(parent, "Nearby Object", interaction.getItemName(), message,
+                            "Return to map");
                 }
 
                 GamePanel.this.requestFocusInWindow();
@@ -206,9 +221,8 @@ public class GamePanel extends JPanel implements GameStateListener {
         Container container = engine.findContainerNearHero();
         Window parent = SwingUtilities.getWindowAncestor(this);
         if (container == null) {
-            JOptionPane.showMessageDialog(parent,
-                    "No container is within reach to open.",
-                    "Cannot Open", JOptionPane.WARNING_MESSAGE);
+            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Open",
+                    "No container is within reach to open.");
             requestFocusInWindow();
             return;
         }
@@ -216,26 +230,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         if (container.isLocked()) {
             model.Key match = engine.getHero().getInventory().findKey(container.getRequiredKeyId());
             if (match == null) {
-                JOptionPane.showMessageDialog(parent,
-                        container.getName() + " is locked.",
-                        "Locked", JOptionPane.WARNING_MESSAGE);
+                ItemActionMenuDialog.showNotice(parent, "Locked Container", "Locked",
+                        container.getName() + " is locked.");
                 requestFocusInWindow();
                 return;
             }
-            int choice = JOptionPane.showConfirmDialog(parent,
-                    "Open " + container.getName() + " with " + match.getName() + "?",
+            int choice = ItemActionMenuDialog.show(parent,
                     "Locked Container",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.QUESTION_MESSAGE);
-            if (choice != JOptionPane.YES_OPTION) {
+                    container.getName(),
+                    "Open with " + match.getName() + "?",
+                    "Open",
+                    "Leave");
+            if (choice != 0) {
                 requestFocusInWindow();
                 return;
             }
             LockController.UnlockResult result = engine.tryUnlock(container);
             if (result == LockController.UnlockResult.NO_MATCHING_KEY) {
-                JOptionPane.showMessageDialog(parent,
-                        container.getName() + " is locked.",
-                        "Locked", JOptionPane.WARNING_MESSAGE);
+                ItemActionMenuDialog.showNotice(parent, "Locked Container", "Locked",
+                        container.getName() + " is locked.");
                 requestFocusInWindow();
                 return;
             }
@@ -252,8 +265,7 @@ public class GamePanel extends JPanel implements GameStateListener {
             String message = engine.getHero().getInventory().isFull()
                     ? getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL)
                     : "No takable item is available on this tile or an adjacent tile.";
-            JOptionPane.showMessageDialog(parent, message,
-                    "Cannot Take Item", JOptionPane.WARNING_MESSAGE);
+            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item", message);
         }
 
         requestFocusInWindow();
@@ -317,9 +329,11 @@ public class GamePanel extends JPanel implements GameStateListener {
             int mapW = Math.max(1, map.getWidth());
             int mapH = Math.max(1, map.getHeight());
             int tileSize = getTileSize(map);
-            // Center the map and leave black background in the spare area.
-            int offsetX = (Math.max(1, getWidth()) - mapW * tileSize) / 2;
-            int offsetY = (Math.max(1, getHeight()) - mapH * tileSize) / 2;
+            int mapPixelW = mapW * tileSize;
+            int mapPixelH = mapH * tileSize;
+            int offsetX = getArenaOffsetX(mapPixelW);
+            int offsetY = getArenaOffsetY(mapPixelH);
+            drawArenaBackdrop(g2, offsetX, offsetY, mapPixelW, mapPixelH);
             // Pass 1: floor sprite under every passable cell.
             for (int x = 0; x < map.getWidth(); x++) {
                 for (int y = 0; y < map.getHeight(); y++) {
@@ -395,10 +409,56 @@ public class GamePanel extends JPanel implements GameStateListener {
     private int getTileSize(DungeonMap map) {
         int mapW = Math.max(1, map.getWidth());
         int mapH = Math.max(1, map.getHeight());
-        int availableW = Math.max(1, getWidth());
-        int availableH = Math.max(1, getHeight());
-        // Keep tile aspect ratio fixed by using the limiting dimension.
+        int frameSpace = (ARENA_FRAME_PADDING + ARENA_EDGE_MARGIN) * 2;
+        int availableW = Math.max(1, getWidth() - frameSpace);
+        int availableH = Math.max(1, getHeight() - frameSpace);
+        // Keep tile aspect ratio fixed and reserve room for the arena frame.
         return Math.max(1, Math.min(availableW / mapW, availableH / mapH));
+    }
+
+    private int getArenaOffsetX(int mapPixelWidth) {
+        int centered = (Math.max(1, getWidth()) - mapPixelWidth) / 2 + ARENA_SHIFT_X;
+        int margin = ARENA_EDGE_MARGIN + ARENA_FRAME_PADDING;
+        int maxOffset = Math.max(margin, getWidth() - mapPixelWidth - margin);
+        return Math.max(margin, Math.min(centered, maxOffset));
+    }
+
+    private int getArenaOffsetY(int mapPixelHeight) {
+        int centered = (Math.max(1, getHeight()) - mapPixelHeight) / 2;
+        int margin = ARENA_EDGE_MARGIN + ARENA_FRAME_PADDING;
+        int maxOffset = Math.max(margin, getHeight() - mapPixelHeight - margin);
+        return Math.max(margin, Math.min(centered, maxOffset));
+    }
+
+    private void drawArenaBackdrop(Graphics2D g2, int mapX, int mapY, int mapWidth, int mapHeight) {
+        int width = getWidth();
+        int height = getHeight();
+        g2.setPaint(new GradientPaint(0, 0, ARENA_BACKDROP_TOP, 0, height, ARENA_BACKDROP_BOTTOM));
+        g2.fillRect(0, 0, width, height);
+
+        g2.setColor(new Color(42, 35, 30, 55));
+        for (int lineY = 18; lineY < height; lineY += 34) {
+            g2.drawLine(0, lineY, width, lineY);
+        }
+
+        int x = mapX - ARENA_FRAME_PADDING;
+        int y = mapY - ARENA_FRAME_PADDING;
+        int w = mapWidth + ARENA_FRAME_PADDING * 2;
+        int h = mapHeight + ARENA_FRAME_PADDING * 2;
+        g2.setColor(new Color(0, 0, 0, 130));
+        g2.fillRect(x + 6, y + 7, w, h);
+        g2.setColor(ARENA_FRAME_OUTLINE);
+        g2.fillRect(x, y, w, h);
+        g2.setColor(ARENA_FRAME_BORDER);
+        g2.fillRect(x + 3, y + 3, w - 6, h - 6);
+        g2.setColor(ARENA_FRAME_HIGHLIGHT);
+        g2.fillRect(x + 6, y + 6, w - 12, 2);
+        g2.fillRect(x + 6, y + 6, 2, h - 12);
+        g2.setColor(new Color(41, 35, 32));
+        g2.fillRect(x + 8, y + 8, w - 16, h - 16);
+        g2.setColor(ARENA_GOLD);
+        g2.fillRect(x + 18, y + 8, 56, 2);
+        g2.fillRect(x + w - 74, y + 8, 56, 2);
     }
 
     private String getPickupFailureMessage(InventoryController.PickupResult result) {
@@ -487,37 +547,57 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
         int x = 10;
         int y = 10;
-        int w = 150;
-        int h = 102;
-        g2.setColor(new Color(0, 0, 0, 170));
+        int w = 176;
+        int h = 162;
+
+        g2.setColor(new Color(0, 0, 0, 120));
+        g2.fillRect(x + 6, y + 7, w - 4, h - 4);
+        g2.setColor(HUD_STONE_OUTLINE);
         g2.fillRect(x, y, w, h);
-        g2.setColor(new Color(90, 90, 100));
-        g2.drawRect(x, y, w, h);
+        g2.setColor(HUD_STONE_BORDER);
+        g2.fillRect(x + 3, y + 3, w - 6, h - 6);
+        g2.setColor(HUD_STONE_HIGHLIGHT);
+        g2.fillRect(x + 6, y + 6, w - 12, 2);
+        g2.fillRect(x + 6, y + 6, 2, h - 12);
+        g2.setColor(new Color(55, 47, 42));
+        g2.fillRect(x + 6, y + h - 8, w - 12, 2);
+        g2.fillRect(x + w - 8, y + 6, 2, h - 12);
+        g2.setColor(HUD_PANEL_FILL);
+        g2.fillRect(x + 10, y + 10, w - 20, h - 20);
+        g2.setColor(HUD_PANEL_INSET);
+        g2.fillRect(x + 15, y + 15, w - 30, h - 30);
 
-        g2.setColor(HUD_HP);
-        g2.fillRect(x + 8, y + 8, 12, 12);
-        g2.setColor(HUD_TEXT);
-        g2.drawString("HP: " + hero.getHp(), x + 26, y + 19);
+        g2.setFont(retroHudFont(12f));
+        g2.setColor(HUD_GOLD);
+        g2.drawString("HERO STATUS", x + 25, y + 34);
+        g2.fillRect(x + 24, y + 42, w - 48, 2);
 
-        g2.setColor(HUD_ENERGY);
-        g2.fillRect(x + 8, y + 26, 12, 12);
-        g2.setColor(HUD_TEXT);
-        g2.drawString("Energy: " + hero.getEnergy(), x + 26, y + 37);
+        g2.setFont(retroHudFont(11f));
+        drawHudStat(g2, x, y + 55, HUD_HP, "HP", Integer.toString(hero.getHp()));
+        drawHudStat(g2, x, y + 73, HUD_ENERGY, "ENERGY", Integer.toString(hero.getEnergy()));
+        drawHudStat(g2, x, y + 91, HUD_COINS, "COINS", Integer.toString(hero.getCoinBalance()));
+        drawHudStat(g2, x, y + 109, HUD_STR, "STR", Integer.toString(hero.getStr()));
+        drawHudStat(g2, x, y + 127, HUD_DEF, "DEF", Integer.toString(hero.getDef()));
+    }
 
-        g2.setColor(HUD_COINS);
-        g2.fillRect(x + 8, y + 44, 12, 12);
+    private void drawHudStat(Graphics2D g2, int panelX, int rowY, Color marker, String label, String value) {
+        g2.setColor(HUD_STONE_OUTLINE);
+        g2.fillRect(panelX + 25, rowY + 2, 11, 11);
+        g2.setColor(marker);
+        g2.fillRect(panelX + 27, rowY + 4, 7, 7);
         g2.setColor(HUD_TEXT);
-        g2.drawString("Coins: " + hero.getCoinBalance(), x + 26, y + 55);
+        g2.drawString(label, panelX + 44, rowY + 12);
+        g2.setColor(HUD_TITLE);
+        int valueX = panelX + 145 - g2.getFontMetrics().stringWidth(value);
+        g2.drawString(value, valueX, rowY + 12);
+    }
 
-        g2.setColor(HUD_STR);
-        g2.fillRect(x + 8, y + 62, 12, 12);
-        g2.setColor(HUD_TEXT);
-        g2.drawString("STR: " + hero.getStr(), x + 26, y + 73);
-
-        g2.setColor(HUD_DEF);
-        g2.fillRect(x + 8, y + 80, 12, 12);
-        g2.setColor(HUD_TEXT);
-        g2.drawString("DEF: " + hero.getDef(), x + 26, y + 91);
+    private java.awt.Font retroHudFont(float size) {
+        java.awt.Font base = RetroTheme.UI_MONO_SMALL;
+        if (base == null) {
+            base = getFont();
+        }
+        return base.deriveFont(java.awt.Font.PLAIN, size);
     }
 
     /**

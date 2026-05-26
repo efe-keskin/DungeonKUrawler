@@ -14,7 +14,6 @@ import java.awt.image.BufferedImage;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
@@ -76,18 +75,14 @@ public class MainMenuWindow extends JFrame {
 
         JButton load = new JButton("LOAD MAP");
         RetroTheme.styleRetroButton(load, RetroTheme.BTN_SECONDARY);
-        load.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                "Load Map is not implemented yet.",
-                "Load Map",
-                JOptionPane.INFORMATION_MESSAGE));
+        load.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Menu", "Load Map",
+                "Load Map is not implemented yet."));
 
         JButton build = new JButton("BUILD MAP");
         RetroTheme.styleRetroButton(build, new Color(180, 160, 40));
         build.setForeground(Color.WHITE);
-        build.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                "Build Map is not implemented yet.",
-                "Build Map",
-                JOptionPane.INFORMATION_MESSAGE));
+        build.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Menu", "Build Map",
+                "Build Map is not implemented yet."));
 
         JButton help = new JButton();
         ImageIcon helpIcon = AssetManager.get().icon(AssetId.HELP_QUESTION_MARK, 40, 40);
@@ -101,11 +96,9 @@ public class MainMenuWindow extends JFrame {
         help.setBorderPainted(false);
         help.setContentAreaFilled(false);
         help.setOpaque(false);
-        help.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                "Build Mode — Arrow keys or WASD to move.\n"
-                        + "The engine handles all rules; UI only forwards input.",
-                "Help",
-                JOptionPane.INFORMATION_MESSAGE));
+        help.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Controls", "Help",
+                "Build Mode - Arrow keys or WASD to move.\n"
+                        + "The engine handles all rules; UI only forwards input."));
 
         JButton exit = new JButton("EXIT");
         RetroTheme.styleRetroButton(exit, RetroTheme.BTN_DANGER);
