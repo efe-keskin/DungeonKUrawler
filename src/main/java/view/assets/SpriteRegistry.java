@@ -9,6 +9,7 @@ import java.util.Map;
 import model.Chest;
 import model.Coin;
 import model.Book;
+import model.DefeatedEnemyMarker;
 import model.Entity;
 import model.HealPotion;
 import model.Item;
@@ -16,6 +17,7 @@ import model.Key;
 import model.KeyColor;
 import model.Knight;
 import model.EnergyPotion;
+import model.ManaPotion;
 import model.Ring;
 import model.Sorcerer;
 import model.ValuableItem;
@@ -49,10 +51,12 @@ public final class SpriteRegistry {
 
         registerItem(HealPotion.class, AssetId.HEAL_POTION);
         registerItem(EnergyPotion.class, AssetId.ENERGY_POTION);
+        registerItem(ManaPotion.class, AssetId.MANA_POTION);
         registerItem(Coin.class, AssetId.COIN_PILE);
         registerItem(Ring.class, AssetId.RING_RED_GEM);
         registerItem(Book.class, AssetId.BOOK_RED);
         registerItem(ValuableItem.class, AssetId.GEM_WHITE);
+        registerItem(DefeatedEnemyMarker.class, AssetId.DEFEATED_ENEMY_MARKER);
         registerItem(Chest.class, AssetId.CHEST_CLOSED);
 
         registerKey(KeyColor.OLIVE, AssetId.KEY_OLIVE);

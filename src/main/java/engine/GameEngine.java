@@ -22,6 +22,7 @@ import model.Key;
 import model.KeyColor;
 import model.Lockable;
 import model.EnergyPotion;
+import model.ManaPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
@@ -52,17 +53,24 @@ public class GameEngine {
     private final Hero hero;
     private final Random random;
     private final EnemyFactory enemyFactory;
+    private final CombatManager combatManager = new CombatManager();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
 
     private Timer spawnTimer;
     private Timer coinSpawnTimer;
     private Timer detectionTimer;
+    private Timer knightActionTimer;
+    private Timer sorcererAttackTimer;
+    private Timer sorcererTeleportTimer;
 
-    private static final int SPAWN_INTERVAL_MS = 9000;
+    private static final int SPAWN_INTERVAL_MS = 20000;
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
-    private static final int MAX_ENEMIES = 5;
+    private static final int KNIGHT_ACTION_TICK_MS = 800;
+    private static final int SORCERER_ATTACK_TICK_MS = 5000;
+    private static final int SORCERER_TELEPORT_TICK_MS = 7000;
+    private static final int MAX_ENEMIES = 3;
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
@@ -97,6 +105,10 @@ public class GameEngine {
         for (GameStateListener listener : listeners) {
             listener.onGameStateChanged();
         }
+    }
+
+    void notifyGameStateChanged() {
+        notifyListeners();
     }
 
     // DEMO WALLS
@@ -134,6 +146,11 @@ public class GameEngine {
         GridCell itemCell2 = map.getCell(5, 3);
         if (itemCell2 != null) {
             itemCell2.getItems().add(new EnergyPotion());
+        }
+
+        GridCell itemCell3 = map.getCell(5, 4);
+        if (itemCell3 != null) {
+            itemCell3.getItems().add(new ManaPotion());
         }
 
         GridCell ringCell = map.getCell(3, 3);
@@ -594,6 +611,18 @@ public class GameEngine {
         detectionTimer = new Timer(DETECTION_TICK_MS, e -> updateEnemyDetection());
         detectionTimer.setRepeats(true);
         detectionTimer.start();
+
+        knightActionTimer = new Timer(KNIGHT_ACTION_TICK_MS, e -> updateKnightActions());
+        knightActionTimer.setRepeats(true);
+        knightActionTimer.start();
+
+        sorcererAttackTimer = new Timer(SORCERER_ATTACK_TICK_MS, e -> updateSorcererAttacks());
+        sorcererAttackTimer.setRepeats(true);
+        sorcererAttackTimer.start();
+
+        sorcererTeleportTimer = new Timer(SORCERER_TELEPORT_TICK_MS, e -> updateSorcererTeleports());
+        sorcererTeleportTimer.setRepeats(true);
+        sorcererTeleportTimer.start();
     }
 
     /** Counts all Knight/Sorcerer entities currently on the map. */
@@ -629,6 +658,53 @@ public class GameEngine {
                         changed = true;
                     }
                 }
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    private void updateKnightActions() {
+        boolean changed = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (!(enemy instanceof Knight knight)) {
+                continue;
+            }
+            if (isAdjacentToHero(knight)) {
+                combatManager.knightAttacksHero(knight, hero);
+                changed = true;
+                continue;
+            }
+            if (knight.getAiState() == AIState.CHASING) {
+                changed |= moveEnemyTowardHero(knight);
+            } else {
+                changed |= moveEnemyRandomly(knight);
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    private void updateSorcererAttacks() {
+        boolean changed = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (enemy instanceof Sorcerer sorcerer) {
+                CombatManager.AttackResult result = combatManager.sorcererAttacksHero(sorcerer, hero);
+                changed |= result.getDamageGenerated() > 0;
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    private void updateSorcererTeleports() {
+        boolean changed = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (enemy instanceof Sorcerer && random.nextBoolean()) {
+                changed |= teleportEnemyToRandomEmptyCell(enemy);
             }
         }
         if (changed) {
@@ -677,10 +753,107 @@ public class GameEngine {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    private List<Entity> enemiesSnapshot() {
+        List<Entity> enemies = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Entity entity : cell.getEntitiesView()) {
+                    if (entity instanceof Knight || entity instanceof Sorcerer) {
+                        enemies.add(entity);
+                    }
+                }
+            }
+        }
+        return enemies;
+    }
+
+    private boolean isAdjacentToHero(Entity entity) {
+        return dungeonMap.isHeroAdjacent(hero, entity.getX(), entity.getY());
+    }
+
+    private boolean moveEnemyTowardHero(Entity enemy) {
+        int dx = Integer.compare(hero.getX(), enemy.getX());
+        int dy = Integer.compare(hero.getY(), enemy.getY());
+
+        if (Math.abs(hero.getX() - enemy.getX()) >= Math.abs(hero.getY() - enemy.getY())) {
+            if (tryMoveEnemy(enemy, enemy.getX() + dx, enemy.getY())) {
+                return true;
+            }
+            return tryMoveEnemy(enemy, enemy.getX(), enemy.getY() + dy);
+        }
+        if (tryMoveEnemy(enemy, enemy.getX(), enemy.getY() + dy)) {
+            return true;
+        }
+        return tryMoveEnemy(enemy, enemy.getX() + dx, enemy.getY());
+    }
+
+    private boolean moveEnemyRandomly(Entity enemy) {
+        Direction[] directions = Direction.values();
+        Direction first = directions[random.nextInt(directions.length)];
+        for (int i = 0; i < directions.length; i++) {
+            Direction direction = directions[(first.ordinal() + i) % directions.length];
+            int nx = enemy.getX();
+            int ny = enemy.getY();
+            switch (direction) {
+                case UP -> ny--;
+                case DOWN -> ny++;
+                case LEFT -> nx--;
+                case RIGHT -> nx++;
+            }
+            if (tryMoveEnemy(enemy, nx, ny)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean tryMoveEnemy(Entity enemy, int nx, int ny) {
+        if (nx == enemy.getX() && ny == enemy.getY()) {
+            return false;
+        }
+        GridCell from = dungeonMap.getCell(enemy.getX(), enemy.getY());
+        GridCell to = dungeonMap.getCell(nx, ny);
+        if (from == null || to == null || !to.isWalkable() || !to.getEntitiesView().isEmpty()) {
+            return false;
+        }
+        from.getEntities().remove(enemy);
+        enemy.setX(nx);
+        enemy.setY(ny);
+        to.getEntities().add(enemy);
+        return true;
+    }
+
+    private boolean teleportEnemyToRandomEmptyCell(Entity enemy) {
+        List<GridCell> candidates = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null || !cell.isWalkable()
+                        || !cell.getItemsView().isEmpty()
+                        || !cell.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+                candidates.add(cell);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return false;
+        }
+        GridCell destination = candidates.get(random.nextInt(candidates.size()));
+        return tryMoveEnemy(enemy, destination.getX(), destination.getY());
+    }
+
     /** Stops timers — call this on shutdown if you wire it up later. */
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
+        if (knightActionTimer != null) knightActionTimer.stop();
+        if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
+        if (sorcererTeleportTimer != null) sorcererTeleportTimer.stop();
     }
 }

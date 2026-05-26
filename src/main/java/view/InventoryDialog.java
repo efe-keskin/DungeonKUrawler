@@ -258,7 +258,7 @@ public class InventoryDialog extends JDialog {
             return item.getName() + equipped + "\nArmor: +" + armor.getDefModifier() + " DEF";
         }
         if (item instanceof Weapon weapon) {
-            return item.getName() + equipped + "\nWeapon: +" + weapon.getAtkValue() + " STR";
+            return item.getName() + equipped + "\nWeapon: +" + weapon.getAtkValue() + " ATK";
         }
         if (item instanceof Potion) {
             return item.getName() + "\nConsume this potion or discard it.";
