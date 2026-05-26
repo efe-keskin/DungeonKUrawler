@@ -1,7 +1,9 @@
 package model;
 
+import java.util.List;
+
 /**
- * Equipment that modifies defense when equipped (logic in later phases).
+ * Equipment that modifies defense when worn.
  */
 public class Armor extends Item {
 
@@ -18,5 +20,10 @@ public class Armor extends Item {
 
     public void setDefModifier(int defModifier) {
         this.defModifier = defModifier;
+    }
+
+    @Override
+    public List<ItemAction> getInventoryActions() {
+        return List.of(ItemAction.WEAR, ItemAction.DISCARD);
     }
 }

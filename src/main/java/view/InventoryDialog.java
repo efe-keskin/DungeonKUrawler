@@ -8,6 +8,7 @@ import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JButton;
@@ -22,9 +23,14 @@ import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
 import model.Armor;
+import model.Book;
 import model.Inventory;
 import model.Item;
+import model.ItemAction;
+import model.Key;
 import model.Potion;
+import model.Ring;
+import model.ValuableItem;
 import model.Weapon;
 import view.assets.AssetId;
 import view.assets.AssetManager;
@@ -154,9 +160,7 @@ public class InventoryDialog extends JDialog {
             overlay.add(icon);
             slot.add(overlay);
 
-            if (item instanceof Potion potion) {
-                attachDrinkHandler(slot, overlay, icon, potion);
-            }
+            attachActionHandler(slot, overlay, item, icon);
             return slot;
         }
 
@@ -176,41 +180,96 @@ public class InventoryDialog extends JDialog {
         overlay.add(name);
         slot.add(overlay);
 
-        if (item instanceof Potion potion) {
-            attachDrinkHandler(slot, overlay, potion, marker, name);
-        }
+        attachActionHandler(slot, overlay, item, marker, name);
 
         return slot;
     }
 
-    private void attachDrinkHandler(JPanel slot, JPanel overlay, Potion potion, JComponent... extras) {
+    private void attachActionHandler(JPanel slot, JPanel overlay, Item item, JComponent... extras) {
         slot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         overlay.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        MouseAdapter drinkOnClick = new MouseAdapter() {
+        MouseAdapter actionOnClick = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                int choice = JOptionPane.showConfirmDialog(
-                        InventoryDialog.this,
-                        "Consume " + potion.getName() + "?",
-                        "Use Item",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.QUESTION_MESSAGE);
-                if (choice != JOptionPane.YES_OPTION) {
-                    return;
-                }
-                engine.consumePotion(potion);
-                rebuildUi();
+                showItemActions(item);
             }
         };
-        slot.addMouseListener(drinkOnClick);
-        overlay.addMouseListener(drinkOnClick);
+        slot.addMouseListener(actionOnClick);
+        overlay.addMouseListener(actionOnClick);
         for (JComponent extra : extras) {
-            extra.addMouseListener(drinkOnClick);
+            extra.addMouseListener(actionOnClick);
         }
     }
 
-    private void attachDrinkHandler(JPanel slot, JPanel overlay, JLabel icon, Potion potion) {
-        attachDrinkHandler(slot, overlay, potion, icon);
+    private void showItemActions(Item item) {
+        List<ItemAction> actions = new ArrayList<>(item.getInventoryActions());
+        if (engine.getHero().isEquipped(item)) {
+            for (int i = 0; i < actions.size(); i++) {
+                ItemAction action = actions.get(i);
+                if (action == ItemAction.WEAR || action == ItemAction.EQUIP) {
+                    actions.set(i, ItemAction.REMOVE);
+                    break;
+                }
+            }
+        }
+
+        Object[] options = actions.stream().map(ItemAction::getLabel).toArray();
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                itemDescription(item),
+                "Use " + item.getName(),
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]);
+        if (choice < 0) {
+            return;
+        }
+
+        ItemAction action = actions.get(choice);
+        if (!engine.performInventoryAction(item, action)) {
+            JOptionPane.showMessageDialog(this, "That action is no longer available.",
+                    "Cannot Use Item", JOptionPane.WARNING_MESSAGE);
+            rebuildUi();
+            return;
+        }
+
+        if (action == ItemAction.READ && item instanceof Book book) {
+            JOptionPane.showMessageDialog(this, book.read(), item.getName(), JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        if (action == ItemAction.WEAR || action == ItemAction.EQUIP || action == ItemAction.REMOVE) {
+            JOptionPane.showMessageDialog(this,
+                    "STR: " + engine.getHero().getStr() + "    DEF: " + engine.getHero().getDef(),
+                    "Equipment Updated",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+        rebuildUi();
+    }
+
+    private String itemDescription(Item item) {
+        String equipped = engine.getHero().isEquipped(item) ? " (Equipped)" : "";
+        if (item instanceof Ring ring) {
+            return item.getName() + equipped + "\nProtective ring: +" + ring.getDefBonus() + " DEF";
+        }
+        if (item instanceof Armor armor) {
+            return item.getName() + equipped + "\nArmor: +" + armor.getDefModifier() + " DEF";
+        }
+        if (item instanceof Weapon weapon) {
+            return item.getName() + equipped + "\nWeapon: +" + weapon.getAtkValue() + " STR";
+        }
+        if (item instanceof Potion) {
+            return item.getName() + "\nConsume this potion or discard it.";
+        }
+        if (item instanceof Key) {
+            return item.getName() + "\nUsed automatically when opening a matching locked chest.";
+        }
+        if (item instanceof Book) {
+            return item.getName() + "\nA readable object.";
+        }
+        return item.getName() + "\nA collectible valuable object.";
     }
 
     private BufferedImage itemSprite(Item item) {
@@ -239,6 +298,18 @@ public class InventoryDialog extends JDialog {
         if (item instanceof Armor) {
             return "ARM";
         }
+        if (item instanceof Ring) {
+            return "RNG";
+        }
+        if (item instanceof Book) {
+            return "BOK";
+        }
+        if (item instanceof Key) {
+            return "KEY";
+        }
+        if (item instanceof ValuableItem) {
+            return "VAL";
+        }
         return "ITM";
     }
 
@@ -251,6 +322,15 @@ public class InventoryDialog extends JDialog {
         }
         if (item instanceof Armor) {
             return new Color(60, 95, 130);
+        }
+        if (item instanceof Ring) {
+            return new Color(130, 95, 35);
+        }
+        if (item instanceof Book) {
+            return new Color(120, 45, 35);
+        }
+        if (item instanceof Key) {
+            return new Color(145, 120, 40);
         }
         return new Color(95, 85, 120);
     }

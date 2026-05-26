@@ -17,11 +17,17 @@ import model.GridCell;
 import model.HealPotion;
 import model.Hero;
 import model.Item;
+import model.ItemAction;
 import model.Key;
 import model.KeyColor;
 import model.Lockable;
 import model.ManaPotion;
 import model.Potion;
+import model.Armor;
+import model.Book;
+import model.Ring;
+import model.ValuableItem;
+import model.Weapon;
 import javax.swing.Timer;
 
 import model.AIState;
@@ -130,11 +136,28 @@ public class GameEngine {
             itemCell2.getItems().add(new ManaPotion());
         }
 
+        GridCell ringCell = map.getCell(3, 3);
+        if (ringCell != null) {
+            ringCell.getItems().add(new Ring("Protective Ring", 2));
+        }
+
+        GridCell weaponCell = map.getCell(11, 3);
+        if (weaponCell != null) {
+            weaponCell.getItems().add(new Weapon("Iron Sword", 3, false));
+        }
+
+        GridCell valuableCell = map.getCell(12, 8);
+        if (valuableCell != null) {
+            valuableCell.getItems().add(new ValuableItem("Crystal Shard"));
+        }
+
         GridCell chestCell = map.getCell(4, 2);
         if (chestCell != null) {
             Chest chest = new Chest("Wooden Chest", 16);
             chest.addItem(new HealPotion());
             chest.addItem(new Key("silver", KeyColor.SILVER));
+            chest.addItem(new Book("Explorer's Journal",
+                    "The old silver chest protects equipment for anyone brave enough to unlock it."));
             chestCell.getItems().add(chest);
         }
 
@@ -148,6 +171,7 @@ public class GameEngine {
             Chest lockedChest = Chest.locked("Silver Chest", 16, "silver");
             lockedChest.addItem(new ManaPotion());
             lockedChest.addItem(new Key("gold", KeyColor.GOLD));
+            lockedChest.addItem(new Armor("Leather Armor", 3));
             lockedChestCell.getItems().add(lockedChest);
         }
 
@@ -290,14 +314,72 @@ public class GameEngine {
      * No-op when the potion is not in the inventory.
      */
     public void consumePotion(Potion potion) {
-        if (potion == null) {
-            return;
+        performInventoryAction(potion, ItemAction.DRINK);
+    }
+
+    /**
+     * Applies an action chosen for an item currently carried by the hero.
+     * Equipment remains in inventory while equipped; discard removes its
+     * contribution before removing the item.
+     */
+    public boolean performInventoryAction(Item item, ItemAction action) {
+        if (item == null || action == null || !hero.getInventory().getItems().contains(item)) {
+            return false;
         }
-        if (!hero.getInventory().remove((Item) potion)) {
-            return;
+
+        boolean removeAction = action == ItemAction.REMOVE && hero.isEquipped(item);
+        if (!removeAction && !item.getInventoryActions().contains(action)) {
+            return false;
+        }
+
+        boolean applied;
+        switch (action) {
+            case DRINK:
+                applied = drinkInventoryPotion(item);
+                break;
+            case WEAR:
+                applied = wearInventoryItem(item);
+                break;
+            case EQUIP:
+                applied = item instanceof Weapon weapon && hero.equipWeapon(weapon);
+                break;
+            case READ:
+                applied = item instanceof Book;
+                break;
+            case REMOVE:
+                applied = hero.removeEquipment(item);
+                break;
+            case DISCARD:
+                hero.removeEquipment(item);
+                applied = hero.getInventory().remove(item);
+                break;
+            default:
+                applied = false;
+                break;
+        }
+
+        if (applied && action != ItemAction.READ) {
+            notifyListeners();
+        }
+        return applied;
+    }
+
+    private boolean drinkInventoryPotion(Item item) {
+        if (!(item instanceof Potion potion) || !hero.getInventory().remove(item)) {
+            return false;
         }
         potion.drink(hero);
-        notifyListeners();
+        return true;
+    }
+
+    private boolean wearInventoryItem(Item item) {
+        if (item instanceof Armor armor) {
+            return hero.wearArmor(armor);
+        }
+        if (item instanceof Ring ring) {
+            return hero.wearRing(ring);
+        }
+        return false;
     }
 
     /**
