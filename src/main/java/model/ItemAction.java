@@ -9,7 +9,12 @@ public enum ItemAction {
     EQUIP("EQUIP"),
     READ("READ"),
     REMOVE("REMOVE"),
-    DISCARD("DISCARD");
+    DISCARD("DISCARD"),
+    SEARCH("SEARCH"),
+    BREAK("BREAK"),
+    OPEN("OPEN"),
+    EAT("EAT"),
+    CAST("CAST");
 
     private final String label;
 
