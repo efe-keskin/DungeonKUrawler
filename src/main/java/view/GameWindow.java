@@ -17,6 +17,7 @@ import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -46,6 +47,7 @@ public class GameWindow extends JFrame implements GameStateListener {
 
     private final GameEngine engine;
     private JButton pauseButton;
+    private boolean gameOverDialogShown;
 
     public GameWindow(GameEngine engine) {
         this.engine = engine;
@@ -178,6 +180,24 @@ public class GameWindow extends JFrame implements GameStateListener {
     public void onGameStateChanged() {
         if (pauseButton != null) {
             pauseButton.setText(engine.isPaused() ? "RESUME" : "PAUSE");
+        }
+
+        if (engine.isGameOver() && !gameOverDialogShown) {
+            gameOverDialogShown = true;
+            SwingUtilities.invokeLater(() -> {
+                Object[] options = new Object[] { "Return to Menu" };
+                JOptionPane.showOptionDialog(
+                        GameWindow.this,
+                        "Your HP reached 0.",
+                        "DEFEAT",
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.ERROR_MESSAGE,
+                        null,
+                        options,
+                        options[0]);
+                dispose();
+                SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
+            });
         }
     }
 

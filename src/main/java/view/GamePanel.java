@@ -164,7 +164,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                     applyPauseState();
                     return;
                 }
-                if (engine.isPaused()) {
+                if (engine.isGameOver() || engine.isPaused()) {
                     return;
                 }
                 if (e.getKeyCode() == KeyEvent.VK_T) {
@@ -189,7 +189,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                if (engine.isPaused()) {
+                if (engine.isGameOver() || engine.isPaused()) {
                     return;
                 }
                 Direction d = Direction.fromKeyCode(e.getKeyCode());                
@@ -203,7 +203,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
-                if (engine.isPaused()) {
+                if (engine.isGameOver() || engine.isPaused()) {
                     return;
                 }
                 DungeonMap map = GamePanel.this.engine.getDungeonMap();

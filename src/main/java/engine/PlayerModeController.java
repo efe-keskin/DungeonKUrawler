@@ -21,7 +21,7 @@ public class PlayerModeController {
     }
 
     public void moveHero(Direction direction) {
-        if (direction == null || engine.isPaused()) {
+        if (direction == null || engine.isPaused() || engine.isGameOver()) {
             return;
         }
 
