@@ -11,6 +11,7 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -219,40 +220,18 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
-                InteractionController.ItemInteraction interaction = GamePanel.this.interactionController
-                        .getItemInteraction(gridX, gridY);
-                if (interaction == null) {
+                List<InteractionController.ItemInteraction> interactions = GamePanel.this.interactionController
+                        .getItemInteractions(gridX, gridY);
+                if (interactions.isEmpty()) {
                     return;
                 }
 
-                String message = interaction.isTakable()
-                        ? "This object is within reach."
-                        : "This object cannot be taken.";
-
-                if (interaction.getDetail() != null) {
-                    message += "\n" + interaction.getDetail();
-                }
-
-                if (interaction.isTakable()) {
-                    int choice = ItemActionMenuDialog.show(
-                            parent,
-                            "Nearby Object",
-                            interaction.getItemName(),
-                            message,
-                            interaction.getActionLabel(),
-                            "Return to map");
-
-                    if (choice == 0) {
-                        InventoryController.PickupResult result = GamePanel.this.interactionController
-                                .takeItemAt(interaction.getX(), interaction.getY());
-                        if (result != InventoryController.PickupResult.SUCCESS) {
-                            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
-                                    getPickupFailureMessage(result));
-                        }
+                for (int i = 0; i < interactions.size(); i++) {
+                    InteractionController.ItemInteraction interaction = interactions.get(i);
+                    boolean handled = presentItemInteraction(parent, interaction, i, interactions.size());
+                    if (handled) {
+                        break;
                     }
-                } else {
-                    ItemActionMenuDialog.show(parent, "Nearby Object", interaction.getItemName(), message,
-                            "Return to map");
                 }
 
                 GamePanel.this.requestFocusInWindow();
@@ -267,6 +246,55 @@ public class GamePanel extends JPanel implements GameStateListener {
 
 
 
+    }
+
+    /**
+     * Shows the action menu for one ground item and runs the user's choice.
+     *
+     * @return {@code true} when the user picked a real action (caller should
+     *         stop iterating remaining items); {@code false} when the menu was
+     *         skipped/cancelled so the caller can move on to the next item.
+     */
+    private boolean presentItemInteraction(Window parent,
+            InteractionController.ItemInteraction interaction, int index, int total) {
+        List<InteractionController.ActionOption> actions = interaction.getActions();
+        String dismissLabel = (index < total - 1) ? "Next Item" : "Close";
+        String[] labels = new String[actions.size() + 1];
+        for (int i = 0; i < actions.size(); i++) {
+            labels[i] = actions.get(i).getLabel();
+        }
+        labels[labels.length - 1] = dismissLabel;
+
+        String message = interaction.isTakable()
+                ? "This object is within reach."
+                : "This object cannot be taken.";
+        if (interaction.getDetail() != null) {
+            message += "\n" + interaction.getDetail();
+        }
+        if (total > 1) {
+            message += "\n(Item " + (index + 1) + " of " + total + ")";
+        }
+
+        int choice = ItemActionMenuDialog.show(parent, "Nearby Object",
+                interaction.getItemName(), message, labels);
+        if (choice < 0 || choice == labels.length - 1) {
+            return false;
+        }
+
+        InteractionController.ActionOption picked = actions.get(choice);
+        if (picked.isPickup()) {
+            InventoryController.PickupResult result = interactionController.takeItemAt(
+                    interaction.getX(), interaction.getY());
+            if (result != InventoryController.PickupResult.SUCCESS) {
+                ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
+                        getPickupFailureMessage(result));
+            }
+        } else if (!interactionController.applyGroundAction(interaction.getItem(),
+                interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
+            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Use Item",
+                    "That action could not be performed on " + interaction.getItemName() + ".");
+        }
+        return true;
     }
 
     private void leaveDefeatMarker(int gridX, int gridY) {
