@@ -6,6 +6,7 @@ import model.Knight;
 import model.Ring;
 import model.Sorcerer;
 import model.Weapon;
+import model.WeaponType;
 
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,7 @@ class CombatManagerTest {
         int unarmedDamage = combatManager.heroAttacksKnight(unarmedHero, unarmedTarget).getDamageReceived();
 
         Hero armedHero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
-        Weapon ironSword = new Weapon("Iron Sword", 3, false);
+        Weapon ironSword = new Weapon(new WeaponType("TEST_IRON", "Iron Sword", "swords", null, 3, false));
         armedHero.getInventory().tryAdd(ironSword);
         armedHero.equipWeapon(ironSword);
         Knight armedTarget = new Knight(1, 0, "Knight", 20, 0, 0, 5);
@@ -102,7 +103,7 @@ class CombatManagerTest {
     @Test
     void defenderDefeatedFlagIsTrueWhenHpDropsToZero() {
         Hero hero = new Hero(0, 0, "Hero", 100, 20, 80, 2, 100);
-        Weapon ironSword = new Weapon("Iron Sword", 3, false);
+        Weapon ironSword = new Weapon(new WeaponType("TEST_IRON", "Iron Sword", "swords", null, 3, false));
         hero.getInventory().tryAdd(ironSword);
         hero.equipWeapon(ironSword);
         Sorcerer target = new Sorcerer(1, 0, "Sorcerer", 3, 30, 0, false);

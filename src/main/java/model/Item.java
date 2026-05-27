@@ -45,4 +45,15 @@ public abstract class Item {
     public List<ItemAction> getInventoryActions() {
         return List.of(ItemAction.DISCARD);
     }
+
+    /**
+     * Optional per-instance sprite override (classpath resource path). Returning
+     * {@code null} — the default — lets the view fall back to its class→AssetId
+     * registry. Items whose art varies per instance (e.g. weapons backed by
+     * {@link WeaponType}) override this; lets the view dispatch polymorphically
+     * instead of {@code instanceof}-checking the model.
+     */
+    public String spriteResource() {
+        return null;
+    }
 }
