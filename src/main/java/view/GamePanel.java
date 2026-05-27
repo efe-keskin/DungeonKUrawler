@@ -159,7 +159,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_P) {
+                if (e.getKeyCode() == KeyEvent.VK_R) {
                     engine.togglePause();
                     applyPauseState();
                     return;
