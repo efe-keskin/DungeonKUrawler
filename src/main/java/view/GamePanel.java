@@ -63,6 +63,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final Color HUD_COINS = new Color(235, 178, 45);
     private static final Color HUD_STR = new Color(205, 90, 70);
     private static final Color HUD_DEF = new Color(90, 140, 225);
+    private static final Color HUD_MANA = new Color(140, 90, 220);
     private static final Color HUD_STONE_OUTLINE = new Color(5, 5, 9);
     private static final Color HUD_STONE_BORDER = new Color(103, 91, 75);
     private static final Color HUD_STONE_HIGHLIGHT = new Color(156, 131, 85);
@@ -86,8 +87,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float ENEMY_ANIM_STEP = 0.25f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
-    private static final int KNIGHT_MAX_HP = 40;
-    private static final int SORCERER_MAX_HP = 25;
+    private static final int KNIGHT_MAX_HP = 20;
+    private static final int SORCERER_MAX_HP = 10;
 
     private final GameEngine engine;
     private final PlayerModeController playerModeController;
@@ -700,7 +701,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         int x = 10;
         int y = 10;
         int w = 176;
-        int h = 162;
+        int h = 180;
 
         g2.setColor(new Color(0, 0, 0, 120));
         g2.fillRect(x + 6, y + 7, w - 4, h - 4);
@@ -730,6 +731,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         drawHudStat(g2, x, y + 91, HUD_COINS, "COINS", Integer.toString(hero.getCoinBalance()));
         drawHudStat(g2, x, y + 109, HUD_STR, "STR", Integer.toString(hero.getStr()));
         drawHudStat(g2, x, y + 127, HUD_DEF, "DEF", Integer.toString(hero.getDef()));
+        drawHudStat(g2, x, y + 145, HUD_MANA, "MANA", Integer.toString(hero.getMana()));
     }
 
     private void drawHudStat(Graphics2D g2, int panelX, int rowY, Color marker, String label, String value) {

@@ -67,13 +67,13 @@ public class GameEngine {
     private Timer sorcererAttackTimer;
     private Timer sorcererTeleportTimer;
 
-    private static final int SPAWN_INTERVAL_MS = 20000;
+    private static final int SPAWN_INTERVAL_MS = 9000;   // spec 2.5
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
     private static final int SORCERER_ATTACK_TICK_MS = 5000;
     private static final int SORCERER_TELEPORT_TICK_MS = 7000;
-    private static final int MAX_ENEMIES = 3;
+    private static final int MAX_ENEMIES = 5;             // spec 2.5
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
@@ -88,7 +88,10 @@ public class GameEngine {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
         this.dungeonMap = buildDemoMap("Phase 1 — Build Mode");
-        this.hero = new Hero(1, 1, "Hero", 100, 10, 20, 5, 100);
+        int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
+        // Spec section 2.4.1: HP=17, STR=random[8,15], Mana=80, DEF=2.
+        // Energy=100 is a project design decision (spec leaves it open).
+        this.hero = new Hero(1, 1, "Hero", 17, startingStr, 80, 2, 100);
         placeHeroOnMap();
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
@@ -530,6 +533,33 @@ public class GameEngine {
     }
 
     /**
+     * Spec 2.5: enemies "appear at random locations on the edge of the
+     * area". We interpret "edge" as the outer perimeter of the play
+     * area only — not next to interior obstacles (pillars, crates).
+     *
+     * <p>Implementation note: walls in this codebase are in-bounds
+     * GridCells with {@code passable == false}, NOT off-map nulls.
+     * "Edge" therefore means: at least one cardinal neighbor lies on
+     * the perimeter coordinate ring (x == 0, y == 0, x == width-1, or
+     * y == height-1). This correctly catches cells whose neighbor is
+     * the actual outer wall, while excluding cells next to the inner
+     * 2x2 pillar at (6-7, 4-5).
+     */
+    private boolean isOnMapEdge(int x, int y) {
+        int w = dungeonMap.getWidth();
+        int h = dungeonMap.getHeight();
+        int[][] neighbors = { {x, y - 1}, {x, y + 1}, {x - 1, y}, {x + 1, y} };
+        for (int[] n : neighbors) {
+            int nx = n[0];
+            int ny = n[1];
+            if (nx == 0 || ny == 0 || nx == w - 1 || ny == h - 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Uses {@link EnemyFactory#createRandomEnemy(int, int)} for the 60/30/10 split.
      */
     public String spawnEnemyProcedurally() {
@@ -544,6 +574,9 @@ public class GameEngine {
                     continue;
                 }
                 if (!c.getEntities().isEmpty()) {
+                    continue;
+                }
+                if (!isOnMapEdge(x, y)) {
                     continue;
                 }
                 candidates.add(new int[] { x, y });
@@ -828,6 +861,16 @@ public class GameEngine {
         }
         GridCell destination = candidates.get(random.nextInt(candidates.size()));
         return tryMoveEnemy(enemy, destination.getX(), destination.getY());
+    }
+
+    /**
+     * Public escape hatch for the controller layer to trigger a sorcerer
+     * teleport in response to combat damage. Keep
+     * teleportEnemyToRandomEmptyCell itself private — this wrapper limits
+     * the controller's view of engine internals.
+     */
+    public boolean requestSorcererTeleport(Sorcerer sorcerer) {
+        return teleportEnemyToRandomEmptyCell(sorcerer);
     }
 
     /** Stops timers — call this on shutdown if you wire it up later. */

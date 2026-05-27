@@ -124,9 +124,12 @@ public final class CombatManager {
     }
 
     private AttackResult applyDamageToKnight(Knight target, int damageGenerated, int damageReceived) {
-        int hpAfter = Math.max(0, target.getHp() - damageReceived);
+        // Spec 2.5.1: Knight's armor flat-reduces incoming damage by 1
+        // (this is a Knight-specific rule, not part of the generic DEF formula).
+        int knightReceived = Math.max(1, damageReceived - 1);
+        int hpAfter = Math.max(0, target.getHp() - knightReceived);
         target.setHp(hpAfter);
-        return new AttackResult(damageGenerated, damageReceived, hpAfter, hpAfter == 0);
+        return new AttackResult(damageGenerated, knightReceived, hpAfter, hpAfter == 0);
     }
 
     private AttackResult applyDamageToSorcerer(Sorcerer target, int damageGenerated, int damageReceived) {
