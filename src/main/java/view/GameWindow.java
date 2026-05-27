@@ -17,7 +17,6 @@ import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -77,7 +76,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         });
         controlPanel.add(returnToMenu);
 
-        pauseButton = new GameplayButton(engine.isPaused() ? "RESUME" : "PAUSE", false);
+        pauseButton = new GameplayButton(engine.isPaused() ? "RESUME (R)" : "PAUSE (R)", false);
         pauseButton.setPreferredSize(new Dimension(140, 45));
         pauseButton.setFocusable(false);
         pauseButton.addActionListener(e -> {
@@ -179,22 +178,13 @@ public class GameWindow extends JFrame implements GameStateListener {
     @Override
     public void onGameStateChanged() {
         if (pauseButton != null) {
-            pauseButton.setText(engine.isPaused() ? "RESUME" : "PAUSE");
+            pauseButton.setText(engine.isPaused() ? "RESUME (R)" : "PAUSE (R)");
         }
 
         if (engine.isGameOver() && !gameOverDialogShown) {
             gameOverDialogShown = true;
             SwingUtilities.invokeLater(() -> {
-                Object[] options = new Object[] { "Return to Menu" };
-                JOptionPane.showOptionDialog(
-                        GameWindow.this,
-                        "Your HP reached 0.",
-                        "DEFEAT",
-                        JOptionPane.DEFAULT_OPTION,
-                        JOptionPane.ERROR_MESSAGE,
-                        null,
-                        options,
-                        options[0]);
+                GameOverDialog.show(GameWindow.this);
                 dispose();
                 SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
             });
