@@ -23,7 +23,7 @@ public final class MissionSplashDialog {
         String body = target == null
                 ? "Explore the dungeon and survive."
                 : "Find this valuable hidden somewhere in the dungeon.\n"
-                        + "Search every chest — pick it up to win.";
+                        + "Search every chest, then pick it up to win.";
         ItemActionMenuDialog.show(parent, "Mission Briefing", "FIND: " + title, body, "Begin");
     }
 
@@ -33,7 +33,7 @@ public final class MissionSplashDialog {
         String body = target == null
                 ? "You recovered the lost valuable. The dungeon yields its secret."
                 : "You recovered the " + target.getName() + ".\n"
-                        + "The dungeon yields its secret — the mission is complete.";
+                        + "The dungeon yields its secret. The mission is complete.";
         ItemActionMenuDialog.show(parent, "Mission Complete", title, body, "Continue");
     }
 }
