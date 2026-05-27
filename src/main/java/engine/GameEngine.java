@@ -338,6 +338,9 @@ public class GameEngine {
      * Applies an action chosen for an item currently carried by the hero.
      * Equipment remains in inventory while equipped; discard removes its
      * contribution before removing the item.
+     *
+     * <p>Dispatch is delegated to {@link ItemActionEffects}: the action enum
+     * is a tag, the effect is a separate strategy looked up by tag.
      */
     public boolean performInventoryAction(Item item, ItemAction action) {
         if (item == null || action == null || !hero.getInventory().getItems().contains(item)) {
@@ -349,54 +352,15 @@ public class GameEngine {
             return false;
         }
 
-        boolean applied;
-        switch (action) {
-            case DRINK:
-                applied = drinkInventoryPotion(item);
-                break;
-            case WEAR:
-                applied = wearInventoryItem(item);
-                break;
-            case EQUIP:
-                applied = item instanceof Weapon weapon && hero.equipWeapon(weapon);
-                break;
-            case READ:
-                applied = item instanceof Book;
-                break;
-            case REMOVE:
-                applied = hero.removeEquipment(item);
-                break;
-            case DISCARD:
-                hero.removeEquipment(item);
-                applied = hero.getInventory().remove(item);
-                break;
-            default:
-                applied = false;
-                break;
+        ItemActionEffects.Effect effect = ItemActionEffects.forAction(action);
+        if (effect == null) {
+            return false;
         }
-
-        if (applied && action != ItemAction.READ) {
+        boolean applied = effect.apply(hero, item);
+        if (applied && effect.notifyAfterApply()) {
             notifyListeners();
         }
         return applied;
-    }
-
-    private boolean drinkInventoryPotion(Item item) {
-        if (!(item instanceof Potion potion) || !hero.getInventory().remove(item)) {
-            return false;
-        }
-        potion.drink(hero);
-        return true;
-    }
-
-    private boolean wearInventoryItem(Item item) {
-        if (item instanceof Armor armor) {
-            return hero.wearArmor(armor);
-        }
-        if (item instanceof Ring ring) {
-            return hero.wearRing(ring);
-        }
-        return false;
     }
 
     /**
