@@ -28,6 +28,7 @@ import model.Armor;
 import model.Book;
 import model.Ring;
 import model.ValuableItem;
+import model.ValuableItemCatalog;
 import model.Weapon;
 import model.WeaponCatalog;
 import javax.swing.Timer;
@@ -55,6 +56,7 @@ public class GameEngine {
     private final Random random;
     private final EnemyFactory enemyFactory;
     private final CombatManager combatManager = new CombatManager();
+    private final TargetItemMission targetMission = new TargetItemMission();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
 
@@ -89,7 +91,26 @@ public class GameEngine {
         this.hero = new Hero(1, 1, "Hero", 100, 10, 20, 5, 100);
         placeHeroOnMap();
         fillMinimumGroundCoins(-1, -1);
+        startTargetMission();
         startGameTimers();
+    }
+
+    /**
+     * Picks a random valuable, hides it in a random hiding place (today: any
+     * {@link Container}; tomorrow: searchable scenery via additional
+     * {@link HidingPlaceProvider}s), and arms the win condition.
+     */
+    private void startTargetMission() {
+        HidingPlaceProvider provider = new CompositeHidingPlaceProvider(List.of(
+                new ContainerHidingPlaceProvider()));
+        ValuableItem target = ValuableItemCatalog.randomValuable(random);
+        if (!targetMission.start(provider, dungeonMap, random, target)) {
+            System.out.println("[mission] no hiding place available — mission inactive");
+        }
+    }
+
+    public TargetItemMission getTargetMission() {
+        return targetMission;
     }
 
     public void addGameStateListener(GameStateListener listener) {
@@ -162,11 +183,6 @@ public class GameEngine {
         GridCell weaponCell = map.getCell(11, 3);
         if (weaponCell != null) {
             weaponCell.getItems().add(new Weapon(WeaponCatalog.get().byId("W002")));
-        }
-
-        GridCell valuableCell = map.getCell(12, 8);
-        if (valuableCell != null) {
-            valuableCell.getItems().add(new ValuableItem("Crystal Shard"));
         }
 
         GridCell chestCell = map.getCell(4, 2);
@@ -261,6 +277,7 @@ public class GameEngine {
             return false;
         }
         container.removeItem(item);
+        targetMission.checkPickup(item);
         notifyListeners();
         return true;
     }
@@ -439,6 +456,7 @@ public class GameEngine {
             return false;
         }
         dungeonMap.removeItemFromCell(item, x, y);
+        targetMission.checkPickup(item);
         notifyListeners();
         return true;
     }

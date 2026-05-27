@@ -22,8 +22,10 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
+import engine.MissionListener;
 import engine.PlayerModeController;
 import engine.InteractionController;
+import model.ValuableItem;
 import view.assets.AssetId;
 import view.assets.AssetManager;
 
@@ -110,10 +112,31 @@ public class GameWindow extends JFrame {
         wrap.add(bottomPanel, BorderLayout.SOUTH);
         add(wrap);
 
+        // Mission win: when the hero finally picks up the target valuable,
+        // surface the victory screen on the EDT (engine fires synchronously
+        // from the pickup call site).
+        engine.getTargetMission().addListener(new MissionListener() {
+            @Override
+            public void onMissionWon(ValuableItem target) {
+                SwingUtilities.invokeLater(() -> {
+                    MissionSplashDialog.showVictory(GameWindow.this, target);
+                    panel.requestFocusInWindow();
+                });
+            }
+        });
+
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
                 panel.requestFocusInWindow();
+                ValuableItem target = engine.getTargetMission().getTarget();
+                if (target != null) {
+                    // Deferred so the gameplay frame paints once underneath the splash.
+                    SwingUtilities.invokeLater(() -> {
+                        MissionSplashDialog.showFindThis(GameWindow.this, target);
+                        panel.requestFocusInWindow();
+                    });
+                }
             }
 
             @Override
