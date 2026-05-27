@@ -112,6 +112,13 @@ public final class SpriteRegistry {
     }
 
     public static BufferedImage spriteFor(Item item) {
+        if (item == null) {
+            return null;
+        }
+        String override = item.spriteResource();
+        if (override != null) {
+            return AssetManager.get().image(override);
+        }
         AssetId id = assetFor(item);
         return id == null ? null : AssetManager.get().image(id);
     }

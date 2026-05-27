@@ -29,6 +29,7 @@ import model.Book;
 import model.Ring;
 import model.ValuableItem;
 import model.Weapon;
+import model.WeaponCatalog;
 import javax.swing.Timer;
 
 import model.AIState;
@@ -160,7 +161,7 @@ public class GameEngine {
 
         GridCell weaponCell = map.getCell(11, 3);
         if (weaponCell != null) {
-            weaponCell.getItems().add(new Weapon("Iron Sword", 3, false));
+            weaponCell.getItems().add(new Weapon(WeaponCatalog.get().byId("W002")));
         }
 
         GridCell valuableCell = map.getCell(12, 8);

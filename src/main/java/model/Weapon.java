@@ -3,33 +3,34 @@ package model;
 import java.util.List;
 
 /**
- * Equipment that contributes attack; {@code isRanged} distinguishes bow vs sword, etc.
+ * Equipment that contributes attack. All weapon variance (sprite, base attack,
+ * ranged flag, display name) lives on a shared {@link WeaponType} flyweight so
+ * a single {@code Weapon} class covers the whole catalog.
  */
 public class Weapon extends Item {
 
-    private int atkValue;
-    private boolean isRanged;
+    private final WeaponType type;
 
-    public Weapon(String name, int atkValue, boolean isRanged) {
-        super(name);
-        this.atkValue = atkValue;
-        this.isRanged = isRanged;
+    public Weapon(WeaponType type) {
+        super(type.displayName());
+        this.type = type;
+    }
+
+    public WeaponType getType() {
+        return type;
     }
 
     public int getAtkValue() {
-        return atkValue;
-    }
-
-    public void setAtkValue(int atkValue) {
-        this.atkValue = atkValue;
+        return type.baseAttack();
     }
 
     public boolean isRanged() {
-        return isRanged;
+        return type.ranged();
     }
 
-    public void setRanged(boolean ranged) {
-        isRanged = ranged;
+    @Override
+    public String spriteResource() {
+        return type.spritePath();
     }
 
     @Override
