@@ -62,6 +62,40 @@ public class CombatController {
         return result;
     }
 
+    /**
+     * Attacks the first enemy found in the hero's 3x3 interaction range,
+     * scanning adjacent tiles before the hero's own tile. Used by the
+     * keyboard hit shortcut where no specific target tile is supplied.
+     *
+     * @return the attack result and the tile that was hit, or {@code null}
+     *         when no enemy is within reach.
+     */
+    public TargetedAttack attackNearestEnemy() {
+        Hero hero = engine.getHero();
+        DungeonMap map = engine.getDungeonMap();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int tx = hx + dx;
+                int ty = hy + dy;
+                GridCell cell = map.getCell(tx, ty);
+                if (cell == null || firstEnemy(cell) == null) {
+                    continue;
+                }
+                CombatManager.AttackResult result = attackAt(tx, ty);
+                if (result != null) {
+                    return new TargetedAttack(result, tx, ty);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Pairs an attack result with the tile that was hit. */
+    public record TargetedAttack(CombatManager.AttackResult result, int x, int y) {
+    }
+
     private Entity firstEnemy(GridCell cell) {
         for (Entity entity : cell.getEntities()) {
             if (entity instanceof Knight || entity instanceof Sorcerer) {

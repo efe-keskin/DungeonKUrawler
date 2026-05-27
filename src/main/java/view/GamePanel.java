@@ -168,6 +168,11 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                if (e.getKeyCode() == KeyEvent.VK_P) {
+                    handleHitKeyPress();
+                    return;
+                }
+
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {                    
                     currentMovementDirection = d;
@@ -310,8 +315,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         Container container = engine.findContainerNearHero();
         Window parent = SwingUtilities.getWindowAncestor(this);
         if (container == null) {
-            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Open",
-                    "No container is within reach to open.");
+            // No container in reach — stay silent rather than nagging.
             requestFocusInWindow();
             return;
         }
@@ -348,13 +352,34 @@ public class GamePanel extends JPanel implements GameStateListener {
         requestFocusInWindow();
     }
 
-    private void handleTakeKeyPress() {
-        if (!engine.takeItemOnGround()) {
+    private void handleHitKeyPress() {
+        CombatController.TargetedAttack attack = combatController.attackNearestEnemy();
+        if (attack != null) {
+            if (attack.result().isDefenderDefeated()) {
+                leaveDefeatMarker(attack.x(), attack.y());
+            }
+            requestFocusInWindow();
+            return;
+        }
+
+        // No enemy in reach — try to break a nearby breakable object instead.
+        InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
+        // Nothing breakable in reach (breakResult == null): stay silent.
+        if (breakResult != null && !breakResult.broken()) {
             Window parent = SwingUtilities.getWindowAncestor(this);
-            String message = engine.getHero().getInventory().isFull()
-                    ? getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL)
-                    : "No takable item is available on this tile or an adjacent tile.";
-            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item", message);
+            ItemActionMenuDialog.showNotice(parent, "Too Strong", "Cannot Break",
+                    "You are not strong enough to break the " + breakResult.objectName() + ".");
+        }
+        requestFocusInWindow();
+    }
+
+    private void handleTakeKeyPress() {
+        // Only warn when an item is in reach but the inventory is full; staying
+        // silent when there is simply nothing takable nearby.
+        if (!engine.takeItemOnGround() && engine.getHero().getInventory().isFull()) {
+            Window parent = SwingUtilities.getWindowAncestor(this);
+            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
+                    getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL));
         }
 
         requestFocusInWindow();
