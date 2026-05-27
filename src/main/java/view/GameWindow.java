@@ -25,6 +25,7 @@ import engine.GameEngine;
 import engine.MissionListener;
 import engine.PlayerModeController;
 import engine.InteractionController;
+import engine.GameStateListener;
 import model.ValuableItem;
 import view.assets.AssetId;
 import view.assets.AssetManager;
@@ -36,14 +37,18 @@ import view.assets.AssetManager;
  * provides navigation back
  * to the main menu without trapping keyboard focus.
  */
-public class GameWindow extends JFrame {
+public class GameWindow extends JFrame implements GameStateListener {
 
     private static final int WINDOW_W = 920;
     private static final int WINDOW_H = 560;
     private static final Color CONTROL_BACKGROUND = new Color(18, 17, 22);
     private static final Color CONTROL_BORDER = new Color(103, 91, 75);
 
+    private final GameEngine engine;
+    private JButton pauseButton;
+
     public GameWindow(GameEngine engine) {
+        this.engine = engine;
         setTitle("Dungeon Krawler — Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -69,6 +74,15 @@ public class GameWindow extends JFrame {
             SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
         });
         controlPanel.add(returnToMenu);
+
+        pauseButton = new GameplayButton(engine.isPaused() ? "RESUME" : "PAUSE", false);
+        pauseButton.setPreferredSize(new Dimension(140, 45));
+        pauseButton.setFocusable(false);
+        pauseButton.addActionListener(e -> {
+            engine.togglePause();
+            panel.requestFocusInWindow();
+        });
+        controlPanel.add(pauseButton);
 
         // Bottom strip under the map for gameplay actions.
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
@@ -141,6 +155,7 @@ public class GameWindow extends JFrame {
 
             @Override
             public void windowClosed(WindowEvent e) {
+                engine.removeGameStateListener(GameWindow.this);
                 engine.shutdown();
             }
         });
@@ -155,6 +170,15 @@ public class GameWindow extends JFrame {
 
         setSize(WINDOW_W, WINDOW_H);
         setLocationRelativeTo(null);
+
+        engine.addGameStateListener(this);
+    }
+
+    @Override
+    public void onGameStateChanged() {
+        if (pauseButton != null) {
+            pauseButton.setText(engine.isPaused() ? "RESUME" : "PAUSE");
+        }
     }
 
     private static Font controlFont(float size) {

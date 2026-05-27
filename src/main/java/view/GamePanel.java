@@ -99,6 +99,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final Timer energyRefillTimer;
     private Timer continuousMoveTimer;
     private Direction currentMovementDirection = null;
+    private boolean lastPausedState;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
     private int heroLastY = Integer.MIN_VALUE;
@@ -158,6 +159,14 @@ public class GamePanel extends JPanel implements GameStateListener {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_P) {
+                    engine.togglePause();
+                    applyPauseState();
+                    return;
+                }
+                if (engine.isPaused()) {
+                    return;
+                }
                 if (e.getKeyCode() == KeyEvent.VK_T) {
                     handleTakeKeyPress();
                     return;
@@ -180,6 +189,9 @@ public class GamePanel extends JPanel implements GameStateListener {
 
             @Override
             public void keyReleased(KeyEvent e) {
+                if (engine.isPaused()) {
+                    return;
+                }
                 Direction d = Direction.fromKeyCode(e.getKeyCode());                
                 if (d != null && d == currentMovementDirection) {
                     currentMovementDirection = null;
@@ -191,6 +203,9 @@ public class GamePanel extends JPanel implements GameStateListener {
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
+                if (engine.isPaused()) {
+                    return;
+                }
                 DungeonMap map = GamePanel.this.engine.getDungeonMap();
                 if (map == null || map.getWidth() <= 0 || map.getHeight() <= 0) {
                     return;
@@ -370,6 +385,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     @Override
     public void onGameStateChanged() {
+        applyPauseState();
         Hero hero = engine.getHero();
         if (hero != null) {
             DungeonMap map = engine.getDungeonMap();
@@ -402,6 +418,31 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
         updateEnemyAnimationState();
         SwingUtilities.invokeLater(this::repaint);
+    }
+
+    private void applyPauseState() {
+        boolean paused = engine.isPaused();
+        if (paused == lastPausedState) {
+            return;
+        }
+        lastPausedState = paused;
+
+        if (paused) {
+            if (continuousMoveTimer != null) {
+                continuousMoveTimer.stop();
+            }
+            currentMovementDirection = null;
+            heroAnimTimer.stop();
+            energyRefillTimer.stop();
+        } else {
+            if (!heroAnimTimer.isRunning()) {
+                heroAnimTimer.start();
+            }
+            if (!energyRefillTimer.isRunning()) {
+                energyRefillTimer.start();
+            }
+        }
+        repaint();
     }
 
     @Override
