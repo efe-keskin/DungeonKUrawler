@@ -1,12 +1,15 @@
 package model;
 
-public class Pedestal extends SearchableObject {
+import java.util.List;
+
+public class Pedestal extends StaticObject {
 
     public Pedestal() {
-        this(null);
+        super("Stone Pedestal", true);
     }
 
-    public Pedestal(Item hiddenItem) {
-        super("Stone Pedestal", true, null, hiddenItem);
+    @Override
+    public List<ItemAction> getInventoryActions() {
+        return List.of(ItemAction.SEARCH);
     }
 }

@@ -2,14 +2,10 @@ package model;
 
 import java.util.List;
 
-public class Crate extends SearchableObject {
+public class Crate extends StaticObject {
 
     public Crate() {
-        this(null);
-    }
-
-    public Crate(Item hiddenItem) {
-        super("Wooden Crate", true, null, hiddenItem);
+        super("Wooden Crate", true);
     }
 
     @Override

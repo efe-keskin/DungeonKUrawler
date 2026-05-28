@@ -1,8 +1,6 @@
 package model;
 
-import java.util.List;
-
-public class Column extends StaticObject {
+public class Column extends SearchableObject {
 
     public static final String PURPLE_SPRITE =
             "/background_floor/assets/searchable assets/39_pillar_purple.png";
@@ -12,23 +10,14 @@ public class Column extends StaticObject {
             "/background_floor/assets/searchable assets/10_wall_column_round_top.png";
 
     public Column() {
-        this(GRAY_SPRITE);
+        this(null);
     }
 
-    public Column(String spriteResource) {
-        super("Stone Column", true);
-        this.spriteResource = spriteResource;
+    public Column(Item hiddenItem) {
+        this(GRAY_SPRITE, hiddenItem);
     }
 
-    private final String spriteResource;
-
-    @Override
-    public List<ItemAction> getInventoryActions() {
-        return List.of(ItemAction.BREAK);
-    }
-
-    @Override
-    public String spriteResource() {
-        return spriteResource;
+    public Column(String spriteResource, Item hiddenItem) {
+        super("Stone Column", true, spriteResource, hiddenItem);
     }
 }
