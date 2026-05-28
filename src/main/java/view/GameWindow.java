@@ -35,8 +35,7 @@ import view.assets.AssetManager;
  * Gameplay shell: dark frame; {@link GamePanel} is the observer and input
  * surface — it delegates
  * keys to {@link GameEngine} without containing rules. A top control strip
- * provides navigation back
- * to the main menu without trapping keyboard focus.
+ * provides pause access without trapping keyboard focus.
  */
 public class GameWindow extends JFrame implements GameStateListener {
 
@@ -46,7 +45,6 @@ public class GameWindow extends JFrame implements GameStateListener {
     private static final Color CONTROL_BORDER = new Color(103, 91, 75);
 
     private final GameEngine engine;
-    private JButton pauseButton;
     private boolean gameOverDialogShown;
 
     public GameWindow(GameEngine engine) {
@@ -67,21 +65,12 @@ public class GameWindow extends JFrame implements GameStateListener {
                 BorderFactory.createMatteBorder(0, 0, 1, 0, CONTROL_BORDER),
                 new EmptyBorder(9, 12, 9, 12)));
 
-        JButton returnToMenu = new GameplayButton("RETURN TO MENU", false);
-        returnToMenu.setPreferredSize(new Dimension(198, 45));
+        JButton pauseButton = new GameplayButton("PAUSE", false);
+        pauseButton.setPreferredSize(new Dimension(112, 45));
         // Keeps WASD/arrows on GamePanel: the button still activates on mouse click.
-        returnToMenu.setFocusable(false);
-        returnToMenu.addActionListener(e -> {
-            dispose();
-            SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
-        });
-        controlPanel.add(returnToMenu);
-
-        pauseButton = new GameplayButton(engine.isPaused() ? "RESUME (R)" : "PAUSE (R)", false);
-        pauseButton.setPreferredSize(new Dimension(140, 45));
         pauseButton.setFocusable(false);
         pauseButton.addActionListener(e -> {
-            engine.togglePause();
+            panel.showInGameMenu();
             panel.requestFocusInWindow();
         });
         controlPanel.add(pauseButton);
@@ -178,10 +167,6 @@ public class GameWindow extends JFrame implements GameStateListener {
 
     @Override
     public void onGameStateChanged() {
-        if (pauseButton != null) {
-            pauseButton.setText(engine.isPaused() ? "RESUME (R)" : "PAUSE (R)");
-        }
-
         if (engine.isGameOver() && !gameOverDialogShown) {
             gameOverDialogShown = true;
             SwingUtilities.invokeLater(() -> {

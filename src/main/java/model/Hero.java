@@ -75,6 +75,10 @@ public class Hero extends Entity {
         return def + armorBonus + ringBonus;
     }
 
+    public int getBaseDef() {
+        return def;
+    }
+
     public void setDef(int def) {
         this.def = def;
     }
@@ -149,6 +153,10 @@ public class Hero extends Entity {
 
     public int getCoinBalance() {
         return coinBalance;
+    }
+
+    public void setCoinBalance(int coinBalance) {
+        this.coinBalance = Math.max(0, coinBalance);
     }
 
     /**

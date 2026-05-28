@@ -39,6 +39,9 @@ import model.Knight;
 import model.Potion;
 import model.SearchableObject;
 import model.Sorcerer;
+import save.SaveGameController;
+import save.SaveGameException;
+import save.SaveLimitExceededException;
 import view.assets.SpriteRegistry;
 import view.render.AmbienceRenderer;
 
@@ -95,6 +98,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
     private final CombatController combatController;
+    private final SaveGameController saveGameController = new SaveGameController();
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
@@ -160,6 +164,11 @@ public class GamePanel extends JPanel implements GameStateListener {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    showInGameMenu();
+                    return;
+                }
+
                 if (e.getKeyCode() == KeyEvent.VK_R) {
                     engine.togglePause();
                     applyPauseState();
@@ -320,6 +329,55 @@ public class GamePanel extends JPanel implements GameStateListener {
                     "That action could not be performed on " + interaction.getItemName() + ".");
         }
         return true;
+    }
+
+    public void showInGameMenu() {
+        currentMovementDirection = null;
+        if (continuousMoveTimer != null) {
+            continuousMoveTimer.stop();
+        }
+
+        Window parent = SwingUtilities.getWindowAncestor(this);
+        int choice = ItemActionMenuDialog.show(parent, "Menu", "Game Menu",
+                "Choose an action.", "Continue", "Save Game", "Menu");
+        switch (choice) {
+            case 1 -> handleSaveGame(parent);
+            case 2 -> returnToMainMenu(parent);
+            default -> requestFocusInWindow();
+        }
+    }
+
+    private void handleSaveGame(Window parent) {
+        SaveGameDialog.Result result = SaveGameDialog.show(parent);
+        if (result.action() == SaveGameDialog.Action.CANCEL) {
+            requestFocusInWindow();
+            return;
+        }
+        try {
+            saveGameController.saveGame(engine, result.saveName());
+            if (result.action() == SaveGameDialog.Action.SAVE_AND_EXIT) {
+                returnToMainMenu(parent);
+            } else {
+                ItemActionMenuDialog.showNotice(parent, "Save Game", "Saved",
+                        "Game saved successfully.");
+                requestFocusInWindow();
+            }
+        } catch (SaveLimitExceededException ex) {
+            ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Limit",
+                    "You can keep at most 10 saved games. Delete an old save first.");
+            requestFocusInWindow();
+        } catch (SaveGameException ex) {
+            ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
+                    "Game could not be saved. Please try again.");
+            requestFocusInWindow();
+        }
+    }
+
+    private void returnToMainMenu(Window parent) {
+        if (parent != null) {
+            parent.dispose();
+        }
+        SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
     }
 
     private void showSearchResult(Window parent, GameEngine.SearchResult result) {
