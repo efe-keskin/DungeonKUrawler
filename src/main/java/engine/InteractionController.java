@@ -12,6 +12,7 @@ import model.Hero;
 import model.Inventory;
 import model.Item;
 import model.ItemAction;
+import model.SearchableObject;
 
 public class InteractionController {
 
@@ -137,10 +138,18 @@ public class InteractionController {
             actions.add(new ActionOption(action.getLabel(), action));
         }
 
-        String detail = item instanceof Coin coin
-                ? "Reward: " + coin.getValue() + " coins"
-                : null;
+        String detail = detailFor(item);
         return new ItemInteraction(item, item.getName(), item.isTakable(), detail, x, y, actions);
+    }
+
+    private String detailFor(Item item) {
+        if (item instanceof Coin coin) {
+            return "Reward: " + coin.getValue() + " coins";
+        }
+        if (item instanceof SearchableObject) {
+            return "This location can be searched.";
+        }
+        return null;
     }
 
     /**
@@ -218,9 +227,16 @@ public class InteractionController {
         if (item == null || action == null) {
             return false;
         }
+        if (action == ItemAction.SEARCH && item instanceof SearchableObject searchableObject) {
+            return engine.search(searchableObject).getOutcome() != GameEngine.SearchOutcome.NOT_SEARCHABLE;
+        }
         if (!engine.takeItem(item, x, y)) {
             return false;
         }
         return engine.performInventoryAction(item, action);
+    }
+
+    public GameEngine.SearchResult search(SearchableObject object) {
+        return engine.search(object);
     }
 }

@@ -10,6 +10,8 @@ import java.util.Random;
 
 import model.DungeonMap;
 import model.GridCell;
+import model.Item;
+import model.SearchableObject;
 import view.assets.AmbienceAsset;
 import view.assets.AmbienceCatalog;
 
@@ -35,19 +37,24 @@ public final class AmbienceRenderer {
     private static final String FLOOR_LABEL = "floor_worn_patch_round";
 
     /**
-     * Variety pool for the north/south wall rows. Mixes 1-, 2-, 3-, 5- and
-     * 6-cell-wide sprites. Filtered at construction to entries whose vertical
-     * span is exactly 1 cell (so they don't extrude into the playfield).
+     * Non-searchable wall pool for the north/south rows. The 1-cell plain block
+     * is intentionally repeated so it appears often; searchable details are
+     * overlaid only on those plain-block cells.
      */
     private static final List<String> HORIZONTAL_WALL_LABELS = List.of(
             "wall_block_small",
-            "wall_section_mid_door_left",
-            "wall_section_mid_door_right",
+            "wall_block_small",
+            "wall_block_small",
+            "wall_block_small",
+            "wall_block_small",
+            "wall_block_small",
+            "wall_block_small",
             "wall_section_mid_arch_right",
-            "wall_section_top_decor_left",
-            "wall_section_top_decor_center",
-            "wall_section_top_decor_right",
-            "wall_section_top_decor_hanging");
+            "wall_section_top_plain_left",
+            "banner_brown",
+            "banner_green",
+            "banner_blue",
+            "sign_gray");
 
     /**
      * East/west wall columns: sprite #11 from the CSV ({@code wall_frame_vertical_open},
@@ -120,7 +127,11 @@ public final class AmbienceRenderer {
             int h = p.ch() * tileSize;
             BufferedImage img = p.asset() == null ? null : p.asset().image();
             if (img != null) {
-                g2.drawImage(img, px, py, w, h, null);
+                if (p.flipVertical()) {
+                    g2.drawImage(img, px, py + h, w, -h, null);
+                } else {
+                    g2.drawImage(img, px, py, w, h, null);
+                }
             } else {
                 g2.setColor(FALLBACK_WALL);
                 g2.fillRect(px, py, w, h);
@@ -138,8 +149,8 @@ public final class AmbienceRenderer {
         int h = map.getHeight();
 
         // North and south rows span the full width and own the four corners.
-        layoutHorizontalRow(out, rng, 0, w, 0);
-        layoutHorizontalRow(out, rng, 0, w, h - 1);
+        layoutHorizontalRow(out, rng, map, 0, w, 0, false);
+        layoutHorizontalRow(out, rng, map, 0, w, h - 1, true);
 
         // West and east columns fill between the corners, which the rows already covered.
         layoutVerticalColumn(out, rng, 1, h - 1, 0);
@@ -150,7 +161,7 @@ public final class AmbienceRenderer {
             for (int y = 1; y < h - 1; y++) {
                 GridCell cell = map.getCell(x, y);
                 if (cell != null && !cell.isPassable()) {
-                    out.add(new Placement(x, y, 1, 1, filler));
+                    out.add(new Placement(x, y, 1, 1, filler, false));
                 }
             }
         }
@@ -160,16 +171,46 @@ public final class AmbienceRenderer {
         return out;
     }
 
-    private void layoutHorizontalRow(List<Placement> out, Random rng, int xStart, int xEnd, int y) {
+    private void layoutHorizontalRow(List<Placement> out, Random rng, DungeonMap map, int xStart, int xEnd, int y,
+            boolean flipVertical) {
         int x = xStart;
         while (x < xEnd) {
-            int remaining = xEnd - x;
+            if (hasSearchableObject(map, x, y)) {
+                out.add(new Placement(x, y, 1, 1, filler, flipVertical));
+                x++;
+                continue;
+            }
+            int remaining = Math.min(xEnd - x, cellsUntilNextSearchable(map, x, xEnd, y));
             AmbienceAsset pick = pickFitting(horizontalAssets, rng, remaining, true);
             int cw = pick == null ? 1 : pick.cellsWide();
             int ch = pick == null ? 1 : pick.cellsTall();
-            out.add(new Placement(x, y, cw, ch, pick));
+            out.add(new Placement(x, y, cw, ch, pick, flipVertical));
             x += Math.max(1, cw);
         }
+    }
+
+    private int cellsUntilNextSearchable(DungeonMap map, int xStart, int xEnd, int y) {
+        int count = 0;
+        for (int x = xStart; x < xEnd; x++) {
+            if (hasSearchableObject(map, x, y)) {
+                break;
+            }
+            count++;
+        }
+        return Math.max(1, count);
+    }
+
+    private boolean hasSearchableObject(DungeonMap map, int x, int y) {
+        GridCell cell = map.getCell(x, y);
+        if (cell == null) {
+            return false;
+        }
+        for (Item item : cell.getItemsView()) {
+            if (item instanceof SearchableObject) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -188,7 +229,7 @@ public final class AmbienceRenderer {
                     : verticalAssets.get(rng.nextInt(verticalAssets.size()));
             int nativeTall = pick == null ? 1 : Math.max(1, pick.cellsTall());
             int ch = Math.min(remaining, nativeTall);
-            out.add(new Placement(x, y, 1, ch, pick));
+            out.add(new Placement(x, y, 1, ch, pick, false));
             y += ch;
         }
     }
@@ -216,6 +257,6 @@ public final class AmbienceRenderer {
     }
 
     /** A laid-out wall sprite: anchor cell, grid span, and the asset to draw. */
-    private record Placement(int x, int y, int cw, int ch, AmbienceAsset asset) {
+    private record Placement(int x, int y, int cw, int ch, AmbienceAsset asset, boolean flipVertical) {
     }
 }
