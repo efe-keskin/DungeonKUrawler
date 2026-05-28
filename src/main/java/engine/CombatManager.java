@@ -1,5 +1,6 @@
 package engine;
 
+import model.Entity;
 import model.Hero;
 import model.Knight;
 import model.Sorcerer;
@@ -15,6 +16,7 @@ public final class CombatManager {
     private static final int SORCERER_PROJECTILE_ATK = 8;
     private static final int HERO_ATTACK_ENERGY_COST = 2;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
+    private static final int HERO_RANGED_MANA_COST = 5;
 
     /**
      * Result returned to callers so UI/controller code can show combat feedback.
@@ -77,6 +79,60 @@ public final class CombatManager {
     }
 
     /**
+     * Hero ranged shot prep: spends mana and energy, does not apply damage until impact.
+     */
+    public static final class HeroProjectilePrep {
+        public final int damageGenerated;
+        public final int damageReceived;
+
+        public HeroProjectilePrep(int damageGenerated, int damageReceived) {
+            this.damageGenerated = damageGenerated;
+            this.damageReceived = damageReceived;
+        }
+    }
+
+    /**
+     * @return prep when the hero has a ranged weapon and enough mana; {@code null} otherwise
+     */
+    public HeroProjectilePrep prepareHeroRangedProjectile(Hero hero, Entity target) {
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon == null || !weapon.isRanged()) {
+            return null;
+        }
+        if (!(target instanceof Knight) && !(target instanceof Sorcerer)) {
+            return null;
+        }
+        if (!hero.spendMana(HERO_RANGED_MANA_COST)) {
+            return null;
+        }
+        hero.consumeEnergy(HERO_ATTACK_ENERGY_COST);
+        int weaponAtk = weapon.getAtkValue();
+        int damageGenerated = generateDamage(weaponAtk, hero.getStr());
+        int damageReceived;
+        if (target instanceof Knight knight) {
+            damageReceived = receiveDamage(damageGenerated, knight.getDef(), knight.getStr());
+        } else {
+            Sorcerer sorcerer = (Sorcerer) target;
+            damageReceived = receiveDamage(damageGenerated, sorcerer.getDef(), 0);
+        }
+        return new HeroProjectilePrep(damageGenerated, damageReceived);
+    }
+
+    public AttackResult applyHeroProjectileHit(Entity target, HeroProjectilePrep prep) {
+        if (target instanceof Knight knight) {
+            return applyDamageToKnight(knight, prep.damageGenerated, prep.damageReceived);
+        }
+        if (target instanceof Sorcerer sorcerer) {
+            return applyDamageToSorcerer(sorcerer, prep.damageGenerated, prep.damageReceived);
+        }
+        return new AttackResult(0, 0, 0, false);
+    }
+
+    public static int heroRangedManaCost() {
+        return HERO_RANGED_MANA_COST;
+    }
+
+    /**
      * Applies a knight melee attack to the hero.
      *
      * @return generated damage, received damage, remaining hero HP, and defeat state.
@@ -87,20 +143,56 @@ public final class CombatManager {
         return applyDamageToHero(hero, damageGenerated, damageReceived);
     }
 
-    /**
-     * Applies a sorcerer projectile attack to the hero, spending sorcerer mana first.
-     *
-     * @return generated damage, received damage, remaining hero HP, and defeat state.
+  /**
+     * Raw projectile roll after mana is spent (damage is applied on impact).
      */
-    public AttackResult sorcererAttacksHero(Sorcerer attacker, Hero hero) {
+    public static final class SorcererProjectilePrep {
+        public final int damageGenerated;
+        public final int damageReceived;
+
+        public SorcererProjectilePrep(int damageGenerated, int damageReceived) {
+            this.damageGenerated = damageGenerated;
+            this.damageReceived = damageReceived;
+        }
+    }
+
+    /**
+     * Spends mana and computes projectile damage without applying it to the hero.
+     *
+     * @return prep data, or {@code null} when mana is insufficient
+     */
+    public SorcererProjectilePrep prepareSorcererProjectile(Sorcerer attacker, Hero hero) {
         if (attacker.getMana() < SORCERER_PROJECTILE_MANA_COST) {
-            return new AttackResult(0, 0, hero.getHp(), hero.getHp() == 0);
+            return null;
         }
         attacker.setMana(attacker.getMana() - SORCERER_PROJECTILE_MANA_COST);
-
         int damageGenerated = generateDamage(SORCERER_PROJECTILE_ATK, 0);
         int damageReceived = receiveDamage(damageGenerated, hero.getDef(), hero.getStr());
-        return applyDamageToHero(hero, damageGenerated, damageReceived);
+        return new SorcererProjectilePrep(damageGenerated, damageReceived);
+    }
+
+    /**
+     * Applies projectile impact damage to the hero.
+     */
+    public AttackResult applySorcererProjectileHit(Hero hero, SorcererProjectilePrep prep) {
+        return applyDamageToHero(hero, prep.damageGenerated, prep.damageReceived);
+    }
+
+    /** Applies stored impact damage when a flying projectile reaches the hero. */
+    public void applyProjectileImpact(Hero hero, int damageReceived) {
+        int hpAfter = Math.max(0, hero.getHp() - damageReceived);
+        hero.setHp(hpAfter);
+    }
+
+    /**
+     * Instant hit (unit tests and legacy callers).
+     */
+    public AttackResult sorcererAttacksHero(Sorcerer attacker, Hero hero) {
+        SorcererProjectilePrep prep = prepareSorcererProjectile(attacker, hero);
+        if (prep == null) {
+            return new AttackResult(0, 0, hero.getHp(), hero.getHp() == 0);
+        }
+        return applySorcererProjectileHit(hero, prep);
     }
 
     private int heroWeaponAtk(Hero hero) {

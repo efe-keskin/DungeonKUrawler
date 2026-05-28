@@ -6,6 +6,7 @@ import model.GridCell;
 import model.Hero;
 import model.Knight;
 import model.Sorcerer;
+import model.Weapon;
 
 /**
  * GRASP Controller for player-initiated combat in play mode.
@@ -28,6 +29,11 @@ public class CombatController {
      */
     public CombatManager.AttackResult attackAt(int x, int y) {
         Hero hero = engine.getHero();
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon != null && weapon.isRanged()) {
+            return engine.launchHeroRangedAttackAt(x, y);
+        }
+
         DungeonMap map = engine.getDungeonMap();
         if (!map.isHeroAdjacent(hero, x, y)) {
             return null;
@@ -48,9 +54,6 @@ public class CombatController {
             result = combatManager.heroAttacksKnight(hero, knight);
         } else if (target instanceof Sorcerer sorcerer) {
             result = combatManager.heroAttacksSorcerer(hero, sorcerer);
-            if (!result.isDefenderDefeated()) {
-                maybePanicTeleport(sorcerer);
-            }
         } else {
             return null;
         }
@@ -72,6 +75,11 @@ public class CombatController {
      */
     public TargetedAttack attackNearestEnemy() {
         Hero hero = engine.getHero();
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon != null && weapon.isRanged()) {
+            return attackNearestEnemyInRangedRange();
+        }
+
         DungeonMap map = engine.getDungeonMap();
         int hx = hero.getX();
         int hy = hero.getY();
@@ -92,6 +100,37 @@ public class CombatController {
         return null;
     }
 
+    private TargetedAttack attackNearestEnemyInRangedRange() {
+        Hero hero = engine.getHero();
+        DungeonMap map = engine.getDungeonMap();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        int bestChebyshev = Integer.MAX_VALUE;
+        int bestX = -1;
+        int bestY = -1;
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                if (!engine.canHeroShootAt(x, y)) {
+                    continue;
+                }
+                int dist = Math.max(Math.abs(x - hx), Math.abs(y - hy));
+                if (dist < bestChebyshev) {
+                    bestChebyshev = dist;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+        }
+        if (bestX < 0) {
+            return null;
+        }
+        CombatManager.AttackResult result = engine.launchHeroRangedAttackAt(bestX, bestY);
+        if (result == null) {
+            return null;
+        }
+        return new TargetedAttack(result, bestX, bestY);
+    }
+
     /** Pairs an attack result with the tile that was hit. */
     public record TargetedAttack(CombatManager.AttackResult result, int x, int y) {
     }
@@ -105,36 +144,4 @@ public class CombatController {
         return null;
     }
 
-    /**
-     * One-shot self-preservation: the first time a Sorcerer's HP drops to
-     * half or below from a hero attack, it teleports to a random empty
-     * cell. After that the flag stays set and this method becomes a no-op
-     * for that sorcerer for the rest of its life.
-     *
-     * <p>Lives in the controller (not CombatManager) because teleporting
-     * requires the map, and CombatManager is intentionally a stateless
-     * formula service. Coexists with the 7-second passive teleport timer
-     * in GameEngine — both can fire on the same sorcerer in a session.
-     */
-    private void maybePanicTeleport(Sorcerer sorcerer) {
-        if (sorcerer.isPanicTeleportUsed()) {
-            return;
-        }
-        if (sorcerer.getHp() * 2 > sorcerer.getMaxHp()) {
-            // Still above half HP — no panic yet. We compare 2*hp vs maxHp
-            // rather than using doubles to avoid floating-point edge cases
-            // on the boundary (e.g. 5/10 must trigger).
-            return;
-        }
-        boolean moved = engine.requestSorcererTeleport(sorcerer);
-        if (moved) {
-            sorcerer.setPanicTeleportUsed(true);
-            System.out.printf("[COMBAT] Wounded sorcerer (HP %d/%d) panic-teleported.%n",
-                    sorcerer.getHp(), sorcerer.getMaxHp());
-            // TODO(ui-team): brief visual cue at source + destination
-            // (smoke puff or fade animation). For now, console log only.
-        }
-        // If moved == false (no empty cell available), the flag stays
-        // unset so a future hit can retry. That's intentional.
-    }
 }

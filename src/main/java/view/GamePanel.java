@@ -37,6 +37,7 @@ import model.Hero;
 import model.Item;
 import model.Knight;
 import model.Potion;
+import model.Projectile;
 import model.SearchableObject;
 import model.Sorcerer;
 import save.SaveGameController;
@@ -633,6 +634,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                     }
                 }
             }
+            drawProjectiles(g2, tileSize, offsetX, offsetY);
             drawHero(g2, map, tileSize, offsetX, offsetY);
             drawHud(g2);
         } finally {
@@ -817,6 +819,43 @@ public class GamePanel extends JPanel implements GameStateListener {
         int offsetX = Math.round((animation.from.x - animation.to.x) * remaining * tileSize);
         int offsetY = Math.round((animation.from.y - animation.to.y) * remaining * tileSize);
         return new EnemyDrawPosition(px + offsetX, py + offsetY);
+    }
+
+    private void drawProjectiles(Graphics2D g2, int tileSize, int offsetX, int offsetY) {
+        for (Projectile projectile : engine.getActiveProjectilesView()) {
+            if (!projectile.isActive()) {
+                continue;
+            }
+            int px = offsetX + projectile.getX() * tileSize;
+            int py = offsetY + projectile.getY() * tileSize;
+            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned());
+        }
+    }
+
+    /**
+     * 8-bit projectile: sorcerer fireball (red/orange/yellow) or hero ice bolt (blue/cyan/white).
+     */
+    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, boolean heroOwned) {
+        int pixel = Math.max(2, tileSize / 7);
+        int size = pixel * 5;
+        int left = tileX + (tileSize - size) / 2;
+        int top = tileY + (tileSize - size) / 2;
+
+        if (heroOwned) {
+            g2.setColor(Color.BLUE);
+            g2.fillRect(left, top, size, size);
+            g2.setColor(Color.CYAN);
+            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+            g2.setColor(Color.WHITE);
+            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+        } else {
+            g2.setColor(Color.RED);
+            g2.fillRect(left, top, size, size);
+            g2.setColor(Color.ORANGE);
+            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+            g2.setColor(Color.YELLOW);
+            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+        }
     }
 
     private void drawHero(Graphics2D g2, DungeonMap map, int tileSize, int offsetX, int offsetY) {
