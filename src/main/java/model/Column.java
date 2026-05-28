@@ -2,6 +2,7 @@ package model;
 
 import java.util.List;
 
+
 public class Column extends StaticObject {
 
     public static final String PURPLE_SPRITE =

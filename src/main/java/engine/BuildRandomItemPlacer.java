@@ -9,6 +9,7 @@ import model.GridCell;
 import model.Item;
 import model.SearchableObject;
 
+
 /**
  * Pure Fabrication for the build-mode "Add 5 Random Items" use case.
  *

@@ -26,7 +26,7 @@ import model.ManaPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
-import model.Column;
+
 import model.Ring;
 import model.ValuableItem;
 import model.ValuableItemCatalog;

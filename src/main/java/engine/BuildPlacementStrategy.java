@@ -11,3 +11,4 @@ public interface BuildPlacementStrategy {
 
     boolean erase(DungeonMap map, int x, int y);
 }
+

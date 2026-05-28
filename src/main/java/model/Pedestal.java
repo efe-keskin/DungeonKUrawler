@@ -1,5 +1,6 @@
 package model;
 
+
 public class Pedestal extends SearchableObject {
 
     public Pedestal() {

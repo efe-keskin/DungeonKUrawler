@@ -204,4 +204,5 @@ public class Hero extends Entity {
         this.mana -= amount;
         return true;
     }
+    
 }

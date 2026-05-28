@@ -2,6 +2,7 @@ package model;
 
 import java.util.List;
 
+
 public class Crate extends SearchableObject {
 
     public Crate() {

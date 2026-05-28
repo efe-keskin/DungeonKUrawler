@@ -10,6 +10,7 @@ import model.HidingPlace;
 import model.Item;
 import model.ValuableItem;
 
+
 /**
  * Tracks the "find this valuable" objective.
  *
