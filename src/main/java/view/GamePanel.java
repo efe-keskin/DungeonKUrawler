@@ -104,6 +104,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final Timer energyRefillTimer;
     private Timer continuousMoveTimer;
     private Direction currentMovementDirection = null;
+    private boolean lastPausedState;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
     private int heroLastY = Integer.MIN_VALUE;
@@ -168,6 +169,14 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                if (e.getKeyCode() == KeyEvent.VK_R) {
+                    engine.togglePause();
+                    applyPauseState();
+                    return;
+                }
+                if (engine.isGameOver() || engine.isPaused()) {
+                    return;
+                }
                 if (e.getKeyCode() == KeyEvent.VK_T) {
                     handleTakeKeyPress();
                     return;
@@ -175,6 +184,11 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                 if (e.getKeyCode() == KeyEvent.VK_O) {
                     handleOpenKeyPress();
+                    return;
+                }
+
+                if (e.getKeyCode() == KeyEvent.VK_P) {
+                    handleHitKeyPress();
                     return;
                 }
 
@@ -190,6 +204,9 @@ public class GamePanel extends JPanel implements GameStateListener {
 
             @Override
             public void keyReleased(KeyEvent e) {
+                if (engine.isGameOver() || engine.isPaused()) {
+                    return;
+                }
                 Direction d = Direction.fromKeyCode(e.getKeyCode());                
                 if (d != null && d == currentMovementDirection) {
                     currentMovementDirection = null;
@@ -201,6 +218,9 @@ public class GamePanel extends JPanel implements GameStateListener {
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
+                if (engine.isGameOver() || engine.isPaused()) {
+                    return;
+                }
                 DungeonMap map = GamePanel.this.engine.getDungeonMap();
                 if (map == null || map.getWidth() <= 0 || map.getHeight() <= 0) {
                     return;
@@ -386,8 +406,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         Container container = engine.findContainerNearHero();
         Window parent = SwingUtilities.getWindowAncestor(this);
         if (container == null) {
-            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Open",
-                    "No container is within reach to open.");
+            // No container in reach — stay silent rather than nagging.
             requestFocusInWindow();
             return;
         }
@@ -424,13 +443,34 @@ public class GamePanel extends JPanel implements GameStateListener {
         requestFocusInWindow();
     }
 
-    private void handleTakeKeyPress() {
-        if (!engine.takeItemOnGround()) {
+    private void handleHitKeyPress() {
+        CombatController.TargetedAttack attack = combatController.attackNearestEnemy();
+        if (attack != null) {
+            if (attack.result().isDefenderDefeated()) {
+                leaveDefeatMarker(attack.x(), attack.y());
+            }
+            requestFocusInWindow();
+            return;
+        }
+
+        // No enemy in reach — try to break a nearby breakable object instead.
+        InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
+        // Nothing breakable in reach (breakResult == null): stay silent.
+        if (breakResult != null && !breakResult.broken()) {
             Window parent = SwingUtilities.getWindowAncestor(this);
-            String message = engine.getHero().getInventory().isFull()
-                    ? getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL)
-                    : "No takable item is available on this tile or an adjacent tile.";
-            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item", message);
+            ItemActionMenuDialog.showNotice(parent, "Too Strong", "Cannot Break",
+                    "You are not strong enough to break the " + breakResult.objectName() + ".");
+        }
+        requestFocusInWindow();
+    }
+
+    private void handleTakeKeyPress() {
+        // Only warn when an item is in reach but the inventory is full; staying
+        // silent when there is simply nothing takable nearby.
+        if (!engine.takeItemOnGround() && engine.getHero().getInventory().isFull()) {
+            Window parent = SwingUtilities.getWindowAncestor(this);
+            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
+                    getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL));
         }
 
         requestFocusInWindow();
@@ -446,6 +486,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     @Override
     public void onGameStateChanged() {
+        applyPauseState();
         Hero hero = engine.getHero();
         if (hero != null) {
             DungeonMap map = engine.getDungeonMap();
@@ -478,6 +519,31 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
         updateEnemyAnimationState();
         SwingUtilities.invokeLater(this::repaint);
+    }
+
+    private void applyPauseState() {
+        boolean paused = engine.isPaused();
+        if (paused == lastPausedState) {
+            return;
+        }
+        lastPausedState = paused;
+
+        if (paused) {
+            if (continuousMoveTimer != null) {
+                continuousMoveTimer.stop();
+            }
+            currentMovementDirection = null;
+            heroAnimTimer.stop();
+            energyRefillTimer.stop();
+        } else {
+            if (!heroAnimTimer.isRunning()) {
+                heroAnimTimer.start();
+            }
+            if (!energyRefillTimer.isRunning()) {
+                energyRefillTimer.start();
+            }
+        }
+        repaint();
     }
 
     @Override

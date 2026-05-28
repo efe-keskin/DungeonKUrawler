@@ -25,6 +25,7 @@ import engine.GameEngine;
 import engine.MissionListener;
 import engine.PlayerModeController;
 import engine.InteractionController;
+import engine.GameStateListener;
 import model.ValuableItem;
 import view.assets.AssetId;
 import view.assets.AssetManager;
@@ -35,14 +36,18 @@ import view.assets.AssetManager;
  * keys to {@link GameEngine} without containing rules. A top control strip
  * provides pause access without trapping keyboard focus.
  */
-public class GameWindow extends JFrame {
+public class GameWindow extends JFrame implements GameStateListener {
 
     private static final int WINDOW_W = 920;
     private static final int WINDOW_H = 560;
     private static final Color CONTROL_BACKGROUND = new Color(18, 17, 22);
     private static final Color CONTROL_BORDER = new Color(103, 91, 75);
 
+    private final GameEngine engine;
+    private boolean gameOverDialogShown;
+
     public GameWindow(GameEngine engine) {
+        this.engine = engine;
         setTitle("Dungeon Krawler — Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -140,6 +145,7 @@ public class GameWindow extends JFrame {
 
             @Override
             public void windowClosed(WindowEvent e) {
+                engine.removeGameStateListener(GameWindow.this);
                 engine.shutdown();
             }
         });
@@ -154,6 +160,20 @@ public class GameWindow extends JFrame {
 
         setSize(WINDOW_W, WINDOW_H);
         setLocationRelativeTo(null);
+
+        engine.addGameStateListener(this);
+    }
+
+    @Override
+    public void onGameStateChanged() {
+        if (engine.isGameOver() && !gameOverDialogShown) {
+            gameOverDialogShown = true;
+            SwingUtilities.invokeLater(() -> {
+                GameOverDialog.show(GameWindow.this);
+                dispose();
+                SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
+            });
+        }
     }
 
     private static Font controlFont(float size) {

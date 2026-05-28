@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import model.Coin;
+import model.Container;
 import model.DungeonMap;
 import model.GridCell;
 import model.Hero;
@@ -149,6 +150,57 @@ public class InteractionController {
             return "This location can be searched.";
         }
         return null;
+    }
+
+    /**
+     * Breaks the first breakable object found in the hero's 3x3 interaction
+     * range, scanning adjacent tiles before the hero's own tile. A breakable is
+     * any ground item that declares {@link ItemAction#BREAK} (e.g. vase, column,
+     * crate, water pipe) or a breakable {@link Container}. Containers also
+     * enforce a strength requirement.
+     *
+     * @return the outcome, or {@code null} when nothing breakable is in reach.
+     */
+    public BreakResult breakNearestObject() {
+        Hero hero = engine.getHero();
+        DungeonMap map = engine.getDungeonMap();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                GridCell cell = map.getCell(hx + dx, hy + dy);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    if (!isBreakable(item)) {
+                        continue;
+                    }
+                    int required = item instanceof Container container
+                            ? container.getBreakStrengthRequired()
+                            : 0;
+                    if (hero.getStr() < required) {
+                        return new BreakResult(item.getName(), false);
+                    }
+                    cell.getItems().remove(item);
+                    engine.notifyGameStateChanged();
+                    return new BreakResult(item.getName(), true);
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isBreakable(Item item) {
+        return item.getInventoryActions().contains(ItemAction.BREAK)
+                || (item instanceof Container container && container.isBreakable());
+    }
+
+    /**
+     * Outcome of a break attempt: the object's name and whether it was actually
+     * destroyed. {@code broken == false} means the hero lacked the strength.
+     */
+    public record BreakResult(String objectName, boolean broken) {
     }
 
     /**

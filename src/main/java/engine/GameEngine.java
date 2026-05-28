@@ -66,6 +66,8 @@ public class GameEngine {
     private final TargetItemMission targetMission = new TargetItemMission();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
+    private boolean isPaused = false;
+    private boolean isGameOver = false;
 
     private Timer spawnTimer;
     private Timer coinSpawnTimer;
@@ -197,6 +199,37 @@ public class GameEngine {
     }
 
     void notifyGameStateChanged() {
+        notifyListeners();
+    }
+
+    public boolean isPaused() {
+        return isPaused;
+    }
+
+    public boolean isGameOver() {
+        return isGameOver;
+    }
+
+    public void togglePause() {
+        if (isGameOver) {
+            return;
+        }
+        isPaused = !isPaused;
+        if (isPaused) {
+            pauseAllTimers();
+        } else {
+            resumeAllTimers();
+        }
+        notifyListeners();
+    }
+
+    private void triggerGameOver() {
+        if (isGameOver) {
+            return;
+        }
+        isGameOver = true;
+        isPaused = true;
+        pauseAllTimers();
         notifyListeners();
     }
 
@@ -478,6 +511,9 @@ public class GameEngine {
     }
 
     public void updateHeroPosition(int nx, int ny) {
+        if (isPaused || isGameOver) {
+            return;
+        }
         GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
         GridCell to = dungeonMap.getCell(nx, ny);
 
@@ -501,6 +537,9 @@ public class GameEngine {
      * when energy is already full.
      */
     public void tickEnergyRefill() {
+        if (isPaused || isGameOver) {
+            return;
+        }
         if (hero.getEnergy() >= hero.getMaxEnergy()) {
             return;
         }
@@ -828,6 +867,9 @@ public class GameEngine {
      * console only on state transitions to avoid log spam.
      */
     private void updateEnemyDetection() {
+        if (isPaused || isGameOver) {
+            return;
+        }
         boolean changed = false;
         for (int x = 0; x < dungeonMap.getWidth(); x++) {
             for (int y = 0; y < dungeonMap.getHeight(); y++) {
@@ -846,6 +888,9 @@ public class GameEngine {
     }
 
     private void updateKnightActions() {
+        if (isPaused || isGameOver) {
+            return;
+        }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
             if (!(enemy instanceof Knight knight)) {
@@ -853,6 +898,10 @@ public class GameEngine {
             }
             if (isAdjacentToHero(knight)) {
                 combatManager.knightAttacksHero(knight, hero);
+                if (hero.getHp() <= 0) {
+                    triggerGameOver();
+                    return;
+                }
                 changed = true;
                 continue;
             }
@@ -868,11 +917,18 @@ public class GameEngine {
     }
 
     private void updateSorcererAttacks() {
+        if (isPaused || isGameOver) {
+            return;
+        }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
             if (enemy instanceof Sorcerer sorcerer) {
                 CombatManager.AttackResult result = combatManager.sorcererAttacksHero(sorcerer, hero);
                 changed |= result.getDamageGenerated() > 0;
+                if (hero.getHp() <= 0) {
+                    triggerGameOver();
+                    return;
+                }
             }
         }
         if (changed) {
@@ -881,6 +937,9 @@ public class GameEngine {
     }
 
     private void updateSorcererTeleports() {
+        if (isPaused || isGameOver) {
+            return;
+        }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
             if (enemy instanceof Sorcerer && random.nextBoolean()) {
@@ -1045,5 +1104,23 @@ public class GameEngine {
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
         if (sorcererTeleportTimer != null) sorcererTeleportTimer.stop();
+    }
+
+    private void pauseAllTimers() {
+        if (spawnTimer != null) spawnTimer.stop();
+        if (coinSpawnTimer != null) coinSpawnTimer.stop();
+        if (detectionTimer != null) detectionTimer.stop();
+        if (knightActionTimer != null) knightActionTimer.stop();
+        if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
+        if (sorcererTeleportTimer != null) sorcererTeleportTimer.stop();
+    }
+
+    private void resumeAllTimers() {
+        if (spawnTimer != null) spawnTimer.start();
+        if (coinSpawnTimer != null) coinSpawnTimer.start();
+        if (detectionTimer != null) detectionTimer.start();
+        if (knightActionTimer != null) knightActionTimer.start();
+        if (sorcererAttackTimer != null) sorcererAttackTimer.start();
+        if (sorcererTeleportTimer != null) sorcererTeleportTimer.start();
     }
 }
