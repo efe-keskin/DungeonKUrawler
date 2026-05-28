@@ -52,6 +52,13 @@ public final class TargetItemMission {
         return won;
     }
 
+    public void restore(ValuableItem target, boolean started, boolean won) {
+        this.target = target;
+        this.hidingPlace = null;
+        this.started = started && target != null;
+        this.won = this.started && won;
+    }
+
     /**
      * Picks a random hiding place from {@code provider}, stashes {@code target}
      * inside it, and flips the mission to "started." No-op when the mission has

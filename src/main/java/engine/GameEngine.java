@@ -176,6 +176,18 @@ public class GameEngine {
             }
         }
         return new int[] { 1, 1 };
+    public GameEngine(DungeonMap dungeonMap, Hero hero,
+            ValuableItem missionTarget, boolean missionStarted, boolean missionWon) {
+        this.random = ThreadLocalRandom.current();
+        this.enemyFactory = new EnemyFactory(random);
+        if (dungeonMap == null || hero == null) {
+            throw new IllegalArgumentException("Loaded game requires a map and hero.");
+        }
+        this.dungeonMap = dungeonMap;
+        this.hero = hero;
+        placeHeroOnMap();
+        this.targetMission.restore(missionTarget, missionStarted, missionWon);
+        startGameTimers();
     }
 
     /**

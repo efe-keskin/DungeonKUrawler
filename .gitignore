@@ -4,3 +4,4 @@ target/
 sources.txt
 .DS_Store
 .vscode/
+saves/

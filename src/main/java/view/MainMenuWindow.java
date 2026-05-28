@@ -12,6 +12,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -21,6 +22,9 @@ import javax.swing.border.EmptyBorder;
 
 import engine.BuildModeController;
 import engine.GameEngine;
+import save.SaveDtos.SaveDescriptor;
+import save.SaveGameController;
+import save.SaveGameException;
 import view.assets.AssetId;
 import view.assets.AssetManager;
 
@@ -76,9 +80,13 @@ public class MainMenuWindow extends JFrame {
             new GameWindow(engine).setVisible(true);
         });
 
-        JButton load = new JButton("LOAD MAP");
-        RetroTheme.styleRetroButton(load, RetroTheme.BTN_SECONDARY);
-        load.addActionListener(e -> loadSavedMap());
+        JButton load = new JButton("LOAD GAME");
+        RetroTheme.styleRetroButton(load, new Color(118, 72, 142));
+        load.addActionListener(e -> handleLoadGame());
+
+        JButton loadMap = new JButton("LOAD MAP");
+        RetroTheme.styleRetroButton(loadMap, RetroTheme.BTN_SECONDARY);
+        loadMap.addActionListener(e -> loadSavedMap());
 
         JButton build = new JButton("BUILD MAP");
         RetroTheme.styleRetroButton(build, new Color(180, 160, 40));
@@ -154,6 +162,44 @@ public class MainMenuWindow extends JFrame {
             new GameWindow(engine).setVisible(true);
         } catch (IOException ex) {
             ItemActionMenuDialog.showNotice(this, "Menu", "Load Failed", ex.getMessage());
+    
+    private void handleLoadGame() {
+        SaveGameController controller = new SaveGameController();
+        while (true) {
+            List<SaveDescriptor> saves;
+            try {
+                saves = controller.listSaves();
+            } catch (SaveGameException ex) {
+                ItemActionMenuDialog.showNotice(this, "Load Game", "Load Failed",
+                        "This save file could not be loaded.");
+                return;
+            }
+            if (saves.isEmpty()) {
+                ItemActionMenuDialog.showNotice(this, "Load Game", "No Saves",
+                        "No saved games found.");
+                return;
+            }
+
+            LoadGameDialog.Result result = LoadGameDialog.show(this, saves);
+            if (result.action() == LoadGameDialog.Action.CANCEL) {
+                return;
+            }
+
+            try {
+                if (result.action() == LoadGameDialog.Action.DELETE) {
+                    controller.deleteSave(result.save());
+                    ItemActionMenuDialog.showNotice(this, "Load Game", "Deleted",
+                            "Saved game deleted.");
+                    continue;
+                }
+                GameEngine engine = controller.loadGame(result.save());
+                dispose();
+                new GameWindow(engine).setVisible(true);
+                return;
+            } catch (SaveGameException ex) {
+                ItemActionMenuDialog.showNotice(this, "Load Game", "Load Failed",
+                        "This save file could not be loaded.");
+            }
         }
     }
 
