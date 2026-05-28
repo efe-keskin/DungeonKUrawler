@@ -3,4 +3,5 @@ target/
 *.class
 sources.txt
 .DS_Store
+.vscode/
 saves/

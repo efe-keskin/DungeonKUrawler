@@ -1,6 +1,8 @@
 package model;
 
-public class Column extends SearchableObject {
+import java.util.List;
+
+public class Column extends StaticObject {
 
     public static final String PURPLE_SPRITE =
             "/background_floor/assets/searchable assets/39_pillar_purple.png";
@@ -10,14 +12,23 @@ public class Column extends SearchableObject {
             "/background_floor/assets/searchable assets/10_wall_column_round_top.png";
 
     public Column() {
-        this(null);
+        this(GRAY_SPRITE);
     }
 
-    public Column(Item hiddenItem) {
-        this(GRAY_SPRITE, hiddenItem);
+    public Column(String spriteResource) {
+        super("Stone Column", true);
+        this.spriteResource = spriteResource;
     }
 
-    public Column(String spriteResource, Item hiddenItem) {
-        super("Stone Column", true, spriteResource, hiddenItem);
+    private final String spriteResource;
+
+    @Override
+    public List<ItemAction> getInventoryActions() {
+        return List.of(ItemAction.BREAK);
+    }
+
+    @Override
+    public String spriteResource() {
+        return spriteResource;
     }
 }

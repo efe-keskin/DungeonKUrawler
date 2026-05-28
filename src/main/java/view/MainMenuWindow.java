@@ -10,6 +10,8 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
 import javax.swing.ImageIcon;
@@ -18,6 +20,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
+import engine.BuildModeController;
 import engine.GameEngine;
 import save.SaveDtos.SaveDescriptor;
 import save.SaveGameController;
@@ -78,14 +81,20 @@ public class MainMenuWindow extends JFrame {
         });
 
         JButton load = new JButton("LOAD GAME");
-        RetroTheme.styleRetroButton(load, RetroTheme.BTN_SECONDARY);
+        RetroTheme.styleRetroButton(load, new Color(118, 72, 142));
         load.addActionListener(e -> handleLoadGame());
+
+        JButton loadMap = new JButton("LOAD MAP");
+        RetroTheme.styleRetroButton(loadMap, RetroTheme.BTN_SECONDARY);
+        loadMap.addActionListener(e -> loadSavedMap());
 
         JButton build = new JButton("BUILD MAP");
         RetroTheme.styleRetroButton(build, new Color(180, 160, 40));
         build.setForeground(Color.WHITE);
-        build.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Menu", "Build Map",
-                "Build Map is not implemented yet."));
+        build.addActionListener(e -> {
+            dispose();
+            new DesignWindow().setVisible(true);
+        });
 
         JButton help = new JButton();
         ImageIcon helpIcon = AssetManager.get().icon(AssetId.HELP_QUESTION_MARK, 40, 40);
@@ -140,6 +149,20 @@ public class MainMenuWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    private void loadSavedMap() {
+        BuildMapFileDialog.showLoad(this, null).ifPresent(this::openSavedMap);
+    }
+
+    private void openSavedMap(Path path) {
+        try {
+            BuildModeController controller = new BuildModeController();
+            controller.loadMap(path);
+            GameEngine engine = new GameEngine(controller.getDesignMap());
+            dispose();
+            new GameWindow(engine).setVisible(true);
+        } catch (IOException ex) {
+            ItemActionMenuDialog.showNotice(this, "Menu", "Load Failed", ex.getMessage());
+    
     private void handleLoadGame() {
         SaveGameController controller = new SaveGameController();
         while (true) {
