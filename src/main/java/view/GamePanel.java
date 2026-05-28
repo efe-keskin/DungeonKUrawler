@@ -37,6 +37,7 @@ import model.Hero;
 import model.Item;
 import model.Knight;
 import model.Potion;
+import model.SearchableObject;
 import model.Sorcerer;
 import view.assets.SpriteRegistry;
 import view.render.AmbienceRenderer;
@@ -290,12 +291,29 @@ public class GamePanel extends JPanel implements GameStateListener {
                 ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
                         getPickupFailureMessage(result));
             }
+        } else if (picked.getInventoryAction() == model.ItemAction.SEARCH
+                && interaction.getItem() instanceof SearchableObject searchableObject) {
+            showSearchResult(parent, interactionController.search(searchableObject));
         } else if (!interactionController.applyGroundAction(interaction.getItem(),
                 interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
             ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Use Item",
                     "That action could not be performed on " + interaction.getItemName() + ".");
         }
         return true;
+    }
+
+    private void showSearchResult(Window parent, GameEngine.SearchResult result) {
+        switch (result.getOutcome()) {
+            case FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Found",
+                    "You have found a " + result.getFoundItem().getName() + ".");
+            case NOTHING_FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Nothing Found",
+                    "you couldn't found anything");
+            case INVENTORY_FULL -> ItemActionMenuDialog.showNotice(parent, "Search", "Inventory Full",
+                    "You have found a " + result.getFoundItem().getName()
+                            + ", but your inventory is full.");
+            case NOT_SEARCHABLE -> ItemActionMenuDialog.showNotice(parent, "Search", "Cannot Search",
+                    "This location cannot be searched.");
+        }
     }
 
     private void leaveDefeatMarker(int gridX, int gridY) {
@@ -457,7 +475,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                         Item first = cell.getItemsView().get(0);
                         BufferedImage sprite = spriteFor(first);
                         if (sprite != null) {
-                            drawItemSprite(g2, first, sprite, px, py, cellW, cellH);
+                            drawItemSprite(g2, first, sprite, px, py, cellW, cellH, y == map.getHeight() - 1);
                         } else {
                             Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
                             drawItemMarker(g2, px, py, cellW, cellH, itemColor);
@@ -571,10 +589,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         return SpriteRegistry.spriteFor(entity);
     }
 
-    private void drawItemSprite(Graphics2D g2, Item item, BufferedImage sprite, int px, int py, int cellW, int cellH) {
+    private void drawItemSprite(Graphics2D g2, Item item, BufferedImage sprite, int px, int py, int cellW, int cellH,
+            boolean flipVertical) {
         int inset = Math.max(1, Math.min(cellW, cellH) / 6);
         int boxW = Math.max(1, cellW - inset * 2);
         int boxH = Math.max(1, cellH - inset * 2);
+        if (item instanceof SearchableObject) {
+            double scale = Math.min(boxW / (double) sprite.getWidth(), boxH / (double) sprite.getHeight());
+            int drawW = Math.max(1, (int) Math.round(sprite.getWidth() * scale));
+            int drawH = Math.max(1, (int) Math.round(sprite.getHeight() * scale));
+            int drawX = px + (cellW - drawW) / 2;
+            boolean drip = isWallDripSearchable(item);
+            int drawY = drip ? py + cellH - drawH : py + (cellH - drawH) / 2;
+            if (flipVertical && !drip) {
+                g2.drawImage(sprite, drawX, drawY + drawH, drawW, -drawH, null);
+            } else {
+                g2.drawImage(sprite, drawX, drawY, drawW, drawH, null);
+            }
+            return;
+        }
         if (item instanceof model.Key) {
             // Keys are tiny pixel art — draw at native size, centered, never enlarged.
             int drawX = px + (cellW - sprite.getWidth()) / 2;
@@ -583,6 +616,11 @@ public class GamePanel extends JPanel implements GameStateListener {
             return;
         }
         g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
+    }
+
+    private boolean isWallDripSearchable(Item item) {
+        String resource = item == null ? null : item.spriteResource();
+        return resource != null && resource.contains("wall_detail_drip_");
     }
 
     private void drawItemMarker(Graphics2D g2, int px, int py, int cellW, int cellH, Color color) {

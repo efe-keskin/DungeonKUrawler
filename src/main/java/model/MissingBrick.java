@@ -1,15 +1,19 @@
 package model;
 
-import java.util.List;
+public class MissingBrick extends SearchableObject {
 
-public class MissingBrick extends StaticObject {
+    public static final String SPRITE_1 = "/background_floor/assets/searchable assets/missingbrick1.png";
+    public static final String SPRITE_2 = "/background_floor/assets/searchable assets/missingbrick2.png";
 
     public MissingBrick() {
-        super("Missing Brick", false);
+        this(null);
     }
 
-    @Override
-    public List<ItemAction> getInventoryActions() {
-        return List.of(ItemAction.SEARCH);
+    public MissingBrick(Item hiddenItem) {
+        this(SPRITE_1, hiddenItem);
+    }
+
+    public MissingBrick(String spriteResource, Item hiddenItem) {
+        super("Missing Brick", false, spriteResource, hiddenItem);
     }
 }

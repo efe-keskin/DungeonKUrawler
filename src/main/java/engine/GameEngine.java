@@ -26,6 +26,7 @@ import model.ManaPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
+import model.Column;
 import model.Ring;
 import model.ValuableItem;
 import model.ValuableItemCatalog;
@@ -34,8 +35,14 @@ import model.WeaponCatalog;
 import javax.swing.Timer;
 
 import model.AIState;
+import model.Gargoyle;
+import model.Grill;
+import model.Hole;
 import model.Knight;
+import model.MissingBrick;
+import model.SearchableObject;
 import model.Sorcerer;
+import model.WaterPipe;
 
 /**
  * Game state owner and observer subject.
@@ -77,8 +84,51 @@ public class GameEngine {
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
+    private static final double SEARCHABLE_WALL_FILL_RATIO = 0.75;
+    private static final double SEARCHABLE_HIDDEN_ITEM_CHANCE = 0.65;
     private static final double KNIGHT_VISION_RANGE = 5.0;
     private static final double SORCERER_VISION_RANGE = Double.POSITIVE_INFINITY; // sees hero always
+
+    public enum SearchOutcome {
+        FOUND,
+        NOTHING_FOUND,
+        INVENTORY_FULL,
+        NOT_SEARCHABLE
+    }
+
+    public static final class SearchResult {
+        private final SearchOutcome outcome;
+        private final Item foundItem;
+
+        private SearchResult(SearchOutcome outcome, Item foundItem) {
+            this.outcome = outcome;
+            this.foundItem = foundItem;
+        }
+
+        public static SearchResult found(Item item) {
+            return new SearchResult(SearchOutcome.FOUND, item);
+        }
+
+        public static SearchResult nothingFound() {
+            return new SearchResult(SearchOutcome.NOTHING_FOUND, null);
+        }
+
+        public static SearchResult inventoryFull(Item item) {
+            return new SearchResult(SearchOutcome.INVENTORY_FULL, item);
+        }
+
+        public static SearchResult notSearchable() {
+            return new SearchResult(SearchOutcome.NOT_SEARCHABLE, null);
+        }
+
+        public SearchOutcome getOutcome() {
+            return outcome;
+        }
+
+        public Item getFoundItem() {
+            return foundItem;
+        }
+    }
 
     public GameEngine() {
         this(ThreadLocalRandom.current());
@@ -212,7 +262,86 @@ public class GameEngine {
             lockedChestCell.getItems().add(lockedChest);
         }
 
+        placeRandomSearchablesOnHorizontalWalls(map);
+
         return map;
+    }
+
+    private void placeRandomSearchablesOnHorizontalWalls(DungeonMap map) {
+        List<int[]> candidates = new ArrayList<>();
+        for (int x = 1; x < map.getWidth() - 1; x++) {
+            candidates.add(new int[] { x, 0 });
+            candidates.add(new int[] { x, map.getHeight() - 1 });
+        }
+
+        int count = Math.min(candidates.size(), (int) Math.round(candidates.size() * SEARCHABLE_WALL_FILL_RATIO));
+        for (int i = 0; i < count; i++) {
+            int[] spot = candidates.remove(random.nextInt(candidates.size()));
+            placeSearchable(map, spot[0], spot[1], randomSearchableObject(spot[1] == 0));
+        }
+    }
+
+    private SearchableObject randomSearchableObject(boolean topWall) {
+        Item hiddenItem = randomHiddenSearchItem();
+        return switch (random.nextInt(20)) {
+            case 0 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
+            case 1 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
+            case 2 -> topWall ? new Hole(hiddenItem) : new WaterPipe(WaterPipe.SMALL_RING_SPRITE, hiddenItem);
+            case 3 -> new Grill(Grill.HORIZONTAL_SPRITE, hiddenItem);
+            case 4 -> new Grill(Grill.VERTICAL_SPRITE, hiddenItem);
+            case 5 -> new WaterPipe(WaterPipe.SMALL_RING_SPRITE, hiddenItem);
+            case 6 -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE, hiddenItem);
+            case 7 -> new WaterPipe(WaterPipe.TEARDROP_RING_SPRITE, hiddenItem);
+            case 8, 9, 10, 11, 12, 13, 14, 15, 16 -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
+            case 17 -> new Column(Column.WALL_TOP_SPRITE, hiddenItem);
+            case 18 -> new Column(Column.PURPLE_SPRITE, hiddenItem);
+            default -> new Column(Column.GRAY_SPRITE, hiddenItem);
+        };
+    }
+
+    private String randomDripSprite(boolean topWall) {
+        String[] sprites = topWall
+                ? new String[] {
+                        Gargoyle.GREEN_LEFT_SPRITE,
+                        Gargoyle.CYAN_LEFT_SPRITE,
+                        Gargoyle.RED_MID_SPRITE,
+                        Gargoyle.GREEN_MID_SPRITE,
+                        Gargoyle.CYAN_MID_SPRITE,
+                        Gargoyle.GREEN_RIGHT_SPRITE,
+                        Gargoyle.CYAN_RIGHT_SPRITE,
+                        Gargoyle.RED_RIGHT_SPRITE
+                }
+                : new String[] {
+                        Gargoyle.RED_LEFT_SPRITE,
+                        Gargoyle.RED_MID_SPRITE,
+                        Gargoyle.GREEN_MID_SPRITE,
+                        Gargoyle.CYAN_MID_SPRITE,
+                        Gargoyle.GREEN_RIGHT_SPRITE,
+                        Gargoyle.CYAN_RIGHT_SPRITE,
+                        Gargoyle.RED_RIGHT_SPRITE
+                };
+        return sprites[random.nextInt(sprites.length)];
+    }
+
+    private Item randomHiddenSearchItem() {
+        if (random.nextDouble() >= SEARCHABLE_HIDDEN_ITEM_CHANCE) {
+            return null;
+        }
+        return switch (random.nextInt(6)) {
+            case 0 -> new HealPotion();
+            case 1 -> new ManaPotion();
+            case 2 -> new EnergyPotion();
+            case 3 -> new Key("silver", KeyColor.SILVER);
+            case 4 -> new Ring("Hidden Ring", 1);
+            default -> new Book("Dusty Note", "A folded note found inside the old wall.");
+        };
+    }
+
+    private void placeSearchable(DungeonMap map, int x, int y, SearchableObject object) {
+        GridCell cell = map.getCell(x, y);
+        if (cell != null && object != null) {
+            cell.getItems().add(object);
+        }
     }
 
     /**
@@ -283,6 +412,27 @@ public class GameEngine {
         targetMission.checkPickup(item);
         notifyListeners();
         return true;
+    }
+
+    public SearchResult search(SearchableObject object) {
+        if (object == null) {
+            return SearchResult.notSearchable();
+        }
+        Item hidden = object.getHiddenItem();
+        if (hidden == null) {
+            return SearchResult.nothingFound();
+        }
+        if (!hero.getInventory().hasFreeSlot()) {
+            return SearchResult.inventoryFull(hidden);
+        }
+        Item found = object.takeHiddenItem();
+        if (!hero.getInventory().tryAdd(found)) {
+            object.setHiddenItem(found);
+            return SearchResult.inventoryFull(found);
+        }
+        targetMission.checkPickup(found);
+        notifyListeners();
+        return SearchResult.found(found);
     }
 
     private void placeHeroOnMap() {
