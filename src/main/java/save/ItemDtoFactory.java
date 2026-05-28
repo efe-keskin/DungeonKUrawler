@@ -131,22 +131,20 @@ final class ItemDtoFactory {
                     dto.locked, dto.requiresKey, positive(dto.capacity, 1), dto.portable), dto, context);
             case MISSING_BRICK -> new MissingBrick(fallback(dto.spriteResource, MissingBrick.SPRITE_1),
                     fromDto(dto.hiddenItem, context));
-            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE),
-                    fromDto(dto.hiddenItem, context));
+            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE));
             case GARGOYLE -> new Gargoyle(fallback(dto.spriteResource, Gargoyle.RED_LEFT_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case HOLE -> new Hole(fromDto(dto.hiddenItem, context));
             case GRILL -> new Grill(fallback(dto.spriteResource, Grill.HORIZONTAL_SPRITE),
                     fromDto(dto.hiddenItem, context));
-            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE),
-                    fromDto(dto.hiddenItem, context));
+            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE));
             case POOL -> new Pool(fallback(dto.spriteResource, Pool.CYAN_DRIP_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case SEARCHABLE -> new SearchableObject(fallback(dto.name, "Searchable Location"),
                     dto.blocking, dto.spriteResource, fromDto(dto.hiddenItem, context));
-            case CRATE -> new Crate();
+            case CRATE -> new Crate(fromDto(dto.hiddenItem, context));
             case VASE -> new Vase();
-            case PEDESTAL -> new Pedestal();
+            case PEDESTAL -> new Pedestal(fromDto(dto.hiddenItem, context));
             case DEFEATED_ENEMY -> new DefeatedEnemyMarker();
             case VALUABLE -> new ValuableItem(fallback(dto.name, "Valuable Item"), dto.spriteResource);
             default -> new ValuableItem(fallback(dto.name, "Unknown Item"), dto.spriteResource);
@@ -216,9 +214,6 @@ final class ItemDtoFactory {
         if (item instanceof Pool) {
             return POOL;
         }
-        if (item instanceof SearchableObject) {
-            return SEARCHABLE;
-        }
         if (item instanceof Crate) {
             return CRATE;
         }
@@ -227,6 +222,9 @@ final class ItemDtoFactory {
         }
         if (item instanceof Pedestal) {
             return PEDESTAL;
+        }
+        if (item instanceof SearchableObject) {
+            return SEARCHABLE;
         }
         if (item instanceof DefeatedEnemyMarker) {
             return DEFEATED_ENEMY;

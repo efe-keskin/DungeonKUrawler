@@ -800,6 +800,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         lastEnemyPositions.keySet().removeIf(entity -> !seen.contains(entity));
         enemyMoveAnimations.keySet().removeIf(entity -> !seen.contains(entity));
     }
+    
 
     private boolean isSingleStep(GridPosition previous, GridPosition current) {
         int dx = Math.abs(previous.x - current.x);
