@@ -36,13 +36,11 @@ import javax.swing.Timer;
 
 import model.AIState;
 import model.Gargoyle;
-import model.Grill;
-import model.Hole;
 import model.Knight;
 import model.MissingBrick;
+import model.Pool;
 import model.SearchableObject;
 import model.Sorcerer;
-import model.WaterPipe;
 
 /**
  * Game state owner and observer subject.
@@ -133,21 +131,51 @@ public class GameEngine {
     }
 
     public GameEngine() {
-        this(ThreadLocalRandom.current());
+        this(ThreadLocalRandom.current(), null);
     }
 
     GameEngine(Random random) {
+        this(random, null);
+    }
+
+    /**
+     * Starts play mode from a map produced by the design screen.
+     */
+    public GameEngine(DungeonMap designedMap) {
+        this(ThreadLocalRandom.current(), designedMap);
+    }
+
+    private GameEngine(Random random, DungeonMap designedMap) {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
-        this.dungeonMap = buildDemoMap("Phase 1 — Build Mode");
+        this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 — Build Mode") : designedMap;
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
         // Spec section 2.4.1: HP=17, STR=random[8,15], Mana=80, DEF=2.
         // Energy=100 is a project design decision (spec leaves it open).
-        this.hero = new Hero(1, 1, "Hero", 17, startingStr, 80, 2, 100);
+        int[] heroStart = findHeroStart(this.dungeonMap);
+        this.hero = new Hero(heroStart[0], heroStart[1], "Hero", 17, startingStr, 80, 2, 100);
         placeHeroOnMap();
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
+    }
+
+    private int[] findHeroStart(DungeonMap map) {
+        if (map != null) {
+            GridCell preferred = map.getCell(1, 1);
+            if (preferred != null && preferred.isWalkable() && preferred.getEntitiesView().isEmpty()) {
+                return new int[] { 1, 1 };
+            }
+            for (int y = 0; y < map.getHeight(); y++) {
+                for (int x = 0; x < map.getWidth(); x++) {
+                    GridCell cell = map.getCell(x, y);
+                    if (cell != null && cell.isWalkable() && cell.getEntitiesView().isEmpty()) {
+                        return new int[] { x, y };
+                    }
+                }
+            }
+        }
+        return new int[] { 1, 1 };
     }
 
     /**
@@ -317,18 +345,10 @@ public class GameEngine {
     private SearchableObject randomSearchableObject(boolean topWall) {
         Item hiddenItem = randomHiddenSearchItem();
         return switch (random.nextInt(20)) {
-            case 0 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
-            case 1 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
-            case 2 -> topWall ? new Hole(hiddenItem) : new WaterPipe(WaterPipe.SMALL_RING_SPRITE, hiddenItem);
-            case 3 -> new Grill(Grill.HORIZONTAL_SPRITE, hiddenItem);
-            case 4 -> new Grill(Grill.VERTICAL_SPRITE, hiddenItem);
-            case 5 -> new WaterPipe(WaterPipe.SMALL_RING_SPRITE, hiddenItem);
-            case 6 -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE, hiddenItem);
-            case 7 -> new WaterPipe(WaterPipe.TEARDROP_RING_SPRITE, hiddenItem);
-            case 8, 9, 10, 11, 12, 13, 14, 15, 16 -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
-            case 17 -> new Column(Column.WALL_TOP_SPRITE, hiddenItem);
-            case 18 -> new Column(Column.PURPLE_SPRITE, hiddenItem);
-            default -> new Column(Column.GRAY_SPRITE, hiddenItem);
+            case 0, 1, 2, 3 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
+            case 4, 5, 6, 7 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
+            case 8, 9, 10, 11 -> new Pool(randomDripSprite(topWall), hiddenItem);
+            default -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
         };
     }
 

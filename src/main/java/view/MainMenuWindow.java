@@ -10,6 +10,8 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.file.Path;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -17,6 +19,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
+import engine.BuildModeController;
 import engine.GameEngine;
 import view.assets.AssetId;
 import view.assets.AssetManager;
@@ -75,14 +78,15 @@ public class MainMenuWindow extends JFrame {
 
         JButton load = new JButton("LOAD MAP");
         RetroTheme.styleRetroButton(load, RetroTheme.BTN_SECONDARY);
-        load.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Menu", "Load Map",
-                "Load Map is not implemented yet."));
+        load.addActionListener(e -> loadSavedMap());
 
         JButton build = new JButton("BUILD MAP");
         RetroTheme.styleRetroButton(build, new Color(180, 160, 40));
         build.setForeground(Color.WHITE);
-        build.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Menu", "Build Map",
-                "Build Map is not implemented yet."));
+        build.addActionListener(e -> {
+            dispose();
+            new DesignWindow().setVisible(true);
+        });
 
         JButton help = new JButton();
         ImageIcon helpIcon = AssetManager.get().icon(AssetId.HELP_QUESTION_MARK, 40, 40);
@@ -135,6 +139,22 @@ public class MainMenuWindow extends JFrame {
         setSize(PREF_W, PREF_H);
         setMinimumSize(getSize());
         setLocationRelativeTo(null);
+    }
+
+    private void loadSavedMap() {
+        BuildMapFileDialog.showLoad(this, null).ifPresent(this::openSavedMap);
+    }
+
+    private void openSavedMap(Path path) {
+        try {
+            BuildModeController controller = new BuildModeController();
+            controller.loadMap(path);
+            GameEngine engine = new GameEngine(controller.getDesignMap());
+            dispose();
+            new GameWindow(engine).setVisible(true);
+        } catch (IOException ex) {
+            ItemActionMenuDialog.showNotice(this, "Menu", "Load Failed", ex.getMessage());
+        }
     }
 
     /**
