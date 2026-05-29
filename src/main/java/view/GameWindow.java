@@ -27,6 +27,7 @@ import engine.MissionListener;
 import engine.PlayerModeController;
 import engine.InteractionController;
 import engine.GameStateListener;
+import engine.audio.AudioManager;
 import model.ValuableItem;
 import view.assets.AssetId;
 import view.assets.AssetManager;
@@ -45,10 +46,14 @@ public class GameWindow extends JFrame implements GameStateListener {
     private static final Color CONTROL_BORDER = new Color(103, 91, 75);
 
     private final GameEngine engine;
+    private final AudioManager audioManager;
     private boolean gameOverDialogShown;
 
     public GameWindow(GameEngine engine) {
         this.engine = engine;
+        this.audioManager = AudioManager.shared();
+        engine.addGameEventListener(audioManager);
+        engine.getTargetMission().addListener(audioManager);
         setTitle("Dungeon Krawler — Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -70,6 +75,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         // Keeps WASD/arrows on GamePanel: the button still activates on mouse click.
         pauseButton.setFocusable(false);
         pauseButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
             panel.showInGameMenu();
             panel.requestFocusInWindow();
         });
@@ -92,6 +98,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         inventoryButton.setPreferredSize(new Dimension(70, 64));
         inventoryButton.setFocusable(false);
         inventoryButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
             InventoryDialog dialog = new InventoryDialog(this, engine);
             dialog.setVisible(true);
             // Keep keyboard movement controls on the map after popup closes.
@@ -147,6 +154,8 @@ public class GameWindow extends JFrame implements GameStateListener {
             @Override
             public void windowClosed(WindowEvent e) {
                 engine.removeGameStateListener(GameWindow.this);
+                engine.removeGameEventListener(audioManager);
+                engine.getTargetMission().removeListener(audioManager);
                 engine.shutdown();
             }
         });

@@ -61,6 +61,10 @@ public class CombatController {
         if (result.isDefenderDefeated()) {
             cell.getEntities().remove(target);
         }
+        engine.fireHeroAttack(result);
+        if (result.isDefenderDefeated()) {
+            engine.fireEnemyDefeated(target);
+        }
         engine.notifyGameStateChanged();
         return result;
     }

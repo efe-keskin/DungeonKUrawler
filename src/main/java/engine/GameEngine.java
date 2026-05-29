@@ -66,6 +66,7 @@ public class GameEngine {
     private final CombatManager combatManager = new CombatManager();
     private final TargetItemMission targetMission = new TargetItemMission();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<GameEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
     private boolean isPaused = false;
     private boolean isGameOver = false;
@@ -227,6 +228,16 @@ public class GameEngine {
         listeners.remove(listener);
     }
 
+    public void addGameEventListener(GameEventListener listener) {
+        if (listener != null) {
+            eventListeners.add(listener);
+        }
+    }
+
+    public void removeGameEventListener(GameEventListener listener) {
+        eventListeners.remove(listener);
+    }
+
     private void notifyListeners() {
         for (GameStateListener listener : listeners) {
             listener.onGameStateChanged();
@@ -235,6 +246,36 @@ public class GameEngine {
 
     void notifyGameStateChanged() {
         notifyListeners();
+    }
+
+    void fireHeroAttack(CombatManager.AttackResult result) {
+        for (GameEventListener listener : eventListeners) {
+            listener.onHeroAttack(result);
+        }
+    }
+
+    void fireHeroTookDamage(CombatManager.AttackResult result) {
+        for (GameEventListener listener : eventListeners) {
+            listener.onHeroTookDamage(result);
+        }
+    }
+
+    void fireEnemyDefeated(Entity enemy) {
+        for (GameEventListener listener : eventListeners) {
+            listener.onEnemyDefeated(enemy);
+        }
+    }
+
+    void fireItemPickedUp(Item item) {
+        for (GameEventListener listener : eventListeners) {
+            listener.onItemPickedUp(item);
+        }
+    }
+
+    void fireHeroDefeated() {
+        for (GameEventListener listener : eventListeners) {
+            listener.onHeroDefeated();
+        }
     }
 
     public boolean isPaused() {
@@ -262,6 +303,7 @@ public class GameEngine {
         if (isGameOver) {
             return;
         }
+        fireHeroDefeated();
         isGameOver = true;
         isPaused = true;
         pauseAllTimers();
@@ -484,6 +526,7 @@ public class GameEngine {
         }
         container.removeItem(item);
         targetMission.checkPickup(item);
+        fireItemPickedUp(item);
         notifyListeners();
         return true;
     }
@@ -505,6 +548,7 @@ public class GameEngine {
             return SearchResult.inventoryFull(found);
         }
         targetMission.checkPickup(found);
+        fireItemPickedUp(found);
         notifyListeners();
         return SearchResult.found(found);
     }
@@ -694,6 +738,7 @@ public class GameEngine {
         }
         dungeonMap.removeItemFromCell(item, x, y);
         targetMission.checkPickup(item);
+        fireItemPickedUp(item);
         notifyListeners();
         return true;
     }
@@ -933,7 +978,10 @@ public class GameEngine {
             if (!isAdjacentToHero(knight)) {
                 continue;
             }
-            combatManager.knightAttacksHero(knight, hero);
+            CombatManager.AttackResult result = combatManager.knightAttacksHero(knight, hero);
+            if (result.damageReceived > 0) {
+                fireHeroTookDamage(result);
+            }
             if (hero.getHp() <= 0) {
                 triggerGameOver();
                 return;
@@ -1068,8 +1116,10 @@ public class GameEngine {
         int hy = hero.getY();
         if (hx == targetX && hy == targetY) {
             CombatManager.AttackResult result = combatManager.applyHeroProjectileHit(target, prep);
+            fireHeroAttack(result);
             if (result.isDefenderDefeated()) {
                 cell.getEntities().remove(target);
+                fireEnemyDefeated(target);
             }
             notifyListeners();
             return result;
@@ -1262,14 +1312,21 @@ public class GameEngine {
 
     private void resolveHeroProjectileHit(Entity target, CombatManager.HeroProjectilePrep prep, GridCell cell) {
         CombatManager.AttackResult result = combatManager.applyHeroProjectileHit(target, prep);
+        fireHeroAttack(result);
         if (result.isDefenderDefeated() && cell != null) {
             cell.getEntities().remove(target);
+            fireEnemyDefeated(target);
         }
         notifyListeners();
     }
 
     private void resolveEnemyProjectileHitOnHero(int damageReceived) {
         combatManager.applyProjectileImpact(hero, damageReceived);
+        CombatManager.AttackResult result = new CombatManager.AttackResult(
+                0, damageReceived, hero.getHp(), hero.getHp() <= 0);
+        if (result.damageReceived > 0) {
+            fireHeroTookDamage(result);
+        }
         if (hero.getHp() <= 0) {
             triggerGameOver();
         }

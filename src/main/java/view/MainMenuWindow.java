@@ -8,6 +8,7 @@ import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -22,6 +23,7 @@ import javax.swing.border.EmptyBorder;
 
 import engine.BuildModeController;
 import engine.GameEngine;
+import engine.audio.AudioManager;
 import save.SaveDtos.SaveDescriptor;
 import save.SaveGameController;
 import save.SaveGameException;
@@ -44,6 +46,8 @@ public class MainMenuWindow extends JFrame {
 
         FantasyMenuBackgroundPanel background = new FantasyMenuBackgroundPanel();
         background.setLayout(new BorderLayout());
+        AudioManager audio = AudioManager.shared();
+        audio.startMenuMusic();
 
         javax.swing.JPanel titlePanel = new javax.swing.JPanel();
         titlePanel.setLayout(new javax.swing.BoxLayout(titlePanel, javax.swing.BoxLayout.Y_AXIS));
@@ -64,7 +68,15 @@ public class MainMenuWindow extends JFrame {
         titlePanel.add(javax.swing.Box.createRigidArea(new Dimension(0, 10)));
         titlePanel.add(subLabel);
 
-        background.add(titlePanel, BorderLayout.NORTH);
+        JPanel northContainer = new JPanel(new BorderLayout());
+        northContainer.setOpaque(false);
+        JPanel leftTitleSpacer = new JPanel();
+        leftTitleSpacer.setOpaque(false);
+        leftTitleSpacer.setPreferredSize(new Dimension(80, 56));
+        northContainer.add(leftTitleSpacer, BorderLayout.WEST);
+        northContainer.add(titlePanel, BorderLayout.CENTER);
+        northContainer.add(createMusicControl(audio), BorderLayout.EAST);
+        background.add(northContainer, BorderLayout.NORTH);
 
         JPanel buttonPanel = new JPanel(new GridLayout(5, 1, 10, 10));
         buttonPanel.setOpaque(false);
@@ -74,24 +86,34 @@ public class MainMenuWindow extends JFrame {
         JButton start = new JButton("START GAME");
         RetroTheme.styleRetroButton(start, RetroTheme.BTN_PRIMARY);
         start.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
             System.out.println("Game Started");
             GameEngine engine = new GameEngine();
+            AudioManager.shared().stopMenuMusic();
             dispose();
             new GameWindow(engine).setVisible(true);
         });
 
         JButton load = new JButton("LOAD GAME");
         RetroTheme.styleRetroButton(load, new Color(118, 72, 142));
-        load.addActionListener(e -> handleLoadGame());
+        load.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            handleLoadGame();
+        });
 
         JButton loadMap = new JButton("LOAD MAP");
         RetroTheme.styleRetroButton(loadMap, RetroTheme.BTN_SECONDARY);
-        loadMap.addActionListener(e -> loadSavedMap());
+        loadMap.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            loadSavedMap();
+        });
 
         JButton build = new JButton("BUILD MAP");
         RetroTheme.styleRetroButton(build, new Color(180, 160, 40));
         build.setForeground(Color.WHITE);
         build.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            AudioManager.shared().stopMenuMusic();
             dispose();
             new DesignWindow().setVisible(true);
         });
@@ -108,13 +130,20 @@ public class MainMenuWindow extends JFrame {
         help.setBorderPainted(false);
         help.setContentAreaFilled(false);
         help.setOpaque(false);
-        help.addActionListener(e -> ItemActionMenuDialog.showNotice(this, "Controls", "Help",
-                "Build Mode - Arrow keys or WASD to move.\n"
-                        + "The engine handles all rules; UI only forwards input."));
+        help.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            ItemActionMenuDialog.showNotice(this, "Controls", "Help",
+                    "Build Mode - Arrow keys or WASD to move.\n"
+                            + "The engine handles all rules; UI only forwards input.");
+        });
 
         JButton exit = new JButton("EXIT");
         RetroTheme.styleRetroButton(exit, RetroTheme.BTN_DANGER);
-        exit.addActionListener(e -> System.exit(0));
+        exit.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            AudioManager.shared().stopMenuMusic();
+            System.exit(0);
+        });
 
         buttonPanel.add(start);
         buttonPanel.add(load);
@@ -150,6 +179,29 @@ public class MainMenuWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    private JPanel createMusicControl(AudioManager audio) {
+        JPanel panel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 0, 0));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(16, 0, 0, 18));
+        panel.setPreferredSize(new Dimension(80, 56));
+        if (!audio.isMusicAvailable()) {
+            return panel;
+        }
+
+        JButton muteButton = new JButton(audio.isMusicMuted() ? "🔇" : "🔊");
+        muteButton.setFocusable(false);
+        muteButton.setMargin(new Insets(4, 8, 4, 8));
+        muteButton.setToolTipText("Toggle menu music");
+        RetroTheme.styleRetroButton(muteButton, new Color(54, 41, 30));
+        muteButton.setFont(new Font(Font.DIALOG, Font.PLAIN, 20));
+        muteButton.addActionListener(e -> {
+            audio.toggleMusicMute();
+            muteButton.setText(audio.isMusicMuted() ? "🔇" : "🔊");
+        });
+        panel.add(muteButton);
+        return panel;
+    }
+
     private void loadSavedMap() {
         BuildMapFileDialog.showLoad(this, null).ifPresent(this::openSavedMap);
     }
@@ -159,6 +211,7 @@ public class MainMenuWindow extends JFrame {
             BuildModeController controller = new BuildModeController();
             controller.loadMap(path);
             GameEngine engine = new GameEngine(controller.getDesignMap());
+            AudioManager.shared().stopMenuMusic();
             dispose();
             new GameWindow(engine).setVisible(true);
         } catch (IOException ex) {
@@ -196,6 +249,7 @@ public class MainMenuWindow extends JFrame {
                     continue;
                 }
                 GameEngine engine = controller.loadGame(result.save());
+                AudioManager.shared().stopMenuMusic();
                 dispose();
                 new GameWindow(engine).setVisible(true);
                 return;

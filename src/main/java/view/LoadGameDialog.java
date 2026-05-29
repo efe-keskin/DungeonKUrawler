@@ -36,6 +36,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 
+import engine.audio.AudioManager;
 import save.SaveDtos.SaveDescriptor;
 
 /**
@@ -171,13 +172,20 @@ public final class LoadGameDialog {
         };
 
         ActionButton continueButton = new ActionButton("Continue", ButtonTone.PRIMARY);
-        continueButton.addActionListener(e -> submit.accept(Action.CONTINUE));
+        continueButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            submit.accept(Action.CONTINUE);
+        });
 
         ActionButton deleteButton = new ActionButton("Delete", ButtonTone.DANGER);
-        deleteButton.addActionListener(e -> submit.accept(Action.DELETE));
+        deleteButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            submit.accept(Action.DELETE);
+        });
 
         ActionButton cancelButton = new ActionButton("Cancel", ButtonTone.SECONDARY);
         cancelButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
             result[0] = Result.cancelled();
             dialog.dispose();
         });
@@ -191,6 +199,7 @@ public final class LoadGameDialog {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2 && saveList.getSelectedValue() != null) {
+                    AudioManager.shared().play("button_click");
                     submit.accept(Action.CONTINUE);
                 }
             }

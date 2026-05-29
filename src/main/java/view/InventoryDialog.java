@@ -23,6 +23,7 @@ import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 
+import engine.audio.AudioManager;
 import engine.GameEngine;
 import model.Armor;
 import model.Book;
@@ -144,7 +145,10 @@ public class InventoryDialog extends JDialog {
         exitButton.setBorder(BorderFactory.createLineBorder(GOLD, 1));
         exitButton.setBounds(CANVAS_W - 58, 28, 27, 27);
         exitButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        exitButton.addActionListener(e -> dispose());
+        exitButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            dispose();
+        });
         canvas.add(exitButton);
 
         setContentPane(canvas);

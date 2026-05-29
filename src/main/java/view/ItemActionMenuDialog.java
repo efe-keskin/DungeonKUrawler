@@ -28,6 +28,8 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
+import engine.audio.AudioManager;
+
 /**
  * Styled popup surface used for choices and notices throughout the UI.
  * It only returns the selected option; game behavior remains with the caller.
@@ -119,6 +121,7 @@ public final class ItemActionMenuDialog {
             final int optionIndex = i;
             ActionButton button = new ActionButton(labels[i], i == 0);
             button.addActionListener(e -> {
+                AudioManager.shared().play("button_click");
                 selection[0] = optionIndex;
                 dialog.dispose();
             });

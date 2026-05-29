@@ -29,6 +29,8 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
+import engine.audio.AudioManager;
+
 /**
  * Retro-styled save prompt with explicit save, save-and-exit, and cancel paths.
  */
@@ -147,13 +149,20 @@ public final class SaveGameDialog {
         };
 
         ActionButton saveAndExit = new ActionButton("Save and Exit", ButtonTone.ACCENT);
-        saveAndExit.addActionListener(e -> submit.accept(Action.SAVE_AND_EXIT));
+        saveAndExit.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            submit.accept(Action.SAVE_AND_EXIT);
+        });
 
         ActionButton save = new ActionButton("Save", ButtonTone.PRIMARY);
-        save.addActionListener(e -> submit.accept(Action.SAVE));
+        save.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            submit.accept(Action.SAVE);
+        });
 
         ActionButton cancel = new ActionButton("Cancel", ButtonTone.SECONDARY);
         cancel.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
             result[0] = Result.cancelled();
             dialog.dispose();
         });
