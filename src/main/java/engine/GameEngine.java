@@ -2,8 +2,10 @@ package engine;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
@@ -12,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import model.Chest;
 import model.Coin;
 import model.Container;
+import model.BossEnemy;
 import model.DungeonMap;
 import model.EnemyFactory;
 import model.Entity;
@@ -37,9 +40,13 @@ import model.WeaponCatalog;
 import javax.swing.Timer;
 
 import model.AIState;
+import model.DragonPet;
 import model.Gargoyle;
 import model.Knight;
 import model.MissingBrick;
+import model.PenguinPet;
+import model.Pet;
+import model.PetEntity;
 import model.Pool;
 import model.Projectile;
 import model.SearchableObject;
@@ -64,6 +71,7 @@ public class GameEngine {
     private final GameMode gameMode;
     private final Random random;
     private final EnemyFactory enemyFactory;
+    private final EnemySpawnPolicy spawnPolicy;
     private final CombatManager combatManager = new CombatManager();
     private final TeamMatchAiController teamMatchAiController = new TeamMatchAiController();
     private final TeamMatchOutcomeEvaluator teamMatchOutcomeEvaluator = new TeamMatchOutcomeEvaluator();
@@ -75,32 +83,49 @@ public class GameEngine {
     private boolean isGameOver = false;
     private TeamMatchOutcome teamMatchOutcome = TeamMatchOutcome.ONGOING;
 
+    // Tower-mode context: set by DungeonLevelFactory when a floor is started.
+    private int towerLevelNumber = 0;
+    private boolean finalTowerLevel = false;
+    private boolean levelCompleted = false;
+    private LevelCompletionListener levelCompletionListener;
+
     private Timer spawnTimer;
     private Timer coinSpawnTimer;
     private Timer detectionTimer;
     private Timer knightActionTimer;
     private Timer sorcererAttackTimer;
+    private Timer bossAttackTimer;
     private Timer projectileTimer;
     private Timer teamMatchActionTimer;
+    private Timer petTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
+    /** Transient on-grid presence of the equipped pet for this floor; null when none. */
+    private PetEntity petEntity;
+    private long lastDragonAttackNanos = 0L;
+    /** Enemy -&gt; nanoTime until which it is frozen (penguin ability). Transient. */
+    private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
-    private static final int SPAWN_INTERVAL_MS = 9000;   // spec 2.5
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
     private static final int SORCERER_ATTACK_TICK_MS = 5000;
-    private static final int SORCERER_SHOOT_RANGE = 6;
+    private static final int BOSS_ATTACK_TICK_MS = 7500;
+    private static final int SORCERER_SHOOT_RANGE = 5;
+    private static final int BOSS_SHOOT_RANGE = 8;
     private static final int HERO_RANGED_RANGE = 6;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
-    private static final int MAX_ENEMIES = 5;             // spec 2.5
+    private static final int PET_TICK_MS = 650;
+    private static final long DRAGON_ATTACK_COOLDOWN_NANOS = TimeUnit.MILLISECONDS.toNanos(450);
+    private static final int KNIGHT_PET_MELEE_DAMAGE = 2;
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
     private static final double SEARCHABLE_WALL_FILL_RATIO = 0.75;
     private static final double SEARCHABLE_HIDDEN_ITEM_CHANCE = 0.65;
     private static final double KNIGHT_VISION_RANGE = 5.0;
-    private static final double SORCERER_VISION_RANGE = Double.POSITIVE_INFINITY; // sees hero always
+    private static final double SORCERER_VISION_RANGE = 5.0; // detects/chases the hero within 5 tiles
+    private static final double BOSS_VISION_RANGE = 8.0;
 
     public enum SearchOutcome {
         FOUND,
@@ -162,7 +187,8 @@ public class GameEngine {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = GameMode.PLAY;
-        this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 — Build Mode") : designedMap;
+        this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
+        this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 - Build Mode") : designedMap;
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
         // Spec section 2.4.1: HP=17, STR=random[8,15], Mana=80, DEF=2.
         // Energy=100 is a project design decision (spec leaves it open).
@@ -185,6 +211,7 @@ public class GameEngine {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = gameMode == null ? GameMode.PLAY : gameMode;
+        this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = dungeonMap;
         this.hero = hero;
         placeHeroOnMap();
@@ -211,6 +238,17 @@ public class GameEngine {
 
     public GameEngine(DungeonMap dungeonMap, Hero hero,
             ValuableItem missionTarget, boolean missionStarted, boolean missionWon) {
+        this(dungeonMap, hero, missionTarget, missionStarted, missionWon, null);
+    }
+
+    /**
+     * Builds a session with an explicit {@link EnemySpawnPolicy} (GoF Strategy),
+     * used by {@code DungeonLevelFactory} to drive per-floor enemy cadence/mix.
+     * A {@code null} policy falls back to the base-game {@link RegularEnemySpawnPolicy}.
+     */
+    public GameEngine(DungeonMap dungeonMap, Hero hero,
+            ValuableItem missionTarget, boolean missionStarted, boolean missionWon,
+            EnemySpawnPolicy spawnPolicy) {
         this.random = ThreadLocalRandom.current();
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = GameMode.PLAY;
@@ -219,8 +257,29 @@ public class GameEngine {
         }
         this.dungeonMap = dungeonMap;
         this.hero = hero;
+        this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         placeHeroOnMap();
         this.targetMission.restore(missionTarget, missionStarted, missionWon);
+        startGameTimers();
+    }
+
+    /**
+     * Starts a fresh tower floor: the carry-over {@code hero} on a generated
+     * {@code map}, with a newly hidden target mission, ground coins, and the
+     * given {@link EnemySpawnPolicy}. Pair with {@link #configureTowerLevel}.
+     */
+    public GameEngine(DungeonMap map, Hero hero, EnemySpawnPolicy spawnPolicy) {
+        if (map == null || hero == null) {
+            throw new IllegalArgumentException("A tower floor requires a map and hero.");
+        }
+        this.random = ThreadLocalRandom.current();
+        this.enemyFactory = new EnemyFactory(random);
+        this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
+        this.dungeonMap = map;
+        this.hero = hero;
+        placeHeroOnMap();
+        fillMinimumGroundCoins(-1, -1);
+        startTargetMission();
         startGameTimers();
     }
 
@@ -234,7 +293,7 @@ public class GameEngine {
                 new ContainerHidingPlaceProvider()));
         ValuableItem target = ValuableItemCatalog.randomValuable(random);
         if (!targetMission.start(provider, dungeonMap, random, target)) {
-            System.out.println("[mission] no hiding place available — mission inactive");
+            System.out.println("[mission] no hiding place available - mission inactive");
         }
     }
 
@@ -311,6 +370,29 @@ public class GameEngine {
     void fireEnemyDefeated(Entity enemy) {
         for (GameEventListener listener : eventListeners) {
             listener.onEnemyDefeated(enemy);
+        }
+    }
+
+    /**
+     * Marks this session as a tower floor so the engine can detect floor
+     * completion (find the hidden target, then reach the exit door). Called by
+     * {@code DungeonLevelFactory} after the floor map is built.
+     */
+    public void configureTowerLevel(int levelNumber, boolean finalLevel) {
+        this.towerLevelNumber = levelNumber;
+        this.finalTowerLevel = finalLevel;
+        this.levelCompleted = false;
+    }
+
+    /** Registers the single subscriber notified when this floor is completed. */
+    public void setLevelCompletionListener(LevelCompletionListener listener) {
+        this.levelCompletionListener = listener;
+    }
+
+    private void fireLevelCompleted() {
+        if (levelCompletionListener != null) {
+            levelCompletionListener.onLevelCompleted(
+                    new LevelCompletionResult(towerLevelNumber, finalTowerLevel));
         }
     }
 
@@ -554,7 +636,7 @@ public class GameEngine {
 
     /**
      * Returns the first {@link Container} on the hero's current cell or any
-     * 8-adjacent cell — locked or not. Caller decides whether to unlock
+     * 8-adjacent cell, locked or not. Caller decides whether to unlock
      * (via {@link #tryUnlock(Lockable)}) or open directly.
      */
     public Container findContainerNearHero() {
@@ -595,6 +677,11 @@ public class GameEngine {
             notifyListeners();
             return true;
         }
+        if (item instanceof ValuableItem) {
+            container.removeItem(item);
+            acceptValuable(item);
+            return true;
+        }
         if (!hero.getInventory().hasFreeSlot()) {
             return false;
         }
@@ -608,6 +695,18 @@ public class GameEngine {
         return true;
     }
 
+    /**
+     * Routes a collected valuable straight into the persistent
+     * {@link model.FullGameInventory} (it survives between floors) rather than
+     * the per-level bag, then runs the usual pickup notifications.
+     */
+    private void acceptValuable(Item valuable) {
+        hero.getFullInventory().add(valuable);
+        targetMission.checkPickup(valuable);
+        fireItemPickedUp(valuable);
+        notifyListeners();
+    }
+
     public SearchResult search(SearchableObject object) {
         if (object == null) {
             return SearchResult.notSearchable();
@@ -615,6 +714,11 @@ public class GameEngine {
         Item hidden = object.getHiddenItem();
         if (hidden == null) {
             return SearchResult.nothingFound();
+        }
+        if (hidden instanceof ValuableItem) {
+            Item found = object.takeHiddenItem();
+            acceptValuable(found);
+            return SearchResult.found(found);
         }
         if (!hero.getInventory().hasFreeSlot()) {
             return SearchResult.inventoryFull(hidden);
@@ -681,11 +785,77 @@ public class GameEngine {
 
         lastMoveNanos = System.nanoTime();
         notifyListeners();
+        checkTowerExit(to);
+    }
+
+    /**
+     * Tower completion: stepping through the open exit arch after collecting the
+     * floor's hidden target finishes the floor. The arch only opens once the
+     * target is found (see {@link #openArch}), so reaching it implies victory.
+     */
+    private void checkTowerExit(GridCell cell) {
+        if (towerLevelNumber <= 0 || levelCompleted || cell == null || !targetMission.isWon()) {
+            return;
+        }
+        boolean throughOpenArch = cell.getItemsView().stream()
+                .anyMatch(item -> item instanceof model.Arch arch && arch.isOpen());
+        if (throughOpenArch) {
+            levelCompleted = true;
+            fireLevelCompleted();
+        }
+    }
+
+    /**
+     * Finds a closed exit arch in the hero's cell or an adjacent one, or null if
+     * none is in reach. Used by the {@code O} (open) action.
+     */
+    public model.Arch findArchNearHero() {
+        int hx = hero.getX();
+        int hy = hero.getY();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                GridCell cell = dungeonMap.getCell(hx + dx, hy + dy);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItems()) {
+                    if (item instanceof model.Arch arch && !arch.isOpen()) {
+                        return arch;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Opens the exit arch. Callers gate this on the unlock requirements
+     * (gold key found and treasure collected); see {@code GamePanel}.
+     *
+     * @return true if the arch transitioned from closed to open.
+     */
+    public boolean openArch(model.Arch arch) {
+        if (arch == null || arch.isOpen()) {
+            return false;
+        }
+        arch.open();
+        notifyListeners();
+        return true;
+    }
+
+    /** True if the hero is carrying a gold key (the arch's unlock requirement). */
+    public boolean heroHasGoldKey() {
+        for (Item item : hero.getInventory().getItems()) {
+            if (item instanceof model.Key key && key.getColor() == model.KeyColor.GOLD) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
      * Refills a small amount of energy if the hero has been idle for at least 1s.
-     * Safe to call on every UI tick — no-ops when still within the idle window or
+     * Safe to call on every UI tick; no-ops when still within the idle window or
      * when energy is already full.
      */
     public void tickEnergyRefill() {
@@ -759,7 +929,8 @@ public class GameEngine {
                     continue;
                 }
                 for (Item item : cell.getItems()) {
-                    boolean canCollect = item instanceof Coin || hero.getInventory().hasFreeSlot();
+                    boolean canCollect = item instanceof Coin || item instanceof ValuableItem
+                            || hero.getInventory().hasFreeSlot();
                     if (item.isTakable() && canCollect) {
                         return takeItem(item, tx, ty);
                     }
@@ -795,8 +966,8 @@ public class GameEngine {
      *
      * <p>Preconditions are enforced here so callers don't need to duplicate the checks.
      *
-     * @return {@code true}  — item moved to inventory and map updated;<br>
-     *         {@code false} — rejected (item not takable or inventory full).
+     * @return {@code true}  - item moved to inventory and map updated;<br>
+     *         {@code false} - rejected (item not takable or inventory full).
      */
     public boolean takeItem(model.Item item, int x, int y) {
         if (item == null || !item.isTakable()) {
@@ -804,6 +975,13 @@ public class GameEngine {
         }
         if (item instanceof Coin coin) {
             return collectCoin(coin, x, y);
+        }
+        if (item instanceof ValuableItem) {
+            if (!dungeonMap.removeItemFromCell(item, x, y)) {
+                return false;
+            }
+            acceptValuable(item);
+            return true;
         }
         model.Inventory inv = hero.getInventory();
         if (!inv.hasFreeSlot()) {
@@ -891,7 +1069,7 @@ public class GameEngine {
     /**
      * Spec 2.5: enemies "appear at random locations on the edge of the
      * area". We interpret "edge" as the outer perimeter of the play
-     * area only — not next to interior obstacles (pillars, crates).
+     * area only, not next to interior obstacles (pillars, crates).
      *
      * <p>Implementation note: walls in this codebase are in-bounds
      * GridCells with {@code passable == false}, NOT off-map nulls.
@@ -942,7 +1120,7 @@ public class GameEngine {
             return "spawnEnemyProcedurally: no empty passable cell";
         }
         int[] pick = candidates.get(random.nextInt(candidates.size()));
-        Entity enemy = enemyFactory.createRandomEnemy(pick[0], pick[1]);
+        Entity enemy = spawnPolicy.createEnemy(pick[0], pick[1]);
         if (enemy == null) {
             return "spawnEnemyProcedurally: None (10%) at (" + pick[0] + "," + pick[1] + ")";
         }
@@ -959,8 +1137,8 @@ public class GameEngine {
      * the EDT, so mutations here are safe w.r.t. the painter.
      */
     private void startGameTimers() {
-        spawnTimer = new Timer(SPAWN_INTERVAL_MS, e -> {
-            if (countEnemies() >= MAX_ENEMIES) {
+        spawnTimer = new Timer(spawnPolicy.spawnIntervalMs(), e -> {
+            if (countEnemies() >= spawnPolicy.maxEnemies()) {
                 return;
             }
             String msg = spawnEnemyProcedurally();
@@ -995,9 +1173,18 @@ public class GameEngine {
         sorcererAttackTimer.setRepeats(true);
         sorcererAttackTimer.start();
 
+        bossAttackTimer = new Timer(BOSS_ATTACK_TICK_MS, e -> updateBossAttacks());
+        bossAttackTimer.setRepeats(true);
+        bossAttackTimer.start();
+
         projectileTimer = new Timer(PROJECTILE_TICK_MS, e -> updateProjectiles());
         projectileTimer.setRepeats(true);
         projectileTimer.start();
+
+        spawnEquippedPet();
+        petTimer = new Timer(PET_TICK_MS, e -> updatePet());
+        petTimer.setRepeats(true);
+        petTimer.start();
     }
 
     /** Counts all Knight/Sorcerer entities currently on the map. */
@@ -1008,7 +1195,7 @@ public class GameEngine {
                 GridCell c = dungeonMap.getCell(x, y);
                 if (c == null) continue;
                 for (Entity e : c.getEntities()) {
-                    if (e instanceof Knight || e instanceof Sorcerer) {
+                    if (e instanceof Knight || e instanceof Sorcerer || e instanceof BossEnemy) {
                         count++;
                     }
                 }
@@ -1049,8 +1236,13 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
-            if (!(enemy instanceof Knight knight)) {
+            if (!(enemy instanceof Knight knight) || isFrozen(knight)) {
                 continue;
+            }
+            // A knight beside the pet strikes it instead of (or as well as) the hero.
+            if (petEntity != null && isAdjacentTo(knight, petEntity)) {
+                applyPetDamage(KNIGHT_PET_MELEE_DAMAGE);
+                changed = true;
             }
             if (!isAdjacentToHero(knight)) {
                 continue;
@@ -1070,8 +1262,13 @@ public class GameEngine {
         }
     }
 
+    private static boolean isAdjacentTo(Entity a, Entity b) {
+        return Math.max(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY())) <= 1
+                && !(a.getX() == b.getX() && a.getY() == b.getY());
+    }
+
     /**
-     * One tile per tick for Knights and Sorcerers — identical pathing rules ({@link #moveEnemyTowardHero}).
+     * One tile per tick for Knights and Sorcerers with identical pathing rules ({@link #moveEnemyTowardHero}).
      */
     private void updateEnemyMovement() {
         if (isPaused || isGameOver) {
@@ -1079,6 +1276,9 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
+            if (isFrozen(enemy)) {
+                continue;
+            }
             if (enemy instanceof Knight knight) {
                 if (isAdjacentToHero(knight)) {
                     continue;
@@ -1089,6 +1289,11 @@ public class GameEngine {
                     continue;
                 }
                 changed |= applyEnemyWalkStep(sorcerer);
+            } else if (enemy instanceof BossEnemy boss) {
+                if (canBossShootAtHero(boss)) {
+                    continue;
+                }
+                changed |= applyEnemyWalkStep(boss);
             }
         }
         if (changed) {
@@ -1110,6 +1315,9 @@ public class GameEngine {
         if (enemy instanceof Sorcerer sorcerer) {
             return sorcerer.getAiState();
         }
+        if (enemy instanceof BossEnemy boss) {
+            return boss.getAiState();
+        }
         return AIState.ROAMING;
     }
 
@@ -1119,7 +1327,7 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
-            if (!(enemy instanceof Sorcerer sorcerer)) {
+            if (!(enemy instanceof Sorcerer sorcerer) || isFrozen(sorcerer)) {
                 continue;
             }
             if (!canSorcererShootAtHero(sorcerer)) {
@@ -1137,10 +1345,37 @@ public class GameEngine {
         }
     }
 
+    private void updateBossAttacks() {
+        if (isPaused || isGameOver) {
+            return;
+        }
+        boolean changed = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (!(enemy instanceof BossEnemy boss) || isFrozen(boss)) {
+                continue;
+            }
+            if (!canBossShootAtHero(boss)) {
+                continue;
+            }
+            CombatManager.SorcererProjectilePrep prep = combatManager.prepareBossProjectile(boss, hero);
+            if (prep != null) {
+                spawnProjectile(boss.getX(), boss.getY(), hero.getX(), hero.getY(),
+                        prep.damageGenerated, prep.damageReceived, false, true);
+                changed = true;
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
     /**
      * True when the hero lies on a clear straight ray within range and the sorcerer has mana to cast.
      */
     private boolean canSorcererShootAtHero(Sorcerer sorcerer) {
+        if (sorcerer.getAiState() != AIState.CHASING) {
+            return false;
+        }
         if (sorcerer.getMana() < SORCERER_PROJECTILE_MANA_COST) {
             return false;
         }
@@ -1155,6 +1390,23 @@ public class GameEngine {
             return false;
         }
         return hasClearProjectilePath(sx, sy, hx, hy, SORCERER_SHOOT_RANGE);
+    }
+
+    private boolean canBossShootAtHero(BossEnemy boss) {
+        if (boss.getAiState() != AIState.CHASING || boss.getMana() < 8) {
+            return false;
+        }
+        int sx = boss.getX();
+        int sy = boss.getY();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        if (sx == hx && sy == hy) {
+            return true;
+        }
+        if (!heroOnStraightRayFrom(sx, sy, hx, hy)) {
+            return false;
+        }
+        return hasClearProjectilePath(sx, sy, hx, hy, BOSS_SHOOT_RANGE);
     }
 
     private static boolean heroOnStraightRayFrom(int sx, int sy, int hx, int hy) {
@@ -1215,6 +1467,9 @@ public class GameEngine {
         if (target instanceof Sorcerer sorcerer) {
             return sorcerer.getHp();
         }
+        if (target instanceof BossEnemy boss) {
+            return boss.getHp();
+        }
         return 0;
     }
 
@@ -1267,6 +1522,11 @@ public class GameEngine {
 
     private void spawnProjectile(int startX, int startY, int targetX, int targetY,
             int damageGenerated, int damageReceived, boolean heroOwned) {
+        spawnProjectile(startX, startY, targetX, targetY, damageGenerated, damageReceived, heroOwned, false);
+    }
+
+    private void spawnProjectile(int startX, int startY, int targetX, int targetY,
+            int damageGenerated, int damageReceived, boolean heroOwned, boolean bossOwned) {
         if (startX == targetX && startY == targetY) {
             if (heroOwned) {
                 GridCell cell = dungeonMap.getCell(targetX, targetY);
@@ -1286,7 +1546,8 @@ public class GameEngine {
         if (dx == 0 && dy == 0) {
             return;
         }
-        activeProjectiles.add(new Projectile(startX, startY, dx, dy, damageGenerated, damageReceived, heroOwned));
+        activeProjectiles.add(new Projectile(startX, startY, dx, dy,
+                damageGenerated, damageReceived, heroOwned, bossOwned));
     }
 
     private void updateProjectiles() {
@@ -1362,6 +1623,11 @@ public class GameEngine {
             projectile.setActive(false);
             return true;
         }
+        if (hitsPet(projectile.getX(), projectile.getY())) {
+            applyPetDamage(projectile.getDamageReceived());
+            projectile.setActive(false);
+            return true;
+        }
 
         int nextX = projectile.getX() + projectile.getDx();
         int nextY = projectile.getY() + projectile.getDy();
@@ -1373,6 +1639,11 @@ public class GameEngine {
 
         if (nextX == hero.getX() && nextY == hero.getY()) {
             resolveEnemyProjectileHitOnHero(projectile.getDamageReceived());
+            projectile.setActive(false);
+            return true;
+        }
+        if (hitsPet(nextX, nextY)) {
+            applyPetDamage(projectile.getDamageReceived());
             projectile.setActive(false);
             return true;
         }
@@ -1449,7 +1720,7 @@ public class GameEngine {
     }
 
     boolean isHostileToHero(Entity entity) {
-        if (!(entity instanceof Knight || entity instanceof Sorcerer)) {
+        if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy)) {
             return false;
         }
         if (hero.getTeam() == model.Team.NONE) {
@@ -1503,6 +1774,16 @@ public class GameEngine {
                         label, e.getX(), e.getY(), dist, next);
                 return true;
             }
+        } else if (e instanceof BossEnemy boss) {
+            next = dist <= BOSS_VISION_RANGE ? AIState.CHASING : AIState.ROAMING;
+            current = boss.getAiState();
+            label = "Boss";
+            if (next != current) {
+                boss.setAiState(next);
+                System.out.printf("[AI] %s at (%d,%d) dist=%.2f -> %s%n",
+                        label, e.getX(), e.getY(), dist, next);
+                return true;
+            }
         }
         return false;
     }
@@ -1522,7 +1803,7 @@ public class GameEngine {
                     continue;
                 }
                 for (Entity entity : cell.getEntitiesView()) {
-                    if (entity instanceof Knight || entity instanceof Sorcerer) {
+                    if (entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy) {
                         enemies.add(entity);
                     }
                 }
@@ -1603,19 +1884,348 @@ public class GameEngine {
             return;
         }
         if (result.changed()) {
+          notifyListeners();
+        }
+    }
+    // ---------------------------------------------------------------------
+    // Pets: spawn, roam beside the hero, and use abilities each pet tick.
+    // ---------------------------------------------------------------------
+
+    /** True while {@code enemy} is under a penguin freeze. */
+    private boolean isFrozen(Entity enemy) {
+        Long until = frozenUntilNanos.get(enemy);
+        return until != null && System.nanoTime() < until;
+    }
+
+    /** View-facing freeze check so the renderer can show feedback. */
+    public boolean isEnemyFrozen(Entity enemy) {
+        return isFrozen(enemy);
+    }
+
+    /**
+     * Places the hero's equipped pet on a free tile beside the hero for this
+     * floor, restoring it to full vitals first (a fresh floor revives a fainted
+     * companion). No-op when no pet is equipped or no adjacent tile is free.
+     */
+    private void spawnEquippedPet() {
+        petEntity = null;
+        Pet pet = hero.getEquippedPet();
+        if (pet == null) {
+            return;
+        }
+        pet.revive();
+        int[] spot = freeTileNextTo(hero.getX(), hero.getY());
+        if (spot == null) {
+            return;
+        }
+        petEntity = new PetEntity(pet, spot[0], spot[1]);
+        GridCell cell = dungeonMap.getCell(spot[0], spot[1]);
+        if (cell != null) {
+            cell.getEntities().add(petEntity);
+        }
+    }
+
+    private int[] freeTileNextTo(int x, int y) {
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                int nx = x + dx;
+                int ny = y + dy;
+                GridCell cell = dungeonMap.getCell(nx, ny);
+                if (cell != null && cell.isWalkable() && cell.getEntitiesView().isEmpty()) {
+                    return new int[] { nx, ny };
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Per-tick pet update: roam beside the hero, then use the pet's ability. */
+    private void updatePet() {
+        if (isPaused || isGameOver) {
+            return;
+        }
+        Pet pet = hero.getEquippedPet();
+        if (pet == null || petEntity == null || !pet.isAlive()) {
+            return;
+        }
+        boolean changed;
+        if (pet instanceof PenguinPet) {
+            changed = movePenguinTowardEnemy();
+            if (!changed) {
+                changed = movePetTowardHero();
+            }
+            changed |= penguinFreezeTouchedEnemies();
+        } else if (pet instanceof DragonPet dragon) {
+            changed = movePetTowardHero();
+            changed |= dragonRangedAttack(dragon);
+        } else {
+            changed = movePetTowardHero();
+        }
+        if (changed) {
             notifyListeners();
         }
     }
 
-    /** Stops timers — call this on shutdown if you wire it up later. */
+    private boolean movePenguinTowardEnemy() {
+        Entity target = nearestEnemyNearPet();
+        if (target == null) {
+            return false;
+        }
+        if (chebyshevDistance(petEntity.getX(), petEntity.getY(), target.getX(), target.getY()) <= 1) {
+            return false;
+        }
+        int dx = Integer.compare(target.getX(), petEntity.getX());
+        int dy = Integer.compare(target.getY(), petEntity.getY());
+        if (Math.abs(target.getX() - petEntity.getX()) >= Math.abs(target.getY() - petEntity.getY())) {
+            if (tryMovePetNearHero(petEntity.getX() + dx, petEntity.getY())) {
+                return true;
+            }
+            return tryMovePetNearHero(petEntity.getX(), petEntity.getY() + dy);
+        }
+        if (tryMovePetNearHero(petEntity.getX(), petEntity.getY() + dy)) {
+            return true;
+        }
+        return tryMovePetNearHero(petEntity.getX() + dx, petEntity.getY());
+    }
+
+    private Entity nearestEnemyNearPet() {
+        Pet pet = petEntity.getPet();
+        Entity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (chebyshevDistance(enemy.getX(), enemy.getY(), hero.getX(), hero.getY()) > pet.getFollowRange()) {
+                continue;
+            }
+            int dx = enemy.getX() - petEntity.getX();
+            int dy = enemy.getY() - petEntity.getY();
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = enemy;
+            }
+        }
+        return best;
+    }
+
+    /** Lets the pet wander freely near the hero, chasing back when it trails too far. */
+    private boolean movePetTowardHero() {
+        Pet pet = petEntity.getPet();
+        int gap = chebyshevDistance(petEntity.getX(), petEntity.getY(), hero.getX(), hero.getY());
+        if (gap > Math.max(1, pet.getFollowRange() - 1)) {
+            return movePetTowardHeroDirectly();
+        }
+
+        Direction[] directions = Direction.values();
+        int first = random.nextInt(directions.length);
+        for (int i = 0; i < directions.length; i++) {
+            Direction direction = directions[(first + i) % directions.length];
+            int nx = petEntity.getX();
+            int ny = petEntity.getY();
+            switch (direction) {
+                case UP -> ny--;
+                case DOWN -> ny++;
+                case LEFT -> nx--;
+                case RIGHT -> nx++;
+            }
+            if (chebyshevDistance(nx, ny, hero.getX(), hero.getY()) <= pet.getFollowRange()
+                    && tryMovePet(nx, ny)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean movePetTowardHeroDirectly() {
+        int gapX = Math.abs(petEntity.getX() - hero.getX());
+        int gapY = Math.abs(petEntity.getY() - hero.getY());
+        int dx = Integer.compare(hero.getX(), petEntity.getX());
+        int dy = Integer.compare(hero.getY(), petEntity.getY());
+        if (gapX >= gapY) {
+            if (tryMovePet(petEntity.getX() + dx, petEntity.getY())) {
+                return true;
+            }
+            return tryMovePet(petEntity.getX(), petEntity.getY() + dy);
+        }
+        if (tryMovePet(petEntity.getX(), petEntity.getY() + dy)) {
+            return true;
+        }
+        return tryMovePet(petEntity.getX() + dx, petEntity.getY());
+    }
+
+    private static int chebyshevDistance(int ax, int ay, int bx, int by) {
+        return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+    }
+
+    private boolean tryMovePet(int nx, int ny) {
+        GridCell to = dungeonMap.getCell(nx, ny);
+        if (to == null || !to.isWalkable() || !to.getEntitiesView().isEmpty()) {
+            return false;
+        }
+        GridCell from = dungeonMap.getCell(petEntity.getX(), petEntity.getY());
+        if (from != null) {
+            from.getEntities().remove(petEntity);
+        }
+        petEntity.setX(nx);
+        petEntity.setY(ny);
+        to.getEntities().add(petEntity);
+        return true;
+    }
+
+    private boolean tryMovePetNearHero(int nx, int ny) {
+        if (chebyshevDistance(nx, ny, hero.getX(), hero.getY()) > petEntity.getPet().getFollowRange()) {
+            return false;
+        }
+        return tryMovePet(nx, ny);
+    }
+
+    /** Penguin: freezes every enemy currently touching the pet (8-adjacent). */
+    private boolean penguinFreezeTouchedEnemies() {
+        long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PenguinPet.FREEZE_DURATION_MS);
+        boolean any = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            int gap = Math.max(Math.abs(enemy.getX() - petEntity.getX()),
+                    Math.abs(enemy.getY() - petEntity.getY()));
+            if (gap <= 1) {
+                frozenUntilNanos.put(enemy, until);
+                any = true;
+            }
+        }
+        return any;
+    }
+
+    /** Dragon: fires at the nearest enemy on a clear straight ray within range. */
+    private boolean dragonRangedAttack(DragonPet dragon) {
+        long now = System.nanoTime();
+        if (now - lastDragonAttackNanos < DRAGON_ATTACK_COOLDOWN_NANOS) {
+            return false;
+        }
+        Entity target = nearestEnemyInClearRange(petEntity.getX(), petEntity.getY(), dragon.getAttackRange());
+        if (target == null) {
+            return false;
+        }
+        spawnProjectile(petEntity.getX(), petEntity.getY(), target.getX(), target.getY(),
+                dragon.getAttackDamage(), dragon.getAttackDamage(), true);
+        lastDragonAttackNanos = now;
+        return true;
+    }
+
+    private Entity nearestEnemyInClearRange(int sx, int sy, int range) {
+        Entity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Entity enemy : enemiesSnapshot()) {
+            int dx = enemy.getX() - sx;
+            int dy = enemy.getY() - sy;
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            if (Math.max(Math.abs(dx), Math.abs(dy)) > range) {
+                continue;
+            }
+            if (!heroOnStraightRayFrom(sx, sy, enemy.getX(), enemy.getY())) {
+                continue;
+            }
+            if (!hasClearProjectilePath(sx, sy, enemy.getX(), enemy.getY(), range)) {
+                continue;
+            }
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = enemy;
+            }
+        }
+        return best;
+    }
+
+    private boolean hitsPet(int x, int y) {
+        return petEntity != null && petEntity.getX() == x && petEntity.getY() == y;
+    }
+
+    /** The pets the hero owns (from the persistent inventory). */
+    public List<Pet> ownedPets() {
+        List<Pet> pets = new ArrayList<>();
+        for (Item item : hero.getFullInventory().getItems()) {
+            if (item instanceof Pet pet) {
+                pets.add(pet);
+            }
+        }
+        return pets;
+    }
+
+    /**
+     * Equips {@code pet} as the active companion and spawns it beside the hero
+     * immediately (so changing pets mid-floor takes effect at once).
+     *
+     * @return false when the pet is not owned.
+     */
+    public boolean equipPet(Pet pet) {
+        if (pet == null || !hero.getFullInventory().getItems().contains(pet)) {
+            return false;
+        }
+        Pet current = hero.getEquippedPet();
+        if (current != null && current != pet) {
+            current.setState(model.PetState.UNEQUIPPED);
+        }
+        hero.setEquippedPet(pet);
+        despawnPet();
+        lastDragonAttackNanos = 0L;
+        spawnEquippedPet();
+        notifyListeners();
+        return true;
+    }
+
+    /** Clears the active companion and removes it from the floor. */
+    public void unequipPet() {
+        Pet current = hero.getEquippedPet();
+        if (current != null) {
+            current.setState(model.PetState.UNEQUIPPED);
+        }
+        hero.setEquippedPet(null);
+        lastDragonAttackNanos = 0L;
+        despawnPet();
+        notifyListeners();
+    }
+
+    private void despawnPet() {
+        if (petEntity == null) {
+            return;
+        }
+        GridCell cell = dungeonMap.getCell(petEntity.getX(), petEntity.getY());
+        if (cell != null) {
+            cell.getEntities().remove(petEntity);
+        }
+        petEntity = null;
+    }
+
+    /** Applies damage to the equipped pet; removes its on-grid presence when it faints. */
+    private void applyPetDamage(int amount) {
+        Pet pet = hero.getEquippedPet();
+        if (pet == null || petEntity == null || !pet.isAlive()) {
+            return;
+        }
+        pet.takeDamage(amount);
+        if (!pet.isAlive()) {
+            GridCell cell = dungeonMap.getCell(petEntity.getX(), petEntity.getY());
+            if (cell != null) {
+                cell.getEntities().remove(petEntity);
+            }
+            petEntity = null;
+        }
+    }
+
+    /** Stops timers; call this on shutdown if you wire it up later. */
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
+        if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
         if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
+        if (petTimer != null) petTimer.stop();
     }
 
     private void pauseAllTimers() {
@@ -1624,8 +2234,10 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
+        if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
         if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
+        if (petTimer != null) petTimer.stop();
     }
 
     private void resumeAllTimers() {
@@ -1634,7 +2246,9 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.start();
         if (knightActionTimer != null) knightActionTimer.start();
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();
+        if (bossAttackTimer != null) bossAttackTimer.start();
         if (projectileTimer != null) projectileTimer.start();
         if (teamMatchActionTimer != null) teamMatchActionTimer.start();
+        if (petTimer != null) petTimer.start();
     }
 }

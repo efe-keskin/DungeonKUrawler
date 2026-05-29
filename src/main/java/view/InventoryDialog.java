@@ -31,6 +31,7 @@ import model.Inventory;
 import model.Item;
 import model.ItemAction;
 import model.Key;
+import model.Pet;
 import model.Potion;
 import model.Ring;
 import model.ValuableItem;
@@ -43,13 +44,15 @@ import view.assets.SpriteRegistry;
 public class InventoryDialog extends JDialog {
 
     private static final int CANVAS_W = 430;
-    private static final int CANVAS_H = 374;
+    private static final int CANVAS_H = 476;
     private static final int SLOT_START_X = 32;
     private static final int SLOT_START_Y = 139;
     private static final int SLOT_W = 84;
     private static final int SLOT_H = 78;
     private static final int SLOT_GAP_X = 11;
     private static final int SLOT_GAP_Y = 11;
+    private static final int PET_SLOT_Y = 360;
+    private static final int PET_SLOT_H = 70;
 
     private static final Color STONE_OUTLINE = new Color(5, 5, 9);
     private static final Color STONE_BORDER = new Color(103, 91, 75);
@@ -128,10 +131,31 @@ public class InventoryDialog extends JDialog {
             canvas.add(slot);
         }
 
+        JLabel companions = new JLabel("COMPANIONS");
+        companions.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 11f));
+        companions.setForeground(DETAIL);
+        companions.setBounds(32, 333, 200, 18);
+        canvas.add(companions);
+
+        List<Pet> pets = ownedPets();
+        if (pets.isEmpty()) {
+            JLabel none = new JLabel("No pets owned — buy one at the shop.");
+            none.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 10f));
+            none.setForeground(new Color(140, 130, 110));
+            none.setBounds(32, PET_SLOT_Y + 22, CANVAS_W - 64, 18);
+            canvas.add(none);
+        } else {
+            for (int i = 0; i < pets.size() && i < 4; i++) {
+                JPanel slot = createPetSlot(pets.get(i));
+                slot.setBounds(slotX(i), PET_SLOT_Y, SLOT_W, PET_SLOT_H);
+                canvas.add(slot);
+            }
+        }
+
         JLabel hint = new JLabel("CLICK AN ITEM TO USE   |   ESC TO CLOSE", SwingConstants.CENTER);
         hint.setForeground(new Color(159, 147, 125));
         hint.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 10f));
-        hint.setBounds(30, 331, CANVAS_W - 60, 20);
+        hint.setBounds(30, 444, CANVAS_W - 60, 20);
         canvas.add(hint);
 
         JButton exitButton = new JButton("X");
@@ -295,6 +319,97 @@ public class InventoryDialog extends JDialog {
         if (action == ItemAction.WEAR || action == ItemAction.EQUIP || action == ItemAction.REMOVE) {
             ItemActionMenuDialog.showNotice(this, "Equipment", "Equipment Updated",
                     "STR: " + engine.getHero().getStr() + "    DEF: " + engine.getHero().getDef());
+        }
+        rebuildUi();
+    }
+
+    private List<Pet> ownedPets() {
+        return engine.ownedPets();
+    }
+
+    private JPanel createPetSlot(Pet pet) {
+        JPanel slot = new JPanel(null);
+        slot.setOpaque(false);
+        boolean equipped = engine.getHero().getEquippedPet() == pet;
+
+        RetroSlotPanel overlay = new RetroSlotPanel(true, equipped);
+        overlay.setBounds(0, 0, SLOT_W, PET_SLOT_H);
+        slot.add(overlay);
+
+        List<JComponent> extras = new ArrayList<>();
+        BufferedImage sprite = itemSprite(pet);
+        if (sprite != null) {
+            JLabel icon = new JLabel(new ImageIcon(
+                    sprite.getScaledInstance(40, 40, java.awt.Image.SCALE_REPLICATE)));
+            icon.setBounds(22, 4, 40, 40);
+            overlay.add(icon);
+            extras.add(icon);
+        }
+
+        JLabel hp = new JLabel("HP " + pet.getHp() + "/" + pet.getMaxHp(), SwingConstants.CENTER);
+        hp.setForeground(BADGE_FG);
+        hp.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 9f));
+        hp.setBounds(4, PET_SLOT_H - 18, SLOT_W - 8, 14);
+        overlay.add(hp);
+        extras.add(hp);
+
+        if (equipped) {
+            JLabel badge = new JLabel("ON", SwingConstants.CENTER);
+            badge.setOpaque(true);
+            badge.setBackground(new Color(104, 72, 29));
+            badge.setForeground(GOLD_BRIGHT);
+            badge.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 9f));
+            badge.setBounds(SLOT_W - 32, 4, 26, 14);
+            overlay.add(badge);
+            extras.add(badge);
+        }
+
+        attachPetHandler(slot, overlay, pet, extras.toArray(new JComponent[0]));
+        return slot;
+    }
+
+    private void attachPetHandler(JPanel slot, RetroSlotPanel overlay, Pet pet, JComponent... extras) {
+        slot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        overlay.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        MouseAdapter click = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                showPetActions(pet);
+            }
+        };
+        MouseAdapter hover = new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                overlay.setHovered(true);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                overlay.setHovered(false);
+            }
+        };
+        slot.addMouseListener(click);
+        overlay.addMouseListener(click);
+        overlay.addMouseListener(hover);
+        for (JComponent extra : extras) {
+            extra.addMouseListener(click);
+            extra.addMouseListener(hover);
+        }
+    }
+
+    private void showPetActions(Pet pet) {
+        boolean equipped = engine.getHero().getEquippedPet() == pet;
+        String primary = equipped ? "Unequip" : "Equip";
+        String detail = "HP " + pet.getHp() + "/" + pet.getMaxHp()
+                + (equipped ? "\nActive companion." : "\nMake this your active companion.");
+        int choice = ItemActionMenuDialog.show(this, "Companion", pet.getName(), detail, primary, "Cancel");
+        if (choice != 0) {
+            return;
+        }
+        if (equipped) {
+            engine.unequipPet();
+        } else {
+            engine.equipPet(pet);
         }
         rebuildUi();
     }

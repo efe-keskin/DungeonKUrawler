@@ -52,4 +52,13 @@ public abstract class Entity {
     public void setTeam(Team team) {
         this.team = team == null ? Team.NONE : team;
     }
+    /**
+     * Optional per-instance sprite override (classpath resource path). Returning
+     * {@code null} — the default — lets the view fall back to its class&rarr;AssetId
+     * registry. Entities whose art is data-driven (e.g. a {@link PetEntity}
+     * carrying a specific pet sprite) override this.
+     */
+    public String spriteResource() {
+        return null;
+    }
 }

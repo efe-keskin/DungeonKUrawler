@@ -193,19 +193,7 @@ public class ChestDialog extends JDialog {
         MouseAdapter takeOnClick = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                String detail = item instanceof Coin
-                        ? "Add this reward to your coin balance?"
-                        : "Move this object into your inventory?";
-                int choice = ItemActionMenuDialog.show(
-                        ChestDialog.this,
-                        "Chest Item",
-                        item.getName(),
-                        detail,
-                        item instanceof Coin ? "Collect" : "Take",
-                        "Leave");
-                if (choice != 0) {
-                    return;
-                }
+                // Taking is a single click — no confirmation prompt (redundant).
                 boolean taken = engine.takeFromContainer(container, item);
                 if (!taken) {
                     ItemActionMenuDialog.showNotice(

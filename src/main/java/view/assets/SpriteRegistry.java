@@ -9,6 +9,7 @@ import java.util.Map;
 import model.Chest;
 import model.Coin;
 import model.Book;
+import model.BossEnemy;
 import model.DefeatedEnemyMarker;
 import model.Entity;
 import model.HealPotion;
@@ -16,8 +17,11 @@ import model.Item;
 import model.Key;
 import model.KeyColor;
 import model.Knight;
+import model.DragonPet;
 import model.EnergyPotion;
 import model.ManaPotion;
+import model.PenguinPet;
+import model.PetEntity;
 import model.Ring;
 import model.Sorcerer;
 import model.Team;
@@ -44,7 +48,11 @@ public final class SpriteRegistry {
             AssetId.HERO_FRAME_2,
             AssetId.HERO_FRAME_3,
             AssetId.HERO_FRAME_4,
-            AssetId.HERO_FRAME_5);
+            AssetId.HERO_FRAME_5,
+            AssetId.HERO_FRAME_6,
+            AssetId.HERO_FRAME_7,
+            AssetId.HERO_FRAME_8,
+            AssetId.HERO_FRAME_9);
 
     static {
         registerEntity(Knight.class, AssetId.KNIGHT);
@@ -102,6 +110,13 @@ public final class SpriteRegistry {
      * a sibling asset (used so a missing Sorcerer falls back to Wizard).
      */
     public static BufferedImage spriteFor(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        String override = entity.spriteResource();
+        if (override != null) {
+            return AssetManager.get().image(override);
+        }
         AssetId primary = assetFor(entity);
         if (primary == null) {
             return null;
@@ -118,6 +133,43 @@ public final class SpriteRegistry {
             return AssetManager.get().imageOrFallback(AssetId.SORCERER, AssetId.WIZARD);
         }
         return AssetManager.get().image(primary);
+    }
+
+    public static BufferedImage walkFrameFor(Entity entity, int index) {
+        if (entity == null) {
+            return null;
+        }
+        String prefix;
+        if (entity instanceof Knight) {
+            prefix = "/characters/bot";
+        } else if (entity instanceof Sorcerer) {
+            prefix = "/characters/wizard";
+        } else if (entity instanceof BossEnemy) {
+            int safe = Math.floorMod(index, 6) + 1;
+            String suffix = safe < 10 ? "0" + safe : Integer.toString(safe);
+            BufferedImage frame = AssetManager.get().image("/characters/boss1_move_" + suffix + ".png");
+            return frame != null ? frame : spriteFor(entity);
+        } else if (entity instanceof PetEntity petEntity) {
+            String petPrefix;
+            int frameCount;
+            if (petEntity.getPet() instanceof PenguinPet) {
+                petPrefix = "/pets/penguin";
+                frameCount = 3;
+            } else if (petEntity.getPet() instanceof DragonPet) {
+                petPrefix = "/pets/dragon";
+                frameCount = 7;
+            } else {
+                return spriteFor(entity);
+            }
+            int safe = Math.floorMod(index, frameCount) + 1;
+            BufferedImage frame = AssetManager.get().image(petPrefix + safe + ".png");
+            return frame != null ? frame : spriteFor(entity);
+        } else {
+            return spriteFor(entity);
+        }
+        int safe = Math.floorMod(index, 9) + 1;
+        BufferedImage frame = AssetManager.get().image(prefix + safe + ".png");
+        return frame != null ? frame : spriteFor(entity);
     }
 
     public static BufferedImage spriteFor(Item item) {

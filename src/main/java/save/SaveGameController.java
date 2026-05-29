@@ -3,6 +3,7 @@ package save;
 import java.util.List;
 
 import engine.GameEngine;
+import model.TowerProgress;
 import save.SaveDtos.SaveDescriptor;
 
 /**
@@ -24,12 +25,26 @@ public final class SaveGameController {
         return service.saveGame(engine, saveName);
     }
 
+    public SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName)
+            throws SaveGameException {
+        return service.saveGame(engine, towerProgress, saveName);
+    }
+
     public List<SaveDescriptor> listSaves() throws SaveGameException {
         return service.listSaves();
     }
 
     public GameEngine loadGame(SaveDescriptor descriptor) throws SaveGameException {
         return service.loadGame(descriptor);
+    }
+
+    public LoadedGame loadGameWithProgress(SaveDescriptor descriptor) throws SaveGameException {
+        return service.loadGameWithProgress(descriptor);
+    }
+
+    public SaveDescriptor updateSave(SaveDescriptor descriptor, GameEngine engine, TowerProgress towerProgress)
+            throws SaveGameException {
+        return service.updateSave(descriptor, engine, towerProgress);
     }
 
     public void deleteSave(SaveDescriptor descriptor) throws SaveGameException {

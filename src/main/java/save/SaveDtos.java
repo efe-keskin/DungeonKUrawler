@@ -29,6 +29,19 @@ public final class SaveDtos {
         public boolean missionWon;
         public String missionTargetName;
         public String missionTargetSprite;
+        /** Null for saves created before tower mode; restored to a default in that case. */
+        public TowerProgressDto towerProgress;
+    }
+
+    public static final class TowerProgressDto {
+        public int highestUnlockedLevel;
+        public List<LevelProgressDto> levels = new ArrayList<>();
+    }
+
+    public static final class LevelProgressDto {
+        public int levelNumber;
+        /** {@code LevelStatus} name kept as a plain string for Gson stability. */
+        public String status;
     }
 
     public static final class MapDto {
@@ -63,6 +76,10 @@ public final class SaveDtos {
         public int equippedWeaponIndex = -1;
         public int equippedRingIndex = -1;
         public List<ItemDto> inventory = new ArrayList<>();
+        /** Run-wide persistent items (valuables + shop purchases); gold rides in coinBalance. */
+        public List<ItemDto> fullInventory = new ArrayList<>();
+        /** Index into {@link #fullInventory} of the equipped pet, or -1 for none. */
+        public int equippedPetIndex = -1;
     }
 
     public static final class ItemDto {
@@ -94,6 +111,10 @@ public final class SaveDtos {
 
         public boolean blocking;
         public ItemDto hiddenItem;
+
+        public int petHp;
+        public int petMaxHp;
+        public String petState;
     }
 
     public static final class EntityDto {

@@ -23,7 +23,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
-import engine.MissionListener;
 import engine.PlayerModeController;
 import engine.InteractionController;
 import engine.GameStateListener;
@@ -34,7 +33,7 @@ import view.assets.AssetManager;
 
 /**
  * Gameplay shell: dark frame; {@link GamePanel} is the observer and input
- * surface — it delegates
+ * surface; it delegates
  * keys to {@link GameEngine} without containing rules. A top control strip
  * provides pause access without trapping keyboard focus.
  */
@@ -53,8 +52,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         this.engine = engine;
         this.audioManager = AudioManager.shared();
         engine.addGameEventListener(audioManager);
-        engine.getTargetMission().addListener(audioManager);
-        setTitle("Dungeon Krawler — Build Mode");
+        setTitle("Dungeon Krawler - Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
         RetroTheme.styleFrameDark(this);
@@ -124,19 +122,6 @@ public class GameWindow extends JFrame implements GameStateListener {
         wrap.add(bottomPanel, BorderLayout.SOUTH);
         add(wrap);
 
-        // Mission win: when the hero finally picks up the target valuable,
-        // surface the victory screen on the EDT (engine fires synchronously
-        // from the pickup call site).
-        engine.getTargetMission().addListener(new MissionListener() {
-            @Override
-            public void onMissionWon(ValuableItem target) {
-                SwingUtilities.invokeLater(() -> {
-                    MissionSplashDialog.showVictory(GameWindow.this, target);
-                    panel.requestFocusInWindow();
-                });
-            }
-        });
-
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
@@ -155,7 +140,6 @@ public class GameWindow extends JFrame implements GameStateListener {
             public void windowClosed(WindowEvent e) {
                 engine.removeGameStateListener(GameWindow.this);
                 engine.removeGameEventListener(audioManager);
-                engine.getTargetMission().removeListener(audioManager);
                 engine.shutdown();
             }
         });

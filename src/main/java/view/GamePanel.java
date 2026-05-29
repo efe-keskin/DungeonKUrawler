@@ -9,6 +9,7 @@ import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import engine.LockController;
 import engine.PlayerModeController;
 import engine.GameStateListener;
 import engine.InteractionController;
+import model.BossEnemy;
 import model.Container;
 import model.DefeatedEnemyMarker;
 import model.DungeonMap;
@@ -37,6 +39,7 @@ import model.GridCell;
 import model.Hero;
 import model.Item;
 import model.Knight;
+import model.PetEntity;
 import model.Potion;
 import model.Projectile;
 import model.SearchableObject;
@@ -49,7 +52,7 @@ import view.render.AmbienceRenderer;
 
 /**
  * Observer: implements {@link GameStateListener} and repaints when the engine
- * notifies — no direct
+ * notifies; no direct
  * model mutation. Input is forwarded to {@link GameEngine#moveHero(Direction)}
  * only; movement rules
  * stay in the controller.
@@ -106,7 +109,10 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final Timer energyRefillTimer;
     private final long playStartTime = System.currentTimeMillis();
     private Timer continuousMoveTimer;
+    private Timer transientWarningTimer;
     private Direction currentMovementDirection = null;
+    private String transientWarningTitle;
+    private String transientWarningMessage;
     private boolean lastPausedState;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
@@ -204,8 +210,8 @@ public class GamePanel extends JPanel implements GameStateListener {
                 if (d != null) {                    
                     currentMovementDirection = d;
                     if (!continuousMoveTimer.isRunning()) {
-                        GamePanel.this.playerModeController.moveHero(currentMovementDirection); // İlk adımı hemen at
-                        continuousMoveTimer.start(); // Peşinden timer'ı devreye sok
+                        GamePanel.this.playerModeController.moveHero(currentMovementDirection);
+                        continuousMoveTimer.start();
                     }
                 }
             }
@@ -325,15 +331,14 @@ public class GamePanel extends JPanel implements GameStateListener {
             InventoryController.PickupResult result = interactionController.takeItemAt(
                     interaction.getX(), interaction.getY());
             if (result != InventoryController.PickupResult.SUCCESS) {
-                ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
-                        getPickupFailureMessage(result));
+                showTransientWarning("Cannot Take Item", getPickupFailureMessage(result));
             }
         } else if (picked.getInventoryAction() == model.ItemAction.SEARCH
                 && interaction.getItem() instanceof SearchableObject searchableObject) {
             showSearchResult(parent, interactionController.search(searchableObject));
         } else if (!interactionController.applyGroundAction(interaction.getItem(),
                 interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
-            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Use Item",
+            showTransientWarning("Cannot Use Item",
                     "That action could not be performed on " + interaction.getItemName() + ".");
         }
         return true;
@@ -411,10 +416,28 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private void handleOpenKeyPress() {
-        Container container = engine.findContainerNearHero();
         Window parent = SwingUtilities.getWindowAncestor(this);
+
+        model.Arch arch = engine.findArchNearHero();
+        if (arch != null) {
+            boolean hasKey = engine.heroHasGoldKey();
+            boolean foundTreasure = engine.getTargetMission().isWon();
+            if (!hasKey) {
+                showTransientWarning("Cannot Open Exit",
+                        "The exit is locked. Find the gold key before opening the arch.");
+            } else if (!foundTreasure) {
+                showTransientWarning("Treasure Required",
+                        "You have the gold key, but you must claim the floor's hidden treasure before leaving.");
+            } else {
+                engine.openArch(arch);
+            }
+            requestFocusInWindow();
+            return;
+        }
+
+        Container container = engine.findContainerNearHero();
         if (container == null) {
-            // No container in reach — stay silent rather than nagging.
+            // No container in reach; stay silent rather than nagging.
             requestFocusInWindow();
             return;
         }
@@ -461,7 +484,7 @@ public class GamePanel extends JPanel implements GameStateListener {
             return;
         }
 
-        // No enemy in reach — try to break a nearby breakable object instead.
+        // No enemy in reach; try to break a nearby breakable object instead.
         InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
         // Nothing breakable in reach (breakResult == null): stay silent.
         if (breakResult != null && !breakResult.broken()) {
@@ -476,8 +499,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         // Only warn when an item is in reach but the inventory is full; staying
         // silent when there is simply nothing takable nearby.
         if (!engine.takeItemOnGround() && engine.getHero().getInventory().isFull()) {
-            Window parent = SwingUtilities.getWindowAncestor(this);
-            ItemActionMenuDialog.showNotice(parent, "Warning", "Cannot Take Item",
+            showTransientWarning("Cannot Take Item",
                     getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL));
         }
 
@@ -606,7 +628,7 @@ private void handleInventoryKeyPress() {
                 }
             }
 
-            // Pass 2: walls (renderer owns the layout — multi-cell sprites span
+            // Pass 2: walls (renderer owns the layout; multi-cell sprites span
             // their CSV-derived number of cells).
             ambienceRenderer.drawWalls(g2, map, tileSize, offsetX, offsetY);
 
@@ -637,8 +659,8 @@ private void handleInventoryKeyPress() {
                         if (ent instanceof Hero) {
                             continue;
                         }
-                        BufferedImage enemySprite = spriteFor(ent);
                         EnemyDrawPosition enemyDrawPosition = enemyDrawPosition(ent, px, py, tileSize);
+                        BufferedImage enemySprite = enemySpriteFor(ent);
                         if (enemySprite != null) {    
                             int spriteW = Math.round(enemySprite.getWidth() * HERO_SPRITE_SCALE);
                             int spriteH = Math.round(enemySprite.getHeight() * HERO_SPRITE_SCALE);    
@@ -648,7 +670,7 @@ private void handleInventoryKeyPress() {
                             g2.drawImage(enemySprite, drawX, drawY, spriteW, spriteH, null);
                         } else {
                             g2.setColor(ent instanceof Knight ? KNIGHT
-                                    : ent instanceof Sorcerer ? SORCERER
+                                    : ent instanceof Sorcerer || ent instanceof BossEnemy ? SORCERER
                                             : Color.LIGHT_GRAY);
                             int inset = Math.max(1, Math.min(cellW, cellH) / 5);
                             int entityW = Math.max(1, cellW - inset * 2);
@@ -663,6 +685,7 @@ private void handleInventoryKeyPress() {
             drawProjectiles(g2, tileSize, offsetX, offsetY);
             drawHero(g2, map, tileSize, offsetX, offsetY);
             drawHud(g2);
+            drawTransientWarning(g2);
         } finally {
             g2.dispose();
         }
@@ -733,6 +756,84 @@ private void handleInventoryKeyPress() {
         };
     }
 
+    private void showTransientWarning(String title, String message) {
+        transientWarningTitle = title == null ? "Warning" : title;
+        transientWarningMessage = message == null ? "" : message;
+        if (transientWarningTimer != null) {
+            transientWarningTimer.stop();
+        }
+        transientWarningTimer = new Timer(2300, e -> {
+            transientWarningTitle = null;
+            transientWarningMessage = null;
+            repaint();
+        });
+        transientWarningTimer.setRepeats(false);
+        transientWarningTimer.start();
+        repaint();
+        requestFocusInWindow();
+    }
+
+    private void drawTransientWarning(Graphics2D g2) {
+        if (transientWarningTitle == null) {
+            return;
+        }
+        int maxWidth = Math.min(430, Math.max(260, getWidth() - 80));
+        g2.setFont(retroHudFont(12f));
+        List<String> lines = wrapText(g2, transientWarningMessage, maxWidth - 34);
+        int width = maxWidth;
+        int height = 54 + lines.size() * 16;
+        int x = (getWidth() - width) / 2;
+        int y = 22;
+
+        g2.setColor(new Color(0, 0, 0, 150));
+        g2.fillRect(x + 5, y + 6, width, height);
+        g2.setColor(HUD_STONE_OUTLINE);
+        g2.fillRect(x, y, width, height);
+        g2.setColor(new Color(68, 45, 38));
+        g2.fillRect(x + 3, y + 3, width - 6, height - 6);
+        g2.setColor(new Color(120, 68, 54));
+        g2.fillRect(x + 6, y + 6, width - 12, height - 12);
+        g2.setColor(HUD_PANEL_FILL);
+        g2.fillRect(x + 9, y + 9, width - 18, height - 18);
+
+        g2.setFont(retroHudFont(13f));
+        g2.setColor(new Color(244, 205, 103));
+        g2.drawString(transientWarningTitle, x + 17, y + 28);
+
+        g2.setFont(retroHudFont(11f));
+        g2.setColor(HUD_TEXT);
+        int lineY = y + 50;
+        for (String line : lines) {
+            g2.drawString(line, x + 17, lineY);
+            lineY += 16;
+        }
+    }
+
+    private List<String> wrapText(Graphics2D g2, String text, int maxWidth) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return lines;
+        }
+        StringBuilder current = new StringBuilder();
+        for (String word : text.split("\\s+")) {
+            String candidate = current.isEmpty() ? word : current + " " + word;
+            if (g2.getFontMetrics().stringWidth(candidate) <= maxWidth) {
+                current.setLength(0);
+                current.append(candidate);
+            } else {
+                if (!current.isEmpty()) {
+                    lines.add(current.toString());
+                    current.setLength(0);
+                }
+                current.append(word);
+            }
+        }
+        if (!current.isEmpty()) {
+            lines.add(current.toString());
+        }
+        return lines;
+    }
+
     private BufferedImage spriteFor(Item item) {
         return SpriteRegistry.spriteFor(item);
     }
@@ -761,10 +862,16 @@ private void handleInventoryKeyPress() {
             return;
         }
         if (item instanceof model.Key) {
-            // Keys are tiny pixel art — draw at native size, centered, never enlarged.
+            // Keys are tiny pixel art; draw at native size, centered, never enlarged.
             int drawX = px + (cellW - sprite.getWidth()) / 2;
             int drawY = py + (cellH - sprite.getHeight()) / 2;
             g2.drawImage(sprite, drawX, drawY, sprite.getWidth(), sprite.getHeight(), null);
+            return;
+        }
+        if (item instanceof model.Arch) {
+            // The arch is a structural wall fixture: fill the whole tile so it
+            // reads as a gate set into the wall, not a small item on the floor.
+            g2.drawImage(sprite, px, py, cellW, cellH, null);
             return;
         }
         g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
@@ -812,7 +919,8 @@ private void handleInventoryKeyPress() {
                     continue;
                 }
                 for (Entity entity : cell.getEntitiesView()) {
-                    if (!(entity instanceof Knight || entity instanceof Sorcerer)) {
+                    if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy
+                            || entity instanceof PetEntity)) {
                         continue;
                     }
                     seen.add(entity);
@@ -847,6 +955,16 @@ private void handleInventoryKeyPress() {
         return new EnemyDrawPosition(px + offsetX, py + offsetY);
     }
 
+    private BufferedImage enemySpriteFor(Entity entity) {
+        EnemyMoveAnimation animation = enemyMoveAnimations.get(entity);
+        if (animation == null) {
+            return SpriteRegistry.walkFrameFor(entity, 0);
+        }
+        int frame = Math.min(SpriteRegistry.heroFrameCount() - 1,
+                Math.max(0, (int) (animation.progress * SpriteRegistry.heroFrameCount())));
+        return SpriteRegistry.walkFrameFor(entity, frame);
+    }
+
     private void drawProjectiles(Graphics2D g2, int tileSize, int offsetX, int offsetY) {
         for (Projectile projectile : engine.getActiveProjectilesView()) {
             if (!projectile.isActive()) {
@@ -854,14 +972,15 @@ private void handleInventoryKeyPress() {
             }
             int px = offsetX + projectile.getX() * tileSize;
             int py = offsetY + projectile.getY() * tileSize;
-            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned());
+            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned(), projectile.isBossOwned());
         }
     }
 
     /**
      * 8-bit projectile: sorcerer fireball (red/orange/yellow) or hero ice bolt (blue/cyan/white).
      */
-    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, boolean heroOwned) {
+    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize,
+            boolean heroOwned, boolean bossOwned) {
         int pixel = Math.max(2, tileSize / 7);
         int size = pixel * 5;
         int left = tileX + (tileSize - size) / 2;
@@ -873,6 +992,13 @@ private void handleInventoryKeyPress() {
             g2.setColor(Color.CYAN);
             g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
             g2.setColor(Color.WHITE);
+            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+        } else if (bossOwned) {
+            g2.setColor(new Color(70, 20, 120));
+            g2.fillRect(left, top, size, size);
+            g2.setColor(new Color(160, 60, 230));
+            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+            g2.setColor(new Color(235, 170, 255));
             g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
         } else {
             g2.setColor(Color.RED);
@@ -1000,6 +1126,12 @@ private void handleInventoryKeyPress() {
         } else if (ent instanceof Sorcerer sorcerer) {
             currentHp = sorcerer.getHp();
             maxHp = SORCERER_MAX_HP;
+        } else if (ent instanceof BossEnemy boss) {
+            currentHp = boss.getHp();
+            maxHp = boss.getMaxHp();
+        } else if (ent instanceof PetEntity petEntity) {
+            currentHp = petEntity.getPet().getHp();
+            maxHp = petEntity.getPet().getMaxHp();
         } else {
             return;
         }
@@ -1026,12 +1158,19 @@ private void handleInventoryKeyPress() {
     private void drawAiStateLabel(Graphics2D g2, Entity ent, int px, int py, int cellW) {
         String label;
         Color color;
-        if (ent instanceof Knight k) {
+        if (engine.isEnemyFrozen(ent)) {
+            label = "FROZEN";
+            color = new Color(110, 220, 255);
+        } else if (ent instanceof Knight k) {
             label = k.getAiState().name();
             color = k.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
         } else if (ent instanceof Sorcerer s) {
             label = s.getAiState().name();
             color = s.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
+        } else if (ent instanceof BossEnemy boss) {
+            label = boss.getAiState().name();
+            color = boss.getAiState() == model.AIState.CHASING
+                    ? new Color(210, 110, 255) : new Color(200, 200, 200);
         } else {
             return;
         }

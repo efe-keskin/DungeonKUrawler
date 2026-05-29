@@ -16,9 +16,13 @@ import model.Hole;
 import model.Item;
 import model.Key;
 import model.KeyColor;
+import model.DragonPet;
 import model.ManaPotion;
 import model.MissingBrick;
 import model.Pedestal;
+import model.PenguinPet;
+import model.Pet;
+import model.PetState;
 import model.Pool;
 import model.Ring;
 import model.SearchableObject;
@@ -51,6 +55,8 @@ final class ItemDtoFactory {
     private static final String KEY = "KEY";
     private static final String MANA_POTION = "MANA_POTION";
     private static final String MISSING_BRICK = "MISSING_BRICK";
+    private static final String PENGUIN_PET = "PENGUIN_PET";
+    private static final String DRAGON_PET = "DRAGON_PET";
     private static final String PEDESTAL = "PEDESTAL";
     private static final String POOL = "POOL";
     private static final String RING = "RING";
@@ -107,6 +113,12 @@ final class ItemDtoFactory {
             dto.hiddenItem = toDto(searchableObject.getHiddenItem(), missionTarget);
         }
 
+        if (item instanceof Pet pet) {
+            dto.petHp = pet.getHp();
+            dto.petMaxHp = pet.getMaxHp();
+            dto.petState = pet.getState().name();
+        }
+
         return dto;
     }
 
@@ -146,12 +158,18 @@ final class ItemDtoFactory {
             case VASE -> new Vase();
             case PEDESTAL -> new Pedestal(fromDto(dto.hiddenItem, context));
             case DEFEATED_ENEMY -> new DefeatedEnemyMarker();
+            case PENGUIN_PET -> new PenguinPet();
+            case DRAGON_PET -> new DragonPet();
             case VALUABLE -> new ValuableItem(fallback(dto.name, "Valuable Item"), dto.spriteResource);
             default -> new ValuableItem(fallback(dto.name, "Unknown Item"), dto.spriteResource);
         };
 
         if (dto.name != null && !dto.name.isBlank()) {
             item.setName(dto.name);
+        }
+        if (item instanceof Pet pet && dto.petMaxHp > 0) {
+            pet.setHp(dto.petHp);
+            pet.setState(parsePetState(dto.petState));
         }
         if (dto.missionTarget && item instanceof ValuableItem valuableItem && context != null) {
             context.missionTarget = valuableItem;
@@ -229,6 +247,12 @@ final class ItemDtoFactory {
         if (item instanceof DefeatedEnemyMarker) {
             return DEFEATED_ENEMY;
         }
+        if (item instanceof PenguinPet) {
+            return PENGUIN_PET;
+        }
+        if (item instanceof DragonPet) {
+            return DRAGON_PET;
+        }
         if (item instanceof ValuableItem) {
             return VALUABLE;
         }
@@ -274,6 +298,17 @@ final class ItemDtoFactory {
             return KeyColor.valueOf(value);
         } catch (IllegalArgumentException ex) {
             return KeyColor.SILVER;
+        }
+    }
+
+    private static PetState parsePetState(String value) {
+        if (value == null || value.isBlank()) {
+            return PetState.UNEQUIPPED;
+        }
+        try {
+            return PetState.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            return PetState.UNEQUIPPED;
         }
     }
 

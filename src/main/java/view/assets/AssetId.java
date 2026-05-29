@@ -6,7 +6,7 @@ package view.assets;
  * changes. Used by {@link AssetManager} as the lookup key.
  *
  * <p>For the large, data-driven ambience tileset under
- * {@code resources/background_floor/}, see {@link AmbienceCatalog} — it keys
+ * {@code resources/background_floor/}, see {@link AmbienceCatalog}; it keys
  * assets by their CSV label rather than by enum.
  */
 public enum AssetId {
@@ -17,6 +17,10 @@ public enum AssetId {
     HERO_FRAME_3("/characters/hero3.png"),
     HERO_FRAME_4("/characters/hero4.png"),
     HERO_FRAME_5("/characters/hero5.png"),
+    HERO_FRAME_6("/characters/hero6.png"),
+    HERO_FRAME_7("/characters/hero7.png"),
+    HERO_FRAME_8("/characters/hero8.png"),
+    HERO_FRAME_9("/characters/hero9.png"),
 
     // Enemies.
     KNIGHT("/characters/knight1.png"),
