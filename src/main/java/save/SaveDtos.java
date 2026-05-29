@@ -29,6 +29,19 @@ public final class SaveDtos {
         public boolean missionWon;
         public String missionTargetName;
         public String missionTargetSprite;
+        /** Null for saves created before tower mode; restored to a default in that case. */
+        public TowerProgressDto towerProgress;
+    }
+
+    public static final class TowerProgressDto {
+        public int highestUnlockedLevel;
+        public List<LevelProgressDto> levels = new ArrayList<>();
+    }
+
+    public static final class LevelProgressDto {
+        public int levelNumber;
+        /** {@code LevelStatus} name kept as a plain string for Gson stability. */
+        public String status;
     }
 
     public static final class MapDto {

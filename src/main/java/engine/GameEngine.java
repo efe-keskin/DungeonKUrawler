@@ -63,6 +63,7 @@ public class GameEngine {
     private final Hero hero;
     private final Random random;
     private final EnemyFactory enemyFactory;
+    private final EnemySpawnPolicy spawnPolicy;
     private final CombatManager combatManager = new CombatManager();
     private final TargetItemMission targetMission = new TargetItemMission();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
@@ -70,6 +71,12 @@ public class GameEngine {
     private long lastMoveNanos = System.nanoTime();
     private boolean isPaused = false;
     private boolean isGameOver = false;
+
+    // Tower-mode context: set by DungeonLevelFactory when a floor is started.
+    private int towerLevelNumber = 0;
+    private boolean finalTowerLevel = false;
+    private boolean levelCompleted = false;
+    private LevelCompletionListener levelCompletionListener;
 
     private Timer spawnTimer;
     private Timer coinSpawnTimer;
@@ -79,7 +86,6 @@ public class GameEngine {
     private Timer projectileTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
 
-    private static final int SPAWN_INTERVAL_MS = 9000;   // spec 2.5
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
@@ -88,7 +94,6 @@ public class GameEngine {
     private static final int HERO_RANGED_RANGE = 6;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
-    private static final int MAX_ENEMIES = 5;             // spec 2.5
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
@@ -156,6 +161,7 @@ public class GameEngine {
     private GameEngine(Random random, DungeonMap designedMap) {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
+        this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 — Build Mode") : designedMap;
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
         // Spec section 2.4.1: HP=17, STR=random[8,15], Mana=80, DEF=2.
@@ -188,6 +194,17 @@ public class GameEngine {
 
     public GameEngine(DungeonMap dungeonMap, Hero hero,
             ValuableItem missionTarget, boolean missionStarted, boolean missionWon) {
+        this(dungeonMap, hero, missionTarget, missionStarted, missionWon, null);
+    }
+
+    /**
+     * Builds a session with an explicit {@link EnemySpawnPolicy} (GoF Strategy),
+     * used by {@code DungeonLevelFactory} to drive per-floor enemy cadence/mix.
+     * A {@code null} policy falls back to the base-game {@link RegularEnemySpawnPolicy}.
+     */
+    public GameEngine(DungeonMap dungeonMap, Hero hero,
+            ValuableItem missionTarget, boolean missionStarted, boolean missionWon,
+            EnemySpawnPolicy spawnPolicy) {
         this.random = ThreadLocalRandom.current();
         this.enemyFactory = new EnemyFactory(random);
         if (dungeonMap == null || hero == null) {
@@ -195,8 +212,29 @@ public class GameEngine {
         }
         this.dungeonMap = dungeonMap;
         this.hero = hero;
+        this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         placeHeroOnMap();
         this.targetMission.restore(missionTarget, missionStarted, missionWon);
+        startGameTimers();
+    }
+
+    /**
+     * Starts a fresh tower floor: the carry-over {@code hero} on a generated
+     * {@code map}, with a newly hidden target mission, ground coins, and the
+     * given {@link EnemySpawnPolicy}. Pair with {@link #configureTowerLevel}.
+     */
+    public GameEngine(DungeonMap map, Hero hero, EnemySpawnPolicy spawnPolicy) {
+        if (map == null || hero == null) {
+            throw new IllegalArgumentException("A tower floor requires a map and hero.");
+        }
+        this.random = ThreadLocalRandom.current();
+        this.enemyFactory = new EnemyFactory(random);
+        this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
+        this.dungeonMap = map;
+        this.hero = hero;
+        placeHeroOnMap();
+        fillMinimumGroundCoins(-1, -1);
+        startTargetMission();
         startGameTimers();
     }
 
@@ -263,6 +301,29 @@ public class GameEngine {
     void fireEnemyDefeated(Entity enemy) {
         for (GameEventListener listener : eventListeners) {
             listener.onEnemyDefeated(enemy);
+        }
+    }
+
+    /**
+     * Marks this session as a tower floor so the engine can detect floor
+     * completion (find the hidden target, then reach the exit door). Called by
+     * {@code DungeonLevelFactory} after the floor map is built.
+     */
+    public void configureTowerLevel(int levelNumber, boolean finalLevel) {
+        this.towerLevelNumber = levelNumber;
+        this.finalTowerLevel = finalLevel;
+        this.levelCompleted = false;
+    }
+
+    /** Registers the single subscriber notified when this floor is completed. */
+    public void setLevelCompletionListener(LevelCompletionListener listener) {
+        this.levelCompletionListener = listener;
+    }
+
+    private void fireLevelCompleted() {
+        if (levelCompletionListener != null) {
+            levelCompletionListener.onLevelCompleted(
+                    new LevelCompletionResult(towerLevelNumber, finalTowerLevel));
         }
     }
 
@@ -604,6 +665,23 @@ public class GameEngine {
 
         lastMoveNanos = System.nanoTime();
         notifyListeners();
+        checkTowerExit(to);
+    }
+
+    /**
+     * Tower completion: reaching the exit door after collecting the floor's
+     * hidden target finishes the floor. Stepping on the door beforehand does
+     * nothing, so the target must be found first.
+     */
+    private void checkTowerExit(GridCell cell) {
+        if (towerLevelNumber <= 0 || levelCompleted || cell == null || !targetMission.isWon()) {
+            return;
+        }
+        boolean onDoor = cell.getItemsView().stream().anyMatch(item -> item instanceof model.Door);
+        if (onDoor) {
+            levelCompleted = true;
+            fireLevelCompleted();
+        }
     }
 
     /**
@@ -865,7 +943,7 @@ public class GameEngine {
             return "spawnEnemyProcedurally: no empty passable cell";
         }
         int[] pick = candidates.get(random.nextInt(candidates.size()));
-        Entity enemy = enemyFactory.createRandomEnemy(pick[0], pick[1]);
+        Entity enemy = spawnPolicy.createEnemy(pick[0], pick[1]);
         if (enemy == null) {
             return "spawnEnemyProcedurally: None (10%) at (" + pick[0] + "," + pick[1] + ")";
         }
@@ -882,8 +960,8 @@ public class GameEngine {
      * the EDT, so mutations here are safe w.r.t. the painter.
      */
     private void startGameTimers() {
-        spawnTimer = new Timer(SPAWN_INTERVAL_MS, e -> {
-            if (countEnemies() >= MAX_ENEMIES) {
+        spawnTimer = new Timer(spawnPolicy.spawnIntervalMs(), e -> {
+            if (countEnemies() >= spawnPolicy.maxEnemies()) {
                 return;
             }
             String msg = spawnEnemyProcedurally();

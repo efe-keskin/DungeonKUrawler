@@ -43,9 +43,24 @@ public final class SaveFileRepository {
     }
 
     public SaveDescriptor write(SaveGameDto saveGame) throws SaveGameException {
+        return writeTo(nextPath(saveGame.saveName), saveGame);
+    }
+
+    /**
+     * Overwrites an existing save in place (same file path), without consuming
+     * a new save slot. Used to persist progress back into the slot the player
+     * loaded from. Falls back to a fresh slot if the descriptor has no path.
+     */
+    public SaveDescriptor overwrite(SaveDescriptor descriptor, SaveGameDto saveGame) throws SaveGameException {
+        if (descriptor == null || descriptor.getPath() == null) {
+            return write(saveGame);
+        }
+        return writeTo(descriptor.getPath(), saveGame);
+    }
+
+    private SaveDescriptor writeTo(Path destination, SaveGameDto saveGame) throws SaveGameException {
         try {
             Files.createDirectories(saveDirectory);
-            Path destination = nextPath(saveGame.saveName);
             Path temp = destination.resolveSibling(destination.getFileName() + ".tmp");
             try {
                 Files.writeString(temp, serializer.serialize(saveGame), StandardCharsets.UTF_8);
