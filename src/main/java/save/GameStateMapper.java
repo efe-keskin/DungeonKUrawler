@@ -10,6 +10,7 @@ import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
+import model.Pet;
 import model.Item;
 import model.LevelStatus;
 import model.Ring;
@@ -214,8 +215,13 @@ public final class GameStateMapper {
             index++;
         }
 
+        int fullIndex = 0;
         for (Item item : hero.getFullInventory().getItems()) {
+            if (item == hero.getEquippedPet()) {
+                dto.equippedPetIndex = fullIndex;
+            }
             dto.fullInventory.add(itemFactory.toDto(item, missionTarget));
+            fullIndex++;
         }
         return dto;
     }
@@ -279,6 +285,11 @@ public final class GameStateMapper {
                     hero.getFullInventory().add(item);
                 }
             }
+        }
+
+        if (dto.equippedPetIndex >= 0 && dto.equippedPetIndex < hero.getFullInventory().getItems().size()
+                && hero.getFullInventory().getItems().get(dto.equippedPetIndex) instanceof Pet pet) {
+            hero.setEquippedPet(pet);
         }
 
         equip(hero, dto.equippedArmorIndex, Armor.class);

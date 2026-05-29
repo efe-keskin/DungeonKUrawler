@@ -5,6 +5,7 @@ import model.DungeonMap;
 import model.GridCell;
 import model.Hero;
 import model.Item;
+import model.ValuableItem;
 
 /**
  * Handles inventory-related use cases that cross map and hero inventory boundaries.
@@ -54,7 +55,9 @@ public class InventoryController {
             return PickupResult.NOT_TAKABLE;
         }
 
-        if (item instanceof Coin) {
+        if (item instanceof Coin || item instanceof ValuableItem) {
+            // Coins go to the gold balance; valuables go to the persistent
+            // inventory — neither consumes a per-level bag slot.
             boolean collected = engine.takeItem(item, x, y);
             return collected ? PickupResult.SUCCESS : PickupResult.NO_ITEM;
         }

@@ -2,8 +2,10 @@ package engine;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
@@ -38,9 +40,13 @@ import model.WeaponCatalog;
 import javax.swing.Timer;
 
 import model.AIState;
+import model.DragonPet;
 import model.Gargoyle;
 import model.Knight;
 import model.MissingBrick;
+import model.PenguinPet;
+import model.Pet;
+import model.PetEntity;
 import model.Pool;
 import model.Projectile;
 import model.SearchableObject;
@@ -86,7 +92,13 @@ public class GameEngine {
     private Timer sorcererAttackTimer;
     private Timer bossAttackTimer;
     private Timer projectileTimer;
+    private Timer petTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
+    /** Transient on-grid presence of the equipped pet for this floor; null when none. */
+    private PetEntity petEntity;
+    private long lastDragonAttackNanos = 0L;
+    /** Enemy -&gt; nanoTime until which it is frozen (penguin ability). Transient. */
+    private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
@@ -98,6 +110,9 @@ public class GameEngine {
     private static final int HERO_RANGED_RANGE = 6;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
+    private static final int PET_TICK_MS = 650;
+    private static final long DRAGON_ATTACK_COOLDOWN_NANOS = TimeUnit.MILLISECONDS.toNanos(450);
+    private static final int KNIGHT_PET_MELEE_DAMAGE = 2;
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
@@ -584,6 +599,11 @@ public class GameEngine {
             notifyListeners();
             return true;
         }
+        if (item instanceof ValuableItem) {
+            container.removeItem(item);
+            acceptValuable(item);
+            return true;
+        }
         if (!hero.getInventory().hasFreeSlot()) {
             return false;
         }
@@ -597,6 +617,18 @@ public class GameEngine {
         return true;
     }
 
+    /**
+     * Routes a collected valuable straight into the persistent
+     * {@link model.FullGameInventory} (it survives between floors) rather than
+     * the per-level bag, then runs the usual pickup notifications.
+     */
+    private void acceptValuable(Item valuable) {
+        hero.getFullInventory().add(valuable);
+        targetMission.checkPickup(valuable);
+        fireItemPickedUp(valuable);
+        notifyListeners();
+    }
+
     public SearchResult search(SearchableObject object) {
         if (object == null) {
             return SearchResult.notSearchable();
@@ -604,6 +636,11 @@ public class GameEngine {
         Item hidden = object.getHiddenItem();
         if (hidden == null) {
             return SearchResult.nothingFound();
+        }
+        if (hidden instanceof ValuableItem) {
+            Item found = object.takeHiddenItem();
+            acceptValuable(found);
+            return SearchResult.found(found);
         }
         if (!hero.getInventory().hasFreeSlot()) {
             return SearchResult.inventoryFull(hidden);
@@ -814,7 +851,8 @@ public class GameEngine {
                     continue;
                 }
                 for (Item item : cell.getItems()) {
-                    boolean canCollect = item instanceof Coin || hero.getInventory().hasFreeSlot();
+                    boolean canCollect = item instanceof Coin || item instanceof ValuableItem
+                            || hero.getInventory().hasFreeSlot();
                     if (item.isTakable() && canCollect) {
                         return takeItem(item, tx, ty);
                     }
@@ -859,6 +897,13 @@ public class GameEngine {
         }
         if (item instanceof Coin coin) {
             return collectCoin(coin, x, y);
+        }
+        if (item instanceof ValuableItem) {
+            if (!dungeonMap.removeItemFromCell(item, x, y)) {
+                return false;
+            }
+            acceptValuable(item);
+            return true;
         }
         model.Inventory inv = hero.getInventory();
         if (!inv.hasFreeSlot()) {
@@ -1057,6 +1102,11 @@ public class GameEngine {
         projectileTimer = new Timer(PROJECTILE_TICK_MS, e -> updateProjectiles());
         projectileTimer.setRepeats(true);
         projectileTimer.start();
+
+        spawnEquippedPet();
+        petTimer = new Timer(PET_TICK_MS, e -> updatePet());
+        petTimer.setRepeats(true);
+        petTimer.start();
     }
 
     /** Counts all Knight/Sorcerer entities currently on the map. */
@@ -1108,8 +1158,13 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
-            if (!(enemy instanceof Knight knight)) {
+            if (!(enemy instanceof Knight knight) || isFrozen(knight)) {
                 continue;
+            }
+            // A knight beside the pet strikes it instead of (or as well as) the hero.
+            if (petEntity != null && isAdjacentTo(knight, petEntity)) {
+                applyPetDamage(KNIGHT_PET_MELEE_DAMAGE);
+                changed = true;
             }
             if (!isAdjacentToHero(knight)) {
                 continue;
@@ -1129,6 +1184,11 @@ public class GameEngine {
         }
     }
 
+    private static boolean isAdjacentTo(Entity a, Entity b) {
+        return Math.max(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY())) <= 1
+                && !(a.getX() == b.getX() && a.getY() == b.getY());
+    }
+
     /**
      * One tile per tick for Knights and Sorcerers with identical pathing rules ({@link #moveEnemyTowardHero}).
      */
@@ -1138,6 +1198,9 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
+            if (isFrozen(enemy)) {
+                continue;
+            }
             if (enemy instanceof Knight knight) {
                 if (isAdjacentToHero(knight)) {
                     continue;
@@ -1186,7 +1249,7 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
-            if (!(enemy instanceof Sorcerer sorcerer)) {
+            if (!(enemy instanceof Sorcerer sorcerer) || isFrozen(sorcerer)) {
                 continue;
             }
             if (!canSorcererShootAtHero(sorcerer)) {
@@ -1210,7 +1273,7 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
-            if (!(enemy instanceof BossEnemy boss)) {
+            if (!(enemy instanceof BossEnemy boss) || isFrozen(boss)) {
                 continue;
             }
             if (!canBossShootAtHero(boss)) {
@@ -1482,6 +1545,11 @@ public class GameEngine {
             projectile.setActive(false);
             return true;
         }
+        if (hitsPet(projectile.getX(), projectile.getY())) {
+            applyPetDamage(projectile.getDamageReceived());
+            projectile.setActive(false);
+            return true;
+        }
 
         int nextX = projectile.getX() + projectile.getDx();
         int nextY = projectile.getY() + projectile.getDy();
@@ -1493,6 +1561,11 @@ public class GameEngine {
 
         if (nextX == hero.getX() && nextY == hero.getY()) {
             resolveEnemyProjectileHitOnHero(projectile.getDamageReceived());
+            projectile.setActive(false);
+            return true;
+        }
+        if (hitsPet(nextX, nextY)) {
+            applyPetDamage(projectile.getDamageReceived());
             projectile.setActive(false);
             return true;
         }
@@ -1680,6 +1753,334 @@ public class GameEngine {
         return true;
     }
 
+    // ---------------------------------------------------------------------
+    // Pets: spawn, roam beside the hero, and use abilities each pet tick.
+    // ---------------------------------------------------------------------
+
+    /** True while {@code enemy} is under a penguin freeze. */
+    private boolean isFrozen(Entity enemy) {
+        Long until = frozenUntilNanos.get(enemy);
+        return until != null && System.nanoTime() < until;
+    }
+
+    /** View-facing freeze check so the renderer can show feedback. */
+    public boolean isEnemyFrozen(Entity enemy) {
+        return isFrozen(enemy);
+    }
+
+    /**
+     * Places the hero's equipped pet on a free tile beside the hero for this
+     * floor, restoring it to full vitals first (a fresh floor revives a fainted
+     * companion). No-op when no pet is equipped or no adjacent tile is free.
+     */
+    private void spawnEquippedPet() {
+        petEntity = null;
+        Pet pet = hero.getEquippedPet();
+        if (pet == null) {
+            return;
+        }
+        pet.revive();
+        int[] spot = freeTileNextTo(hero.getX(), hero.getY());
+        if (spot == null) {
+            return;
+        }
+        petEntity = new PetEntity(pet, spot[0], spot[1]);
+        GridCell cell = dungeonMap.getCell(spot[0], spot[1]);
+        if (cell != null) {
+            cell.getEntities().add(petEntity);
+        }
+    }
+
+    private int[] freeTileNextTo(int x, int y) {
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                int nx = x + dx;
+                int ny = y + dy;
+                GridCell cell = dungeonMap.getCell(nx, ny);
+                if (cell != null && cell.isWalkable() && cell.getEntitiesView().isEmpty()) {
+                    return new int[] { nx, ny };
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Per-tick pet update: roam beside the hero, then use the pet's ability. */
+    private void updatePet() {
+        if (isPaused || isGameOver) {
+            return;
+        }
+        Pet pet = hero.getEquippedPet();
+        if (pet == null || petEntity == null || !pet.isAlive()) {
+            return;
+        }
+        boolean changed;
+        if (pet instanceof PenguinPet) {
+            changed = movePenguinTowardEnemy();
+            if (!changed) {
+                changed = movePetTowardHero();
+            }
+            changed |= penguinFreezeTouchedEnemies();
+        } else if (pet instanceof DragonPet dragon) {
+            changed = movePetTowardHero();
+            changed |= dragonRangedAttack(dragon);
+        } else {
+            changed = movePetTowardHero();
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    private boolean movePenguinTowardEnemy() {
+        Entity target = nearestEnemyNearPet();
+        if (target == null) {
+            return false;
+        }
+        if (chebyshevDistance(petEntity.getX(), petEntity.getY(), target.getX(), target.getY()) <= 1) {
+            return false;
+        }
+        int dx = Integer.compare(target.getX(), petEntity.getX());
+        int dy = Integer.compare(target.getY(), petEntity.getY());
+        if (Math.abs(target.getX() - petEntity.getX()) >= Math.abs(target.getY() - petEntity.getY())) {
+            if (tryMovePetNearHero(petEntity.getX() + dx, petEntity.getY())) {
+                return true;
+            }
+            return tryMovePetNearHero(petEntity.getX(), petEntity.getY() + dy);
+        }
+        if (tryMovePetNearHero(petEntity.getX(), petEntity.getY() + dy)) {
+            return true;
+        }
+        return tryMovePetNearHero(petEntity.getX() + dx, petEntity.getY());
+    }
+
+    private Entity nearestEnemyNearPet() {
+        Pet pet = petEntity.getPet();
+        Entity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (chebyshevDistance(enemy.getX(), enemy.getY(), hero.getX(), hero.getY()) > pet.getFollowRange()) {
+                continue;
+            }
+            int dx = enemy.getX() - petEntity.getX();
+            int dy = enemy.getY() - petEntity.getY();
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = enemy;
+            }
+        }
+        return best;
+    }
+
+    /** Lets the pet wander freely near the hero, chasing back when it trails too far. */
+    private boolean movePetTowardHero() {
+        Pet pet = petEntity.getPet();
+        int gap = chebyshevDistance(petEntity.getX(), petEntity.getY(), hero.getX(), hero.getY());
+        if (gap > Math.max(1, pet.getFollowRange() - 1)) {
+            return movePetTowardHeroDirectly();
+        }
+
+        Direction[] directions = Direction.values();
+        int first = random.nextInt(directions.length);
+        for (int i = 0; i < directions.length; i++) {
+            Direction direction = directions[(first + i) % directions.length];
+            int nx = petEntity.getX();
+            int ny = petEntity.getY();
+            switch (direction) {
+                case UP -> ny--;
+                case DOWN -> ny++;
+                case LEFT -> nx--;
+                case RIGHT -> nx++;
+            }
+            if (chebyshevDistance(nx, ny, hero.getX(), hero.getY()) <= pet.getFollowRange()
+                    && tryMovePet(nx, ny)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean movePetTowardHeroDirectly() {
+        int gapX = Math.abs(petEntity.getX() - hero.getX());
+        int gapY = Math.abs(petEntity.getY() - hero.getY());
+        int dx = Integer.compare(hero.getX(), petEntity.getX());
+        int dy = Integer.compare(hero.getY(), petEntity.getY());
+        if (gapX >= gapY) {
+            if (tryMovePet(petEntity.getX() + dx, petEntity.getY())) {
+                return true;
+            }
+            return tryMovePet(petEntity.getX(), petEntity.getY() + dy);
+        }
+        if (tryMovePet(petEntity.getX(), petEntity.getY() + dy)) {
+            return true;
+        }
+        return tryMovePet(petEntity.getX() + dx, petEntity.getY());
+    }
+
+    private static int chebyshevDistance(int ax, int ay, int bx, int by) {
+        return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+    }
+
+    private boolean tryMovePet(int nx, int ny) {
+        GridCell to = dungeonMap.getCell(nx, ny);
+        if (to == null || !to.isWalkable() || !to.getEntitiesView().isEmpty()) {
+            return false;
+        }
+        GridCell from = dungeonMap.getCell(petEntity.getX(), petEntity.getY());
+        if (from != null) {
+            from.getEntities().remove(petEntity);
+        }
+        petEntity.setX(nx);
+        petEntity.setY(ny);
+        to.getEntities().add(petEntity);
+        return true;
+    }
+
+    private boolean tryMovePetNearHero(int nx, int ny) {
+        if (chebyshevDistance(nx, ny, hero.getX(), hero.getY()) > petEntity.getPet().getFollowRange()) {
+            return false;
+        }
+        return tryMovePet(nx, ny);
+    }
+
+    /** Penguin: freezes every enemy currently touching the pet (8-adjacent). */
+    private boolean penguinFreezeTouchedEnemies() {
+        long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PenguinPet.FREEZE_DURATION_MS);
+        boolean any = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            int gap = Math.max(Math.abs(enemy.getX() - petEntity.getX()),
+                    Math.abs(enemy.getY() - petEntity.getY()));
+            if (gap <= 1) {
+                frozenUntilNanos.put(enemy, until);
+                any = true;
+            }
+        }
+        return any;
+    }
+
+    /** Dragon: fires at the nearest enemy on a clear straight ray within range. */
+    private boolean dragonRangedAttack(DragonPet dragon) {
+        long now = System.nanoTime();
+        if (now - lastDragonAttackNanos < DRAGON_ATTACK_COOLDOWN_NANOS) {
+            return false;
+        }
+        Entity target = nearestEnemyInClearRange(petEntity.getX(), petEntity.getY(), dragon.getAttackRange());
+        if (target == null) {
+            return false;
+        }
+        spawnProjectile(petEntity.getX(), petEntity.getY(), target.getX(), target.getY(),
+                dragon.getAttackDamage(), dragon.getAttackDamage(), true);
+        lastDragonAttackNanos = now;
+        return true;
+    }
+
+    private Entity nearestEnemyInClearRange(int sx, int sy, int range) {
+        Entity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Entity enemy : enemiesSnapshot()) {
+            int dx = enemy.getX() - sx;
+            int dy = enemy.getY() - sy;
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            if (Math.max(Math.abs(dx), Math.abs(dy)) > range) {
+                continue;
+            }
+            if (!heroOnStraightRayFrom(sx, sy, enemy.getX(), enemy.getY())) {
+                continue;
+            }
+            if (!hasClearProjectilePath(sx, sy, enemy.getX(), enemy.getY(), range)) {
+                continue;
+            }
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = enemy;
+            }
+        }
+        return best;
+    }
+
+    private boolean hitsPet(int x, int y) {
+        return petEntity != null && petEntity.getX() == x && petEntity.getY() == y;
+    }
+
+    /** The pets the hero owns (from the persistent inventory). */
+    public List<Pet> ownedPets() {
+        List<Pet> pets = new ArrayList<>();
+        for (Item item : hero.getFullInventory().getItems()) {
+            if (item instanceof Pet pet) {
+                pets.add(pet);
+            }
+        }
+        return pets;
+    }
+
+    /**
+     * Equips {@code pet} as the active companion and spawns it beside the hero
+     * immediately (so changing pets mid-floor takes effect at once).
+     *
+     * @return false when the pet is not owned.
+     */
+    public boolean equipPet(Pet pet) {
+        if (pet == null || !hero.getFullInventory().getItems().contains(pet)) {
+            return false;
+        }
+        Pet current = hero.getEquippedPet();
+        if (current != null && current != pet) {
+            current.setState(model.PetState.UNEQUIPPED);
+        }
+        hero.setEquippedPet(pet);
+        despawnPet();
+        lastDragonAttackNanos = 0L;
+        spawnEquippedPet();
+        notifyListeners();
+        return true;
+    }
+
+    /** Clears the active companion and removes it from the floor. */
+    public void unequipPet() {
+        Pet current = hero.getEquippedPet();
+        if (current != null) {
+            current.setState(model.PetState.UNEQUIPPED);
+        }
+        hero.setEquippedPet(null);
+        lastDragonAttackNanos = 0L;
+        despawnPet();
+        notifyListeners();
+    }
+
+    private void despawnPet() {
+        if (petEntity == null) {
+            return;
+        }
+        GridCell cell = dungeonMap.getCell(petEntity.getX(), petEntity.getY());
+        if (cell != null) {
+            cell.getEntities().remove(petEntity);
+        }
+        petEntity = null;
+    }
+
+    /** Applies damage to the equipped pet; removes its on-grid presence when it faints. */
+    private void applyPetDamage(int amount) {
+        Pet pet = hero.getEquippedPet();
+        if (pet == null || petEntity == null || !pet.isAlive()) {
+            return;
+        }
+        pet.takeDamage(amount);
+        if (!pet.isAlive()) {
+            GridCell cell = dungeonMap.getCell(petEntity.getX(), petEntity.getY());
+            if (cell != null) {
+                cell.getEntities().remove(petEntity);
+            }
+            petEntity = null;
+        }
+    }
+
     /** Stops timers; call this on shutdown if you wire it up later. */
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
@@ -1689,6 +2090,7 @@ public class GameEngine {
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
         if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
+        if (petTimer != null) petTimer.stop();
     }
 
     private void pauseAllTimers() {
@@ -1699,6 +2101,7 @@ public class GameEngine {
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
         if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
+        if (petTimer != null) petTimer.stop();
     }
 
     private void resumeAllTimers() {
@@ -1709,5 +2112,6 @@ public class GameEngine {
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();
         if (bossAttackTimer != null) bossAttackTimer.start();
         if (projectileTimer != null) projectileTimer.start();
+        if (petTimer != null) petTimer.start();
     }
 }

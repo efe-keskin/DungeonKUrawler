@@ -78,6 +78,8 @@ public final class SaveDtos {
         public List<ItemDto> inventory = new ArrayList<>();
         /** Run-wide persistent items (valuables + shop purchases); gold rides in coinBalance. */
         public List<ItemDto> fullInventory = new ArrayList<>();
+        /** Index into {@link #fullInventory} of the equipped pet, or -1 for none. */
+        public int equippedPetIndex = -1;
     }
 
     public static final class ItemDto {
@@ -109,6 +111,10 @@ public final class SaveDtos {
 
         public boolean blocking;
         public ItemDto hiddenItem;
+
+        public int petHp;
+        public int petMaxHp;
+        public String petState;
     }
 
     public static final class EntityDto {
