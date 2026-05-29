@@ -23,11 +23,11 @@ public final class MissionSplashDialog {
         String body = target == null
                 ? "Explore the dungeon and survive."
                 : "Find this valuable hidden somewhere in the dungeon.\n"
-                        + "Search every chest, then pick it up to win.";
+                        + "Search every chest, pick it up, then unlock the exit door and step through.";
         ItemActionMenuDialog.show(parent, "Mission Briefing", "FIND: " + title, body, "Begin");
     }
 
-    /** Win screen — shown when the hero picks up the target item. */
+    /** Win screen shown after the hero exits through the opened arch. */
     public static void showVictory(Component parent, ValuableItem target) {
         String title = "Victory!";
         String body = target == null

@@ -2,13 +2,18 @@ package save;
 
 import engine.GameEngine;
 import engine.TargetItemMission;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import model.Armor;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
 import model.Item;
+import model.LevelStatus;
 import model.Ring;
+import model.TowerProgress;
 import model.ValuableItem;
 import model.Weapon;
 import save.ItemDtoFactory.RestoreContext;
@@ -17,8 +22,10 @@ import save.SaveDtos.EntityDto;
 import save.SaveDtos.GameStateDto;
 import save.SaveDtos.HeroDto;
 import save.SaveDtos.ItemDto;
+import save.SaveDtos.LevelProgressDto;
 import save.SaveDtos.MapDto;
 import save.SaveDtos.SaveGameDto;
+import save.SaveDtos.TowerProgressDto;
 
 /**
  * Pure Fabrication: keeps save DTO concerns out of the model and view layers.
@@ -29,6 +36,10 @@ public final class GameStateMapper {
     private final EntityDtoFactory entityFactory = new EntityDtoFactory();
 
     public GameStateDto toDto(GameEngine engine) throws SaveGameException {
+        return toDto(engine, null);
+    }
+
+    public GameStateDto toDto(GameEngine engine, TowerProgress towerProgress) throws SaveGameException {
         if (engine == null) {
             throw new SaveGameException("No active game session to save.");
         }
@@ -45,7 +56,66 @@ public final class GameStateMapper {
             dto.missionTargetName = target.getName();
             dto.missionTargetSprite = target.spriteResource();
         }
+        dto.towerProgress = toDto(towerProgress);
         return dto;
+    }
+
+    /**
+     * Maps tower progress to its save DTO. Returns {@code null} when there is
+     * no progress to persist, leaving the field absent for legacy-style saves.
+     */
+    public TowerProgressDto toDto(TowerProgress progress) {
+        if (progress == null) {
+            return null;
+        }
+        TowerProgressDto dto = new TowerProgressDto();
+        dto.highestUnlockedLevel = progress.highestUnlockedLevel();
+        for (Map.Entry<Integer, LevelStatus> entry : progress.levelProgress().entrySet()) {
+            LevelProgressDto levelDto = new LevelProgressDto();
+            levelDto.levelNumber = entry.getKey();
+            levelDto.status = entry.getValue().name();
+            dto.levels.add(levelDto);
+        }
+        return dto;
+    }
+
+    /**
+     * Rebuilds tower progress from a save DTO. Falls back to the default
+     * (Level 1 unlocked) when the save predates tower mode or carries no level
+     * data, so old saves load cleanly. Unknown status strings degrade to
+     * {@link LevelStatus#LOCKED}.
+     */
+    public TowerProgress toTowerProgress(TowerProgressDto dto, int levelCount) {
+        if (dto == null || dto.levels == null || dto.levels.isEmpty()) {
+            return TowerProgress.defaultProgress(levelCount);
+        }
+        Map<Integer, LevelStatus> progress = new LinkedHashMap<>();
+        Map<Integer, LevelStatus> savedStatuses = new LinkedHashMap<>();
+        for (LevelProgressDto levelDto : dto.levels) {
+            savedStatuses.put(levelDto.levelNumber, parseStatus(levelDto.status));
+        }
+        for (int level = 1; level <= levelCount; level++) {
+            LevelStatus saved = savedStatuses.getOrDefault(level, LevelStatus.LOCKED);
+            if (saved == LevelStatus.COMPLETED) {
+                progress.put(level, LevelStatus.COMPLETED);
+            } else if (level <= dto.highestUnlockedLevel) {
+                progress.put(level, LevelStatus.UNLOCKED);
+            } else {
+                progress.put(level, saved == LevelStatus.HIDDEN ? LevelStatus.HIDDEN : LevelStatus.LOCKED);
+            }
+        }
+        return TowerProgress.fromState(dto.highestUnlockedLevel, progress);
+    }
+
+    private static LevelStatus parseStatus(String raw) {
+        if (raw == null) {
+            return LevelStatus.LOCKED;
+        }
+        try {
+            return LevelStatus.valueOf(raw);
+        } catch (IllegalArgumentException ex) {
+            return LevelStatus.LOCKED;
+        }
     }
 
     public GameEngine toEngine(SaveGameDto saveGame) throws SaveGameException {

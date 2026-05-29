@@ -43,7 +43,11 @@ public final class SpriteRegistry {
             AssetId.HERO_FRAME_2,
             AssetId.HERO_FRAME_3,
             AssetId.HERO_FRAME_4,
-            AssetId.HERO_FRAME_5);
+            AssetId.HERO_FRAME_5,
+            AssetId.HERO_FRAME_6,
+            AssetId.HERO_FRAME_7,
+            AssetId.HERO_FRAME_8,
+            AssetId.HERO_FRAME_9);
 
     static {
         registerEntity(Knight.class, AssetId.KNIGHT);
@@ -109,6 +113,23 @@ public final class SpriteRegistry {
             return AssetManager.get().imageOrFallback(AssetId.SORCERER, AssetId.WIZARD);
         }
         return AssetManager.get().image(primary);
+    }
+
+    public static BufferedImage walkFrameFor(Entity entity, int index) {
+        if (entity == null) {
+            return null;
+        }
+        String prefix;
+        if (entity instanceof Knight) {
+            prefix = "/characters/bot";
+        } else if (entity instanceof Sorcerer) {
+            prefix = "/characters/wizard";
+        } else {
+            return spriteFor(entity);
+        }
+        int safe = Math.floorMod(index, 9) + 1;
+        BufferedImage frame = AssetManager.get().image(prefix + safe + ".png");
+        return frame != null ? frame : spriteFor(entity);
     }
 
     public static BufferedImage spriteFor(Item item) {
