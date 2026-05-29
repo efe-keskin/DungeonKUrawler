@@ -82,7 +82,7 @@ class CombatControllerTest {
     }
 
     @Test
-    void sorcererCrossingHalfHpPanicTeleports() {
+    void sorcererCrossingHalfHpStaysOnTile() {
         GridCell targetCell = engine.getDungeonMap().getCell(2, 1);
         targetCell.getEntities().clear();
         Sorcerer sorcerer = new Sorcerer(2, 1, "Sorcerer", 10, 30, 0, false);
@@ -95,18 +95,18 @@ class CombatControllerTest {
         CombatManager.AttackResult result = combatController.attackAt(startX, startY);
 
         assertNotNull(result);
-        assertFalse(sorcerer.getX() == startX && sorcerer.getY() == startY);
-        assertFalse(targetCell.getEntities().contains(sorcerer));
-        assertTrue(sorcerer.isPanicTeleportUsed());
+        assertEquals(startX, sorcerer.getX());
+        assertEquals(startY, sorcerer.getY());
+        assertTrue(targetCell.getEntities().contains(sorcerer));
+        assertFalse(sorcerer.isPanicTeleportUsed());
     }
 
     @Test
-    void sorcererBelowHalfHpDoesNotTeleportAgain() {
+    void sorcererBelowHalfHpRemainsOnTileWhenHitAgain() {
         GridCell targetCell = engine.getDungeonMap().getCell(2, 1);
         targetCell.getEntities().clear();
         Sorcerer sorcerer = new Sorcerer(2, 1, "Sorcerer", 10, 30, 0, false);
         sorcerer.setHp(4);
-        sorcerer.setPanicTeleportUsed(true);
         targetCell.getEntities().add(sorcerer);
 
         int startX = sorcerer.getX();
@@ -118,6 +118,5 @@ class CombatControllerTest {
         assertEquals(startX, sorcerer.getX());
         assertEquals(startY, sorcerer.getY());
         assertTrue(targetCell.getEntities().contains(sorcerer));
-        assertTrue(sorcerer.isPanicTeleportUsed());
     }
 }

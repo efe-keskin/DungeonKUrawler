@@ -1,6 +1,8 @@
 package engine;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,6 +41,7 @@ import model.Gargoyle;
 import model.Knight;
 import model.MissingBrick;
 import model.Pool;
+import model.Projectile;
 import model.SearchableObject;
 import model.Sorcerer;
 
@@ -72,14 +75,18 @@ public class GameEngine {
     private Timer detectionTimer;
     private Timer knightActionTimer;
     private Timer sorcererAttackTimer;
-    private Timer sorcererTeleportTimer;
+    private Timer projectileTimer;
+    private final List<Projectile> activeProjectiles = new ArrayList<>();
 
     private static final int SPAWN_INTERVAL_MS = 9000;   // spec 2.5
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
     private static final int SORCERER_ATTACK_TICK_MS = 5000;
-    private static final int SORCERER_TELEPORT_TICK_MS = 7000;
+    private static final int SORCERER_SHOOT_RANGE = 6;
+    private static final int HERO_RANGED_RANGE = 6;
+    private static final int SORCERER_PROJECTILE_MANA_COST = 5;
+    private static final int PROJECTILE_TICK_MS = 300;
     private static final int MAX_ENEMIES = 5;             // spec 2.5
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
@@ -517,6 +524,10 @@ public class GameEngine {
         return hero;
     }
 
+    public List<Projectile> getActiveProjectilesView() {
+        return Collections.unmodifiableList(new ArrayList<>(activeProjectiles));
+    }
+
     /**
      * Credits a coin reward from a future gameplay event such as enemy defeat.
      *
@@ -851,7 +862,10 @@ public class GameEngine {
         detectionTimer.setRepeats(true);
         detectionTimer.start();
 
-        knightActionTimer = new Timer(KNIGHT_ACTION_TICK_MS, e -> updateKnightActions());
+        knightActionTimer = new Timer(KNIGHT_ACTION_TICK_MS, e -> {
+            updateKnightMeleeActions();
+            updateEnemyMovement();
+        });
         knightActionTimer.setRepeats(true);
         knightActionTimer.start();
 
@@ -859,9 +873,9 @@ public class GameEngine {
         sorcererAttackTimer.setRepeats(true);
         sorcererAttackTimer.start();
 
-        sorcererTeleportTimer = new Timer(SORCERER_TELEPORT_TICK_MS, e -> updateSorcererTeleports());
-        sorcererTeleportTimer.setRepeats(true);
-        sorcererTeleportTimer.start();
+        projectileTimer = new Timer(PROJECTILE_TICK_MS, e -> updateProjectiles());
+        projectileTimer.setRepeats(true);
+        projectileTimer.start();
     }
 
     /** Counts all Knight/Sorcerer entities currently on the map. */
@@ -907,7 +921,7 @@ public class GameEngine {
         }
     }
 
-    private void updateKnightActions() {
+    private void updateKnightMeleeActions() {
         if (isPaused || isGameOver) {
             return;
         }
@@ -916,24 +930,62 @@ public class GameEngine {
             if (!(enemy instanceof Knight knight)) {
                 continue;
             }
-            if (isAdjacentToHero(knight)) {
-                combatManager.knightAttacksHero(knight, hero);
-                if (hero.getHp() <= 0) {
-                    triggerGameOver();
-                    return;
-                }
-                changed = true;
+            if (!isAdjacentToHero(knight)) {
                 continue;
             }
-            if (knight.getAiState() == AIState.CHASING) {
-                changed |= moveEnemyTowardHero(knight);
-            } else {
-                changed |= moveEnemyRandomly(knight);
+            combatManager.knightAttacksHero(knight, hero);
+            if (hero.getHp() <= 0) {
+                triggerGameOver();
+                return;
+            }
+            changed = true;
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    /**
+     * One tile per tick for Knights and Sorcerers — identical pathing rules ({@link #moveEnemyTowardHero}).
+     */
+    private void updateEnemyMovement() {
+        if (isPaused || isGameOver) {
+            return;
+        }
+        boolean changed = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (enemy instanceof Knight knight) {
+                if (isAdjacentToHero(knight)) {
+                    continue;
+                }
+                changed |= applyEnemyWalkStep(knight);
+            } else if (enemy instanceof Sorcerer sorcerer) {
+                if (canSorcererShootAtHero(sorcerer)) {
+                    continue;
+                }
+                changed |= applyEnemyWalkStep(sorcerer);
             }
         }
         if (changed) {
             notifyListeners();
         }
+    }
+
+    private boolean applyEnemyWalkStep(Entity enemy) {
+        if (getEnemyAiState(enemy) == AIState.CHASING) {
+            return moveEnemyTowardHero(enemy);
+        }
+        return moveEnemyRandomly(enemy);
+    }
+
+    private static AIState getEnemyAiState(Entity enemy) {
+        if (enemy instanceof Knight knight) {
+            return knight.getAiState();
+        }
+        if (enemy instanceof Sorcerer sorcerer) {
+            return sorcerer.getAiState();
+        }
+        return AIState.ROAMING;
     }
 
     private void updateSorcererAttacks() {
@@ -942,13 +994,17 @@ public class GameEngine {
         }
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
-            if (enemy instanceof Sorcerer sorcerer) {
-                CombatManager.AttackResult result = combatManager.sorcererAttacksHero(sorcerer, hero);
-                changed |= result.getDamageGenerated() > 0;
-                if (hero.getHp() <= 0) {
-                    triggerGameOver();
-                    return;
-                }
+            if (!(enemy instanceof Sorcerer sorcerer)) {
+                continue;
+            }
+            if (!canSorcererShootAtHero(sorcerer)) {
+                continue;
+            }
+            CombatManager.SorcererProjectilePrep prep = combatManager.prepareSorcererProjectile(sorcerer, hero);
+            if (prep != null) {
+                spawnProjectile(sorcerer.getX(), sorcerer.getY(), hero.getX(), hero.getY(),
+                        prep.damageGenerated, prep.damageReceived, false);
+                changed = true;
             }
         }
         if (changed) {
@@ -956,19 +1012,293 @@ public class GameEngine {
         }
     }
 
-    private void updateSorcererTeleports() {
+    /**
+     * True when the hero lies on a clear straight ray within range and the sorcerer has mana to cast.
+     */
+    private boolean canSorcererShootAtHero(Sorcerer sorcerer) {
+        if (sorcerer.getMana() < SORCERER_PROJECTILE_MANA_COST) {
+            return false;
+        }
+        int sx = sorcerer.getX();
+        int sy = sorcerer.getY();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        if (sx == hx && sy == hy) {
+            return true;
+        }
+        if (!heroOnStraightRayFrom(sx, sy, hx, hy)) {
+            return false;
+        }
+        return hasClearProjectilePath(sx, sy, hx, hy, SORCERER_SHOOT_RANGE);
+    }
+
+    private static boolean heroOnStraightRayFrom(int sx, int sy, int hx, int hy) {
+        if (hx == sx && hy == sy) {
+            return true;
+        }
+        if (hx == sx || hy == sy) {
+            return true;
+        }
+        return Math.abs(hx - sx) == Math.abs(hy - sy);
+    }
+
+    /**
+     * Hero ranged attack: spawns a hero-owned projectile along a straight line when in range
+     * with line of sight; melee range rules do not apply.
+     */
+    public CombatManager.AttackResult launchHeroRangedAttackAt(int targetX, int targetY) {
         if (isPaused || isGameOver) {
+            return null;
+        }
+        GridCell cell = dungeonMap.getCell(targetX, targetY);
+        if (cell == null) {
+            return null;
+        }
+        Entity target = firstHostileInCell(cell);
+        if (target == null || !canHeroRangedTarget(targetX, targetY)) {
+            return null;
+        }
+
+        CombatManager.HeroProjectilePrep prep = combatManager.prepareHeroRangedProjectile(hero, target);
+        if (prep == null) {
+            return null;
+        }
+
+        int hx = hero.getX();
+        int hy = hero.getY();
+        if (hx == targetX && hy == targetY) {
+            CombatManager.AttackResult result = combatManager.applyHeroProjectileHit(target, prep);
+            if (result.isDefenderDefeated()) {
+                cell.getEntities().remove(target);
+            }
+            notifyListeners();
+            return result;
+        }
+
+        spawnProjectile(hx, hy, targetX, targetY, prep.damageGenerated, prep.damageReceived, true);
+        notifyListeners();
+        return new CombatManager.AttackResult(
+                prep.damageGenerated, prep.damageReceived, getHostileHp(target), false);
+    }
+
+    private static int getHostileHp(Entity target) {
+        if (target instanceof Knight knight) {
+            return knight.getHp();
+        }
+        if (target instanceof Sorcerer sorcerer) {
+            return sorcerer.getHp();
+        }
+        return 0;
+    }
+
+    public boolean canHeroShootAt(int targetX, int targetY) {
+        return canHeroRangedTarget(targetX, targetY);
+    }
+
+    private boolean canHeroRangedTarget(int targetX, int targetY) {
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon == null || !weapon.isRanged()) {
+            return false;
+        }
+        GridCell cell = dungeonMap.getCell(targetX, targetY);
+        if (cell == null || firstHostileInCell(cell) == null) {
+            return false;
+        }
+        int hx = hero.getX();
+        int hy = hero.getY();
+        if (hx == targetX && hy == targetY) {
+            return true;
+        }
+        if (!heroOnStraightRayFrom(hx, hy, targetX, targetY)) {
+            return false;
+        }
+        return hasClearProjectilePath(hx, hy, targetX, targetY, HERO_RANGED_RANGE);
+    }
+
+    private boolean hasClearProjectilePath(int sx, int sy, int hx, int hy, int maxRange) {
+        int dx = Integer.signum(hx - sx);
+        int dy = Integer.signum(hy - sy);
+        int cx = sx + dx;
+        int cy = sy + dy;
+        int steps = 0;
+        while (cx != hx || cy != hy) {
+            if (dungeonMap.getCell(cx, cy) == null) {
+                return false;
+            }
+            if (blocksProjectile(cx, cy)) {
+                return false;
+            }
+            steps++;
+            if (steps > maxRange) {
+                return false;
+            }
+            cx += dx;
+            cy += dy;
+        }
+        return steps <= maxRange;
+    }
+
+    private void spawnProjectile(int startX, int startY, int targetX, int targetY,
+            int damageGenerated, int damageReceived, boolean heroOwned) {
+        if (startX == targetX && startY == targetY) {
+            if (heroOwned) {
+                GridCell cell = dungeonMap.getCell(targetX, targetY);
+                Entity target = cell == null ? null : firstHostileInCell(cell);
+                if (target != null) {
+                    CombatManager.HeroProjectilePrep prep = new CombatManager.HeroProjectilePrep(
+                            damageGenerated, damageReceived);
+                    resolveHeroProjectileHit(target, prep, cell);
+                }
+            } else {
+                resolveEnemyProjectileHitOnHero(damageReceived);
+            }
+            return;
+        }
+        int dx = Integer.signum(targetX - startX);
+        int dy = Integer.signum(targetY - startY);
+        if (dx == 0 && dy == 0) {
+            return;
+        }
+        activeProjectiles.add(new Projectile(startX, startY, dx, dy, damageGenerated, damageReceived, heroOwned));
+    }
+
+    private void updateProjectiles() {
+        if (isPaused || isGameOver || activeProjectiles.isEmpty()) {
             return;
         }
         boolean changed = false;
-        for (Entity enemy : enemiesSnapshot()) {
-            if (enemy instanceof Sorcerer && random.nextBoolean()) {
-                changed |= teleportEnemyToRandomEmptyCell(enemy);
+        Iterator<Projectile> iterator = activeProjectiles.iterator();
+        while (iterator.hasNext()) {
+            Projectile projectile = iterator.next();
+            if (!projectile.isActive()) {
+                iterator.remove();
+                continue;
+            }
+
+            if (projectile.isHeroOwned()) {
+                if (advanceHeroProjectile(projectile)) {
+                    changed = true;
+                    if (isGameOver) {
+                        return;
+                    }
+                }
+            } else if (advanceEnemyProjectile(projectile)) {
+                changed = true;
+                if (isGameOver) {
+                    return;
+                }
+            }
+
+            if (!projectile.isActive()) {
+                iterator.remove();
             }
         }
         if (changed) {
             notifyListeners();
         }
+    }
+
+    /** @return true when the projectile moved or hit something */
+    private boolean advanceHeroProjectile(Projectile projectile) {
+        int nextX = projectile.getX() + projectile.getDx();
+        int nextY = projectile.getY() + projectile.getDy();
+
+        if (dungeonMap.getCell(nextX, nextY) == null) {
+            projectile.setActive(false);
+            return true;
+        }
+
+        if (blocksProjectile(nextX, nextY)) {
+            projectile.setActive(false);
+            return true;
+        }
+
+        GridCell cell = dungeonMap.getCell(nextX, nextY);
+        Entity target = firstHostileInCell(cell);
+        if (target != null) {
+            CombatManager.HeroProjectilePrep prep = new CombatManager.HeroProjectilePrep(
+                    projectile.getDamageGenerated(), projectile.getDamageReceived());
+            resolveHeroProjectileHit(target, prep, cell);
+            projectile.setActive(false);
+            return true;
+        }
+
+        projectile.setX(nextX);
+        projectile.setY(nextY);
+        return true;
+    }
+
+    /** @return true when the projectile moved or hit something */
+    private boolean advanceEnemyProjectile(Projectile projectile) {
+        if (projectile.getX() == hero.getX() && projectile.getY() == hero.getY()) {
+            resolveEnemyProjectileHitOnHero(projectile.getDamageReceived());
+            projectile.setActive(false);
+            return true;
+        }
+
+        int nextX = projectile.getX() + projectile.getDx();
+        int nextY = projectile.getY() + projectile.getDy();
+
+        if (dungeonMap.getCell(nextX, nextY) == null) {
+            projectile.setActive(false);
+            return true;
+        }
+
+        if (nextX == hero.getX() && nextY == hero.getY()) {
+            resolveEnemyProjectileHitOnHero(projectile.getDamageReceived());
+            projectile.setActive(false);
+            return true;
+        }
+
+        if (blocksProjectile(nextX, nextY)) {
+            projectile.setActive(false);
+            return true;
+        }
+
+        projectile.setX(nextX);
+        projectile.setY(nextY);
+        return true;
+    }
+
+    private void resolveHeroProjectileHit(Entity target, CombatManager.HeroProjectilePrep prep, GridCell cell) {
+        CombatManager.AttackResult result = combatManager.applyHeroProjectileHit(target, prep);
+        if (result.isDefenderDefeated() && cell != null) {
+            cell.getEntities().remove(target);
+        }
+        notifyListeners();
+    }
+
+    private void resolveEnemyProjectileHitOnHero(int damageReceived) {
+        combatManager.applyProjectileImpact(hero, damageReceived);
+        if (hero.getHp() <= 0) {
+            triggerGameOver();
+        }
+    }
+
+    private static Entity firstHostileInCell(GridCell cell) {
+        if (cell == null) {
+            return null;
+        }
+        for (Entity entity : cell.getEntities()) {
+            if (entity instanceof Knight || entity instanceof Sorcerer) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /** Walls and blocking fixtures (columns, crates, chests, etc.) stop projectiles. */
+    private boolean blocksProjectile(int x, int y) {
+        GridCell cell = dungeonMap.getCell(x, y);
+        if (cell == null || !cell.isPassable()) {
+            return true;
+        }
+        for (Item item : cell.getItemsView()) {
+            if (item.isBlocking()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1086,36 +1416,6 @@ public class GameEngine {
         return true;
     }
 
-    private boolean teleportEnemyToRandomEmptyCell(Entity enemy) {
-        List<GridCell> candidates = new ArrayList<>();
-        for (int x = 0; x < dungeonMap.getWidth(); x++) {
-            for (int y = 0; y < dungeonMap.getHeight(); y++) {
-                GridCell cell = dungeonMap.getCell(x, y);
-                if (cell == null || !cell.isWalkable()
-                        || !cell.getItemsView().isEmpty()
-                        || !cell.getEntitiesView().isEmpty()) {
-                    continue;
-                }
-                candidates.add(cell);
-            }
-        }
-        if (candidates.isEmpty()) {
-            return false;
-        }
-        GridCell destination = candidates.get(random.nextInt(candidates.size()));
-        return tryMoveEnemy(enemy, destination.getX(), destination.getY());
-    }
-
-    /**
-     * Public escape hatch for the controller layer to trigger a sorcerer
-     * teleport in response to combat damage. Keep
-     * teleportEnemyToRandomEmptyCell itself private — this wrapper limits
-     * the controller's view of engine internals.
-     */
-    public boolean requestSorcererTeleport(Sorcerer sorcerer) {
-        return teleportEnemyToRandomEmptyCell(sorcerer);
-    }
-
     /** Stops timers — call this on shutdown if you wire it up later. */
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
@@ -1123,7 +1423,7 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
-        if (sorcererTeleportTimer != null) sorcererTeleportTimer.stop();
+        if (projectileTimer != null) projectileTimer.stop();
     }
 
     private void pauseAllTimers() {
@@ -1132,7 +1432,7 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
-        if (sorcererTeleportTimer != null) sorcererTeleportTimer.stop();
+        if (projectileTimer != null) projectileTimer.stop();
     }
 
     private void resumeAllTimers() {
@@ -1141,6 +1441,6 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.start();
         if (knightActionTimer != null) knightActionTimer.start();
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();
-        if (sorcererTeleportTimer != null) sorcererTeleportTimer.start();
+        if (projectileTimer != null) projectileTimer.start();
     }
 }

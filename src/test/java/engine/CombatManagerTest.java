@@ -11,6 +11,7 @@ import model.WeaponType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CombatManagerTest {
@@ -98,6 +99,36 @@ class CombatManagerTest {
         assertEquals(0, sorcerer.getMana());
         assertEquals(0, second.getDamageGenerated());
         assertEquals(0, second.getDamageReceived());
+    }
+
+    @Test
+    void heroRangedPrepRequiresManaAndRangedWeapon() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        hero.setMana(4);
+        Knight knight = new Knight(3, 0, "Knight", 20, 0, 0, 5);
+        Weapon spellBook = new Weapon(new WeaponType("TEST_STAFF", "Spell Book", "staves", null, 5, true));
+        hero.getInventory().tryAdd(spellBook);
+        hero.equipWeapon(spellBook);
+
+        assertNull(combatManager.prepareHeroRangedProjectile(hero, knight));
+
+        hero.setMana(5);
+        CombatManager.HeroProjectilePrep prep = combatManager.prepareHeroRangedProjectile(hero, knight);
+        assertTrue(prep.damageReceived > 0);
+        assertEquals(0, hero.getMana());
+    }
+
+    @Test
+    void heroRangedPrepFailsForMeleeWeapon() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        hero.setMana(20);
+        Knight knight = new Knight(1, 0, "Knight", 20, 0, 0, 5);
+        Weapon sword = new Weapon(new WeaponType("TEST_SWORD", "Sword", "swords", null, 3, false));
+        hero.getInventory().tryAdd(sword);
+        hero.equipWeapon(sword);
+
+        assertNull(combatManager.prepareHeroRangedProjectile(hero, knight));
+        assertEquals(20, hero.getMana());
     }
 
     @Test
