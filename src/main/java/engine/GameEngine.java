@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import model.Chest;
 import model.Coin;
 import model.Container;
+import model.BossEnemy;
 import model.DungeonMap;
 import model.EnemyFactory;
 import model.Entity;
@@ -83,6 +84,7 @@ public class GameEngine {
     private Timer detectionTimer;
     private Timer knightActionTimer;
     private Timer sorcererAttackTimer;
+    private Timer bossAttackTimer;
     private Timer projectileTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
 
@@ -90,7 +92,9 @@ public class GameEngine {
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
     private static final int SORCERER_ATTACK_TICK_MS = 5000;
+    private static final int BOSS_ATTACK_TICK_MS = 7500;
     private static final int SORCERER_SHOOT_RANGE = 5;
+    private static final int BOSS_SHOOT_RANGE = 8;
     private static final int HERO_RANGED_RANGE = 6;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
@@ -101,6 +105,7 @@ public class GameEngine {
     private static final double SEARCHABLE_HIDDEN_ITEM_CHANCE = 0.65;
     private static final double KNIGHT_VISION_RANGE = 5.0;
     private static final double SORCERER_VISION_RANGE = 5.0; // detects/chases the hero within 5 tiles
+    private static final double BOSS_VISION_RANGE = 8.0;
 
     public enum SearchOutcome {
         FOUND,
@@ -1045,6 +1050,10 @@ public class GameEngine {
         sorcererAttackTimer.setRepeats(true);
         sorcererAttackTimer.start();
 
+        bossAttackTimer = new Timer(BOSS_ATTACK_TICK_MS, e -> updateBossAttacks());
+        bossAttackTimer.setRepeats(true);
+        bossAttackTimer.start();
+
         projectileTimer = new Timer(PROJECTILE_TICK_MS, e -> updateProjectiles());
         projectileTimer.setRepeats(true);
         projectileTimer.start();
@@ -1058,7 +1067,7 @@ public class GameEngine {
                 GridCell c = dungeonMap.getCell(x, y);
                 if (c == null) continue;
                 for (Entity e : c.getEntities()) {
-                    if (e instanceof Knight || e instanceof Sorcerer) {
+                    if (e instanceof Knight || e instanceof Sorcerer || e instanceof BossEnemy) {
                         count++;
                     }
                 }
@@ -1139,6 +1148,11 @@ public class GameEngine {
                     continue;
                 }
                 changed |= applyEnemyWalkStep(sorcerer);
+            } else if (enemy instanceof BossEnemy boss) {
+                if (canBossShootAtHero(boss)) {
+                    continue;
+                }
+                changed |= applyEnemyWalkStep(boss);
             }
         }
         if (changed) {
@@ -1160,6 +1174,9 @@ public class GameEngine {
         if (enemy instanceof Sorcerer sorcerer) {
             return sorcerer.getAiState();
         }
+        if (enemy instanceof BossEnemy boss) {
+            return boss.getAiState();
+        }
         return AIState.ROAMING;
     }
 
@@ -1179,6 +1196,30 @@ public class GameEngine {
             if (prep != null) {
                 spawnProjectile(sorcerer.getX(), sorcerer.getY(), hero.getX(), hero.getY(),
                         prep.damageGenerated, prep.damageReceived, false);
+                changed = true;
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    private void updateBossAttacks() {
+        if (isPaused || isGameOver) {
+            return;
+        }
+        boolean changed = false;
+        for (Entity enemy : enemiesSnapshot()) {
+            if (!(enemy instanceof BossEnemy boss)) {
+                continue;
+            }
+            if (!canBossShootAtHero(boss)) {
+                continue;
+            }
+            CombatManager.SorcererProjectilePrep prep = combatManager.prepareBossProjectile(boss, hero);
+            if (prep != null) {
+                spawnProjectile(boss.getX(), boss.getY(), hero.getX(), hero.getY(),
+                        prep.damageGenerated, prep.damageReceived, false, true);
                 changed = true;
             }
         }
@@ -1208,6 +1249,23 @@ public class GameEngine {
             return false;
         }
         return hasClearProjectilePath(sx, sy, hx, hy, SORCERER_SHOOT_RANGE);
+    }
+
+    private boolean canBossShootAtHero(BossEnemy boss) {
+        if (boss.getAiState() != AIState.CHASING || boss.getMana() < 8) {
+            return false;
+        }
+        int sx = boss.getX();
+        int sy = boss.getY();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        if (sx == hx && sy == hy) {
+            return true;
+        }
+        if (!heroOnStraightRayFrom(sx, sy, hx, hy)) {
+            return false;
+        }
+        return hasClearProjectilePath(sx, sy, hx, hy, BOSS_SHOOT_RANGE);
     }
 
     private static boolean heroOnStraightRayFrom(int sx, int sy, int hx, int hy) {
@@ -1268,6 +1326,9 @@ public class GameEngine {
         if (target instanceof Sorcerer sorcerer) {
             return sorcerer.getHp();
         }
+        if (target instanceof BossEnemy boss) {
+            return boss.getHp();
+        }
         return 0;
     }
 
@@ -1320,6 +1381,11 @@ public class GameEngine {
 
     private void spawnProjectile(int startX, int startY, int targetX, int targetY,
             int damageGenerated, int damageReceived, boolean heroOwned) {
+        spawnProjectile(startX, startY, targetX, targetY, damageGenerated, damageReceived, heroOwned, false);
+    }
+
+    private void spawnProjectile(int startX, int startY, int targetX, int targetY,
+            int damageGenerated, int damageReceived, boolean heroOwned, boolean bossOwned) {
         if (startX == targetX && startY == targetY) {
             if (heroOwned) {
                 GridCell cell = dungeonMap.getCell(targetX, targetY);
@@ -1339,7 +1405,8 @@ public class GameEngine {
         if (dx == 0 && dy == 0) {
             return;
         }
-        activeProjectiles.add(new Projectile(startX, startY, dx, dy, damageGenerated, damageReceived, heroOwned));
+        activeProjectiles.add(new Projectile(startX, startY, dx, dy,
+                damageGenerated, damageReceived, heroOwned, bossOwned));
     }
 
     private void updateProjectiles() {
@@ -1467,7 +1534,7 @@ public class GameEngine {
             return null;
         }
         for (Entity entity : cell.getEntities()) {
-            if (entity instanceof Knight || entity instanceof Sorcerer) {
+            if (entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy) {
                 return entity;
             }
         }
@@ -1519,6 +1586,16 @@ public class GameEngine {
                         label, e.getX(), e.getY(), dist, next);
                 return true;
             }
+        } else if (e instanceof BossEnemy boss) {
+            next = dist <= BOSS_VISION_RANGE ? AIState.CHASING : AIState.ROAMING;
+            current = boss.getAiState();
+            label = "Boss";
+            if (next != current) {
+                boss.setAiState(next);
+                System.out.printf("[AI] %s at (%d,%d) dist=%.2f -> %s%n",
+                        label, e.getX(), e.getY(), dist, next);
+                return true;
+            }
         }
         return false;
     }
@@ -1538,7 +1615,7 @@ public class GameEngine {
                     continue;
                 }
                 for (Entity entity : cell.getEntitiesView()) {
-                    if (entity instanceof Knight || entity instanceof Sorcerer) {
+                    if (entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy) {
                         enemies.add(entity);
                     }
                 }
@@ -1610,6 +1687,7 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
+        if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
     }
 
@@ -1619,6 +1697,7 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
+        if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
     }
 
@@ -1628,6 +1707,7 @@ public class GameEngine {
         if (detectionTimer != null) detectionTimer.start();
         if (knightActionTimer != null) knightActionTimer.start();
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();
+        if (bossAttackTimer != null) bossAttackTimer.start();
         if (projectileTimer != null) projectileTimer.start();
     }
 }

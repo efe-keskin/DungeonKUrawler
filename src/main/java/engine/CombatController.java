@@ -4,6 +4,7 @@ import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
+import model.BossEnemy;
 import model.Knight;
 import model.Sorcerer;
 import model.Weapon;
@@ -54,6 +55,8 @@ public class CombatController {
             result = combatManager.heroAttacksKnight(hero, knight);
         } else if (target instanceof Sorcerer sorcerer) {
             result = combatManager.heroAttacksSorcerer(hero, sorcerer);
+        } else if (target instanceof BossEnemy boss) {
+            result = combatManager.heroAttacksBoss(hero, boss);
         } else {
             return null;
         }
@@ -141,7 +144,7 @@ public class CombatController {
 
     private Entity firstEnemy(GridCell cell) {
         for (Entity entity : cell.getEntities()) {
-            if (entity instanceof Knight || entity instanceof Sorcerer) {
+            if (entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy) {
                 return entity;
             }
         }

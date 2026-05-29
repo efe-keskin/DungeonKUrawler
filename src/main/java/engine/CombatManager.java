@@ -1,6 +1,7 @@
 package engine;
 
 import model.Entity;
+import model.BossEnemy;
 import model.Hero;
 import model.Knight;
 import model.Sorcerer;
@@ -14,6 +15,7 @@ public final class CombatManager {
     private static final int UNARMED_ATK = 1;
     private static final int KNIGHT_ATK = 4;
     private static final int SORCERER_PROJECTILE_ATK = 8;
+    private static final int BOSS_PROJECTILE_MANA_COST = 8;
     private static final int HERO_ATTACK_ENERGY_COST = 2;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int HERO_RANGED_MANA_COST = 5;
@@ -78,6 +80,14 @@ public final class CombatManager {
         return applyDamageToSorcerer(target, damageGenerated, damageReceived);
     }
 
+    public AttackResult heroAttacksBoss(Hero hero, BossEnemy target) {
+        hero.consumeEnergy(HERO_ATTACK_ENERGY_COST);
+        int weaponAtk = heroWeaponAtk(hero);
+        int damageGenerated = generateDamage(weaponAtk, hero.getStr());
+        int damageReceived = receiveDamage(damageGenerated, target.getDef(), 0);
+        return applyDamageToBoss(target, damageGenerated, damageReceived);
+    }
+
     /**
      * Hero ranged shot prep: spends mana and energy, does not apply damage until impact.
      */
@@ -99,7 +109,7 @@ public final class CombatManager {
         if (weapon == null || !weapon.isRanged()) {
             return null;
         }
-        if (!(target instanceof Knight) && !(target instanceof Sorcerer)) {
+        if (!(target instanceof Knight) && !(target instanceof Sorcerer) && !(target instanceof BossEnemy)) {
             return null;
         }
         if (!hero.spendMana(HERO_RANGED_MANA_COST)) {
@@ -111,9 +121,11 @@ public final class CombatManager {
         int damageReceived;
         if (target instanceof Knight knight) {
             damageReceived = receiveDamage(damageGenerated, knight.getDef(), knight.getStr());
-        } else {
-            Sorcerer sorcerer = (Sorcerer) target;
+        } else if (target instanceof Sorcerer sorcerer) {
             damageReceived = receiveDamage(damageGenerated, sorcerer.getDef(), 0);
+        } else {
+            BossEnemy boss = (BossEnemy) target;
+            damageReceived = receiveDamage(damageGenerated, boss.getDef(), 0);
         }
         return new HeroProjectilePrep(damageGenerated, damageReceived);
     }
@@ -124,6 +136,9 @@ public final class CombatManager {
         }
         if (target instanceof Sorcerer sorcerer) {
             return applyDamageToSorcerer(sorcerer, prep.damageGenerated, prep.damageReceived);
+        }
+        if (target instanceof BossEnemy boss) {
+            return applyDamageToBoss(boss, prep.damageGenerated, prep.damageReceived);
         }
         return new AttackResult(0, 0, 0, false);
     }
@@ -167,6 +182,16 @@ public final class CombatManager {
         }
         attacker.setMana(attacker.getMana() - SORCERER_PROJECTILE_MANA_COST);
         int damageGenerated = generateDamage(SORCERER_PROJECTILE_ATK, 0);
+        int damageReceived = receiveDamage(damageGenerated, hero.getDef(), hero.getStr());
+        return new SorcererProjectilePrep(damageGenerated, damageReceived);
+    }
+
+    public SorcererProjectilePrep prepareBossProjectile(BossEnemy attacker, Hero hero) {
+        if (attacker.getMana() < BOSS_PROJECTILE_MANA_COST) {
+            return null;
+        }
+        attacker.setMana(attacker.getMana() - BOSS_PROJECTILE_MANA_COST);
+        int damageGenerated = generateDamage(attacker.getProjectileAttack(), 0);
         int damageReceived = receiveDamage(damageGenerated, hero.getDef(), hero.getStr());
         return new SorcererProjectilePrep(damageGenerated, damageReceived);
     }
@@ -225,6 +250,12 @@ public final class CombatManager {
     }
 
     private AttackResult applyDamageToSorcerer(Sorcerer target, int damageGenerated, int damageReceived) {
+        int hpAfter = Math.max(0, target.getHp() - damageReceived);
+        target.setHp(hpAfter);
+        return new AttackResult(damageGenerated, damageReceived, hpAfter, hpAfter == 0);
+    }
+
+    private AttackResult applyDamageToBoss(BossEnemy target, int damageGenerated, int damageReceived) {
         int hpAfter = Math.max(0, target.getHp() - damageReceived);
         target.setHp(hpAfter);
         return new AttackResult(damageGenerated, damageReceived, hpAfter, hpAfter == 0);
