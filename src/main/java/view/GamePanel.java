@@ -102,6 +102,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
+    private final long playStartTime = System.currentTimeMillis();
     private Timer continuousMoveTimer;
     private Direction currentMovementDirection = null;
     private boolean lastPausedState;
@@ -888,7 +889,7 @@ private void handleInventoryKeyPress() {
         int x = 10;
         int y = 10;
         int w = 176;
-        int h = 180;
+        int h = 198; 
 
         g2.setColor(new Color(0, 0, 0, 120));
         g2.fillRect(x + 6, y + 7, w - 4, h - 4);
@@ -919,6 +920,13 @@ private void handleInventoryKeyPress() {
         drawHudStat(g2, x, y + 109, HUD_STR, "STR", Integer.toString(hero.getStr()));
         drawHudStat(g2, x, y + 127, HUD_DEF, "DEF", Integer.toString(hero.getDef()));
         drawHudStat(g2, x, y + 145, HUD_MANA, "MANA", Integer.toString(hero.getMana()));
+
+        long elapsedSeconds = (System.currentTimeMillis() - playStartTime) / 1000;
+        long minutes = elapsedSeconds / 60;
+        long seconds = elapsedSeconds % 60;
+        String timeText = String.format("%02d:%02d", minutes, seconds);
+        
+        drawHudStat(g2, x, y + 163, Color.LIGHT_GRAY, "TIME", timeText);
     }
 
     private void drawHudStat(Graphics2D g2, int panelX, int rowY, Color marker, String label, String value) {
