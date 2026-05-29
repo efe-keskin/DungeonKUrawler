@@ -20,7 +20,7 @@ import save.SaveDtos.SaveDescriptor;
  * session, keeping that logic out of the Swing views.
  *
  * <p>Per-level dungeon generation and the {@code GameWindow} hand-off are
- * intentionally not here yet — they arrive with {@code DungeonLevelFactory}
+ * intentionally not here yet; they arrive with {@code DungeonLevelFactory}
  * and the session controller. This class exposes the seams they will use
  * ({@link #setActiveEngine}, {@link #getActiveEngine}).
  */
@@ -57,6 +57,18 @@ public final class TowerProgressController implements LevelCompletionListener {
         this.currentSave = descriptor;
         this.activeEngine = loaded.engine();
         this.progress = loaded.towerProgress();
+        return this.progress;
+    }
+
+    /**
+     * Begins a brand-new tower run with default progress (Level 1 unlocked) and
+     * no carry-over session; the factory mints a fresh hero on the first floor.
+     * The first completed floor creates a new save slot.
+     */
+    public TowerProgress startNewRun() {
+        this.currentSave = null;
+        this.activeEngine = null;
+        this.progress = TowerProgress.defaultProgress(scenario.size());
         return this.progress;
     }
 

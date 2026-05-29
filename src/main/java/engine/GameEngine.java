@@ -90,7 +90,7 @@ public class GameEngine {
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
     private static final int SORCERER_ATTACK_TICK_MS = 5000;
-    private static final int SORCERER_SHOOT_RANGE = 6;
+    private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int HERO_RANGED_RANGE = 6;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
@@ -100,7 +100,7 @@ public class GameEngine {
     private static final double SEARCHABLE_WALL_FILL_RATIO = 0.75;
     private static final double SEARCHABLE_HIDDEN_ITEM_CHANCE = 0.65;
     private static final double KNIGHT_VISION_RANGE = 5.0;
-    private static final double SORCERER_VISION_RANGE = Double.POSITIVE_INFINITY; // sees hero always
+    private static final double SORCERER_VISION_RANGE = 5.0; // detects/chases the hero within 5 tiles
 
     public enum SearchOutcome {
         FOUND,
@@ -162,7 +162,7 @@ public class GameEngine {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
         this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
-        this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 — Build Mode") : designedMap;
+        this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 - Build Mode") : designedMap;
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
         // Spec section 2.4.1: HP=17, STR=random[8,15], Mana=80, DEF=2.
         // Energy=100 is a project design decision (spec leaves it open).
@@ -248,7 +248,7 @@ public class GameEngine {
                 new ContainerHidingPlaceProvider()));
         ValuableItem target = ValuableItemCatalog.randomValuable(random);
         if (!targetMission.start(provider, dungeonMap, random, target)) {
-            System.out.println("[mission] no hiding place available — mission inactive");
+            System.out.println("[mission] no hiding place available - mission inactive");
         }
     }
 
@@ -538,7 +538,7 @@ public class GameEngine {
 
     /**
      * Returns the first {@link Container} on the hero's current cell or any
-     * 8-adjacent cell — locked or not. Caller decides whether to unlock
+     * 8-adjacent cell, locked or not. Caller decides whether to unlock
      * (via {@link #tryUnlock(Lockable)}) or open directly.
      */
     public Container findContainerNearHero() {
@@ -669,24 +669,73 @@ public class GameEngine {
     }
 
     /**
-     * Tower completion: reaching the exit door after collecting the floor's
-     * hidden target finishes the floor. Stepping on the door beforehand does
-     * nothing, so the target must be found first.
+     * Tower completion: stepping through the open exit arch after collecting the
+     * floor's hidden target finishes the floor. The arch only opens once the
+     * target is found (see {@link #openArch}), so reaching it implies victory.
      */
     private void checkTowerExit(GridCell cell) {
         if (towerLevelNumber <= 0 || levelCompleted || cell == null || !targetMission.isWon()) {
             return;
         }
-        boolean onDoor = cell.getItemsView().stream().anyMatch(item -> item instanceof model.Door);
-        if (onDoor) {
+        boolean throughOpenArch = cell.getItemsView().stream()
+                .anyMatch(item -> item instanceof model.Arch arch && arch.isOpen());
+        if (throughOpenArch) {
             levelCompleted = true;
             fireLevelCompleted();
         }
     }
 
     /**
+     * Finds a closed exit arch in the hero's cell or an adjacent one, or null if
+     * none is in reach. Used by the {@code O} (open) action.
+     */
+    public model.Arch findArchNearHero() {
+        int hx = hero.getX();
+        int hy = hero.getY();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                GridCell cell = dungeonMap.getCell(hx + dx, hy + dy);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItems()) {
+                    if (item instanceof model.Arch arch && !arch.isOpen()) {
+                        return arch;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Opens the exit arch. Callers gate this on the unlock requirements
+     * (gold key found and treasure collected); see {@code GamePanel}.
+     *
+     * @return true if the arch transitioned from closed to open.
+     */
+    public boolean openArch(model.Arch arch) {
+        if (arch == null || arch.isOpen()) {
+            return false;
+        }
+        arch.open();
+        notifyListeners();
+        return true;
+    }
+
+    /** True if the hero is carrying a gold key (the arch's unlock requirement). */
+    public boolean heroHasGoldKey() {
+        for (Item item : hero.getInventory().getItems()) {
+            if (item instanceof model.Key key && key.getColor() == model.KeyColor.GOLD) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Refills a small amount of energy if the hero has been idle for at least 1s.
-     * Safe to call on every UI tick — no-ops when still within the idle window or
+     * Safe to call on every UI tick; no-ops when still within the idle window or
      * when energy is already full.
      */
     public void tickEnergyRefill() {
@@ -796,8 +845,8 @@ public class GameEngine {
      *
      * <p>Preconditions are enforced here so callers don't need to duplicate the checks.
      *
-     * @return {@code true}  — item moved to inventory and map updated;<br>
-     *         {@code false} — rejected (item not takable or inventory full).
+     * @return {@code true}  - item moved to inventory and map updated;<br>
+     *         {@code false} - rejected (item not takable or inventory full).
      */
     public boolean takeItem(model.Item item, int x, int y) {
         if (item == null || !item.isTakable()) {
@@ -892,7 +941,7 @@ public class GameEngine {
     /**
      * Spec 2.5: enemies "appear at random locations on the edge of the
      * area". We interpret "edge" as the outer perimeter of the play
-     * area only — not next to interior obstacles (pillars, crates).
+     * area only, not next to interior obstacles (pillars, crates).
      *
      * <p>Implementation note: walls in this codebase are in-bounds
      * GridCells with {@code passable == false}, NOT off-map nulls.
@@ -1072,7 +1121,7 @@ public class GameEngine {
     }
 
     /**
-     * One tile per tick for Knights and Sorcerers — identical pathing rules ({@link #moveEnemyTowardHero}).
+     * One tile per tick for Knights and Sorcerers with identical pathing rules ({@link #moveEnemyTowardHero}).
      */
     private void updateEnemyMovement() {
         if (isPaused || isGameOver) {
@@ -1142,6 +1191,9 @@ public class GameEngine {
      * True when the hero lies on a clear straight ray within range and the sorcerer has mana to cast.
      */
     private boolean canSorcererShootAtHero(Sorcerer sorcerer) {
+        if (sorcerer.getAiState() != AIState.CHASING) {
+            return false;
+        }
         if (sorcerer.getMana() < SORCERER_PROJECTILE_MANA_COST) {
             return false;
         }
@@ -1551,7 +1603,7 @@ public class GameEngine {
         return true;
     }
 
-    /** Stops timers — call this on shutdown if you wire it up later. */
+    /** Stops timers; call this on shutdown if you wire it up later. */
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();

@@ -18,7 +18,7 @@ public final class TowerProgress {
     private final Map<Integer, LevelStatus> levelProgress;
 
     private TowerProgress(int highestUnlockedLevel, Map<Integer, LevelStatus> levelProgress) {
-        this.highestUnlockedLevel = highestUnlockedLevel;
+        this.highestUnlockedLevel = Math.max(1, Math.min(highestUnlockedLevel, levelProgress.size()));
         this.levelProgress = new LinkedHashMap<>(levelProgress);
     }
 
@@ -57,15 +57,26 @@ public final class TowerProgress {
         return Map.copyOf(levelProgress);
     }
 
-    /** Status of the given floor, or {@code LOCKED} if it is unknown. */
+    /**
+     * Status of the given floor. The saved {@code highestUnlockedLevel} is the
+     * authority for entry: floors at or below it are shown as enterable unless
+     * they have already been completed.
+     */
     public LevelStatus statusOf(int levelNumber) {
-        return levelProgress.getOrDefault(levelNumber, LevelStatus.LOCKED);
+        LevelStatus stored = levelProgress.getOrDefault(levelNumber, LevelStatus.LOCKED);
+        if (stored == LevelStatus.COMPLETED) {
+            return LevelStatus.COMPLETED;
+        }
+        if (levelNumber >= 1 && levelNumber <= highestUnlockedLevel) {
+            return LevelStatus.UNLOCKED;
+        }
+        return stored == LevelStatus.HIDDEN ? LevelStatus.HIDDEN : LevelStatus.LOCKED;
     }
 
     /** Whether the player may currently enter the given floor. */
     public boolean canEnter(int levelNumber) {
-        LevelStatus status = statusOf(levelNumber);
-        return status == LevelStatus.UNLOCKED || status == LevelStatus.COMPLETED;
+        return levelNumber >= 1 && levelNumber <= levelProgress.size()
+                && levelNumber <= highestUnlockedLevel;
     }
 
     /**
@@ -77,11 +88,11 @@ public final class TowerProgress {
     public void completeLevel(int levelNumber) {
         levelProgress.put(levelNumber, LevelStatus.COMPLETED);
         int next = levelNumber + 1;
-        if (levelProgress.containsKey(next)) {
+        if (levelNumber == highestUnlockedLevel && levelProgress.containsKey(next)) {
             if (levelProgress.get(next) != LevelStatus.COMPLETED) {
                 levelProgress.put(next, LevelStatus.UNLOCKED);
             }
-            highestUnlockedLevel = Math.max(highestUnlockedLevel, next);
+            highestUnlockedLevel = next;
         }
     }
 }

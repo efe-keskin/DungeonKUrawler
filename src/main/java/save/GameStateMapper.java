@@ -90,8 +90,19 @@ public final class GameStateMapper {
             return TowerProgress.defaultProgress(levelCount);
         }
         Map<Integer, LevelStatus> progress = new LinkedHashMap<>();
+        Map<Integer, LevelStatus> savedStatuses = new LinkedHashMap<>();
         for (LevelProgressDto levelDto : dto.levels) {
-            progress.put(levelDto.levelNumber, parseStatus(levelDto.status));
+            savedStatuses.put(levelDto.levelNumber, parseStatus(levelDto.status));
+        }
+        for (int level = 1; level <= levelCount; level++) {
+            LevelStatus saved = savedStatuses.getOrDefault(level, LevelStatus.LOCKED);
+            if (saved == LevelStatus.COMPLETED) {
+                progress.put(level, LevelStatus.COMPLETED);
+            } else if (level <= dto.highestUnlockedLevel) {
+                progress.put(level, LevelStatus.UNLOCKED);
+            } else {
+                progress.put(level, saved == LevelStatus.HIDDEN ? LevelStatus.HIDDEN : LevelStatus.LOCKED);
+            }
         }
         return TowerProgress.fromState(dto.highestUnlockedLevel, progress);
     }

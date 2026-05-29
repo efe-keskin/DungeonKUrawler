@@ -3,16 +3,18 @@ package engine;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import model.Arch;
 import model.Chest;
 import model.Coin;
 import model.Difficulty;
-import model.Door;
 import model.DungeonLevel;
 import model.DungeonMap;
 import model.EnemyFactory;
 import model.GridCell;
 import model.HealPotion;
 import model.Hero;
+import model.Key;
+import model.KeyColor;
 import model.Knight;
 import model.LevelType;
 
@@ -46,10 +48,10 @@ public final class DungeonLevelFactory {
      */
     public GameEngine createEngine(DungeonLevel level, GameStateSnapshot state) {
         DungeonMap map = createMap(level);
-        Hero hero = (state == null || state.hero() == null) ? defaultHero() : state.hero();
-        hero.setX(HERO_START_X);
-        hero.setY(HERO_START_Y);
-        placeExitDoor(map);
+        // In-game items (potions, valuables found here) do not carry between
+        // floors — only the persistent meta-state (gold, stats) follows the hero.
+        Hero hero = (state == null || state.hero() == null) ? defaultHero() : carryOverHero(state.hero());
+        placeExitArch(map);
         seedBoss(level, map);
         EnemySpawnPolicy spawnPolicy = spawnPolicyFor(level);
         // The tower constructor hides the floor's target mission in the cache chest;
@@ -121,21 +123,41 @@ public final class DungeonLevelFactory {
             chestCell.getItems().add(chest);
         }
 
+        // A gold key hidden somewhere on the floor; required to unlock the exit arch.
+        GridCell keyCell = walkableCell(map, 1 + random.nextInt(w - 2), 1 + random.nextInt(h - 2));
+        if (keyCell != null) {
+            keyCell.getItems().add(new Key("arch-gold", KeyColor.GOLD));
+        }
+
         return map;
     }
 
-    /** Places the floor's exit door on a far walkable cell. */
-    private void placeExitDoor(DungeonMap map) {
-        GridCell cell = walkableCell(map, map.getWidth() - 2, 1);
-        if (cell != null) {
-            cell.getItems().add(new Door());
+    /**
+     * Sets the exit arch into the middle of the right-hand wall: the gap tile is
+     * made passable but holds a closed (blocking) {@link Arch}, and its interior
+     * neighbour is cleared so the hero can reach it. The arch opens with the
+     * {@code O} key once the target is found.
+     */
+    private void placeExitArch(DungeonMap map) {
+        int x = map.getWidth() - 1;
+        int y = map.getHeight() / 2;
+        GridCell archCell = map.getCell(x, y);
+        GridCell approach = map.getCell(x - 1, y);
+        if (archCell == null || approach == null) {
+            return;
         }
+        approach.setPassable(true);
+        approach.getItems().clear();
+        archCell.setPassable(true);
+        archCell.getItems().clear();
+        archCell.getEntities().clear();
+        archCell.getItems().add(new Arch());
     }
 
     /**
      * Places a boss enemy on BOSS / FINAL_BOSS floors as an optional challenge
      * guarding the floor. Completion still comes from finding the target and
-     * reaching the exit door, not from defeating the boss.
+     * reaching the exit arch, not from defeating the boss.
      */
     private void seedBoss(DungeonLevel level, DungeonMap map) {
         Knight boss = switch (level.levelType()) {
@@ -196,5 +218,18 @@ public final class DungeonLevelFactory {
     private Hero defaultHero() {
         int startingStr = 8 + random.nextInt(8);
         return new Hero(HERO_START_X, HERO_START_Y, "Hero", 17, startingStr, 80, 2, 100);
+    }
+
+    /**
+     * Builds the hero for a new floor from the persistent meta-state of the
+     * previous one: same identity, stats and gold, but full vitals and an empty
+     * inventory. Found potions/valuables stay on the floor they were found on.
+     */
+    private Hero carryOverHero(Hero source) {
+        Hero hero = new Hero(HERO_START_X, HERO_START_Y, source.getName(),
+                source.getMaxHp(), source.getStr(), source.getMaxMana(),
+                source.getBaseDef(), source.getMaxEnergy());
+        hero.setCoinBalance(source.getCoinBalance());
+        return hero;
     }
 }

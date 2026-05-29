@@ -23,6 +23,7 @@ import javax.swing.border.EmptyBorder;
 
 import engine.BuildModeController;
 import engine.GameEngine;
+import engine.TowerProgressController;
 import engine.audio.AudioManager;
 import save.SaveDtos.SaveDescriptor;
 import save.SaveGameController;
@@ -87,11 +88,7 @@ public class MainMenuWindow extends JFrame {
         RetroTheme.styleRetroButton(start, RetroTheme.BTN_PRIMARY);
         start.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            System.out.println("Game Started");
-            GameEngine engine = new GameEngine();
-            AudioManager.shared().stopMenuMusic();
-            dispose();
-            new GameWindow(engine).setVisible(true);
+            handleStartGame();
         });
 
         JButton load = new JButton("LOAD GAME");
@@ -217,6 +214,63 @@ public class MainMenuWindow extends JFrame {
         } catch (IOException ex) {
             ItemActionMenuDialog.showNotice(this, "Menu", "Load Failed", ex.getMessage());
         }
+    }
+
+    /**
+     * UC-T1: Start Game routes through the Tower Scenario Map. If saves exist,
+     * the player picks one and its tower progress is loaded; with no saves, a
+     * fresh tower run begins (Level 1 unlocked). No dungeon starts until the
+     * player chooses an unlocked floor on the map.
+     */
+    private void handleStartGame() {
+        SaveGameController saveController = new SaveGameController();
+        List<SaveDescriptor> saves;
+        try {
+            saves = saveController.listSaves();
+        } catch (SaveGameException ex) {
+            ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
+                    "Saved games could not be read.");
+            return;
+        }
+
+        TowerProgressController progress = new TowerProgressController(saveController);
+
+        if (saves.isEmpty()) {
+            progress.startNewRun();
+            openTowerMap(progress);
+            return;
+        }
+
+        while (true) {
+            LoadGameDialog.Result result = LoadGameDialog.show(this, saves);
+            if (result.action() == LoadGameDialog.Action.CANCEL) {
+                return;
+            }
+            try {
+                if (result.action() == LoadGameDialog.Action.DELETE) {
+                    saveController.deleteSave(result.save());
+                    saves = saveController.listSaves();
+                    if (saves.isEmpty()) {
+                        progress.startNewRun();
+                        openTowerMap(progress);
+                        return;
+                    }
+                    continue;
+                }
+                progress.loadFromSave(result.save());
+                openTowerMap(progress);
+                return;
+            } catch (SaveGameException ex) {
+                ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
+                        "This save file could not be loaded.");
+            }
+        }
+    }
+
+    private void openTowerMap(TowerProgressController progress) {
+        AudioManager.shared().stopMenuMusic();
+        dispose();
+        TowerSessionController.startFrom(progress);
     }
 
     private void handleLoadGame() {
