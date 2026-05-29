@@ -192,6 +192,11 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                if (e.getKeyCode() == KeyEvent.VK_I) {
+                    handleInventoryKeyPress();
+                    return;
+                }
+
                 Direction d = Direction.fromKeyCode(e.getKeyCode());
                 if (d != null) {                    
                     currentMovementDirection = d;
@@ -474,6 +479,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
 
         requestFocusInWindow();
+    }
+
+private void handleInventoryKeyPress() {
+        Window parent = SwingUtilities.getWindowAncestor(this);
+        view.InventoryDialog dialog = null;
+
+        
+        if (parent instanceof java.awt.Frame) {
+            dialog = new view.InventoryDialog((java.awt.Frame) parent, engine);
+        } else if (parent instanceof javax.swing.JDialog) {
+            dialog = new view.InventoryDialog((javax.swing.JDialog) parent, engine);
+        }
+
+        
+        if (dialog != null) {
+            dialog.setVisible(true);
+        }
+
+        requestFocusInWindow(); 
     }
 
     @Override
