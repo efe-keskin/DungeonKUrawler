@@ -6,10 +6,14 @@ import engine.DungeonLevelFactory;
 import engine.GameEngine;
 import engine.GameStateSnapshot;
 import engine.LevelCompletionResult;
+import engine.ShopController;
 import engine.TowerProgressController;
 import engine.audio.AudioManager;
 import model.DungeonLevel;
+import model.FullGameInventory;
+import model.ShopCatalog;
 import model.ValuableItem;
+import save.SaveGameException;
 
 /**
  * GRASP Controller / Indirection for the map to gameplay transition. Lives in the
@@ -25,6 +29,7 @@ public final class TowerSessionController {
 
     private TowerMapWindow mapWindow;
     private GameWindow gameWindow;
+    private ShopWindow shopWindow;
     private int currentFloor = 1;
 
     public TowerSessionController(TowerProgressController progress) {
@@ -42,8 +47,36 @@ public final class TowerSessionController {
     private void openTowerMap(int heroFloor, int climbToFloor) {
         currentFloor = heroFloor;
         mapWindow = new TowerMapWindow(progress, this::enterLevel, this::returnToMainMenu,
-                heroFloor, climbToFloor);
+                this::openShop, heroFloor, climbToFloor);
         mapWindow.setVisible(true);
+    }
+
+    private void openShop() {
+        if (mapWindow != null) {
+            mapWindow.dispose();
+            mapWindow = null;
+        }
+        FullGameInventory fullInventory = new FullGameInventory();
+        if (progress.getActiveEngine() != null && progress.getActiveEngine().getHero() != null) {
+            fullInventory = progress.getActiveEngine().getHero().getFullInventory();
+        }
+        ShopController shopController = new ShopController(fullInventory, new ShopCatalog());
+        shopWindow = new ShopWindow(fullInventory, shopController, () -> {
+            shopWindow = null;
+            persistShopChanges();
+            openTowerMap(currentFloor, -1);
+        });
+        shopWindow.setVisible(true);
+    }
+
+    /** Persists buy/sell results made in the shop, mirroring floor-completion saves. */
+    private void persistShopChanges() {
+        try {
+            progress.saveActiveProgress();
+        } catch (SaveGameException ex) {
+            ItemActionMenuDialog.showNotice(null, "Shop", "Save Failed",
+                    "Your shop changes could not be saved.");
+        }
     }
 
     /**
@@ -115,6 +148,10 @@ public final class TowerSessionController {
         if (mapWindow != null) {
             mapWindow.dispose();
             mapWindow = null;
+        }
+        if (shopWindow != null) {
+            shopWindow.dispose();
+            shopWindow = null;
         }
         AudioManager.shared().startMenuMusic();
         new MainMenuWindow().setVisible(true);

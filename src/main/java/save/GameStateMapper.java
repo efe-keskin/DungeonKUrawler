@@ -213,6 +213,10 @@ public final class GameStateMapper {
             dto.inventory.add(itemFactory.toDto(item, missionTarget));
             index++;
         }
+
+        for (Item item : hero.getFullInventory().getItems()) {
+            dto.fullInventory.add(itemFactory.toDto(item, missionTarget));
+        }
         return dto;
     }
 
@@ -264,6 +268,15 @@ public final class GameStateMapper {
                 Item item = itemFactory.fromDto(itemDto, context);
                 if (item != null) {
                     hero.getInventory().tryAdd(item);
+                }
+            }
+        }
+
+        if (dto.fullInventory != null) {
+            for (ItemDto itemDto : dto.fullInventory) {
+                Item item = itemFactory.fromDto(itemDto, context);
+                if (item != null) {
+                    hero.getFullInventory().add(item);
                 }
             }
         }

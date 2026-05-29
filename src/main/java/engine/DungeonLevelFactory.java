@@ -222,14 +222,15 @@ public final class DungeonLevelFactory {
 
     /**
      * Builds the hero for a new floor from the persistent meta-state of the
-     * previous one: same identity, stats and gold, but full vitals and an empty
-     * inventory. Found potions/valuables stay on the floor they were found on.
+     * previous one: same identity, stats and full-game inventory (gold +
+     * valuables + purchases), but full vitals and an empty per-level bag.
+     * Temporary level loot stays on the floor it was found on.
      */
     private Hero carryOverHero(Hero source) {
         Hero hero = new Hero(HERO_START_X, HERO_START_Y, source.getName(),
                 source.getMaxHp(), source.getStr(), source.getMaxMana(),
                 source.getBaseDef(), source.getMaxEnergy());
-        hero.setCoinBalance(source.getCoinBalance());
+        hero.getFullInventory().copyFrom(source.getFullInventory());
         return hero;
     }
 }
