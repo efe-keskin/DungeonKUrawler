@@ -41,6 +41,7 @@ import engine.BuildModeController;
 import engine.BuildRandomItemPlacer;
 import engine.BuildTool;
 import engine.GameEngine;
+import engine.TeamMatchController;
 import model.DungeonMap;
 import model.GridCell;
 import model.Item;
@@ -85,6 +86,7 @@ public class DesignWindow extends JFrame {
             Map.entry("VALUABLE", new Color(210, 210, 235)));
 
     private final BuildModeController controller = new BuildModeController();
+    private final TeamMatchController teamMatchController = new TeamMatchController();
     private final DesignCanvas canvas;
     private final List<ToolButton> toolButtons = new ArrayList<>();
     private JLabel selectedLabel;
@@ -202,6 +204,9 @@ public class DesignWindow extends JFrame {
             SwingUtilities.invokeLater(() -> new GameWindow(engine).setVisible(true));
         });
 
+        JButton teamMatch = new CommandButton("RUN TEAM MATCH");
+        teamMatch.addActionListener(e -> runTeamMatch());
+
         JButton menu = new CommandButton("EXIT TO MENU");
         menu.addActionListener(e -> {
             dispose();
@@ -213,8 +218,20 @@ public class DesignWindow extends JFrame {
         panel.add(clear);
         panel.add(random);
         panel.add(run);
+        panel.add(teamMatch);
         panel.add(menu);
         return panel;
+    }
+
+    private void runTeamMatch() {
+        try {
+            GameEngine engine = teamMatchController.startFromDesignMap(controller.getDesignMap());
+            dispose();
+            SwingUtilities.invokeLater(() -> new GameWindow(engine).setVisible(true));
+        } catch (IllegalArgumentException ex) {
+            ItemActionMenuDialog.showNotice(this, "Team Match", "Cannot Start",
+                    ex.getMessage());
+        }
     }
 
     private void saveMap() {

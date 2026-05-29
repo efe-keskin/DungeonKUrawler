@@ -24,8 +24,10 @@ public enum AssetId {
 
     // Enemies.
     KNIGHT("/characters/knight1.png"),
+    RED_KNIGHT("/characters/redknight1.png"),
     SORCERER("/characters/sorcerer1.png"),
     WIZARD("/characters/wizard1.png"),
+    RED_WIZARD("/characters/redWizard1.png"),
 
     // Items.
     HEAL_POTION("/items_objects/healpotion.png"),

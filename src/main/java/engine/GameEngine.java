@@ -68,16 +68,20 @@ public class GameEngine {
 
     private final DungeonMap dungeonMap;
     private final Hero hero;
+    private final GameMode gameMode;
     private final Random random;
     private final EnemyFactory enemyFactory;
     private final EnemySpawnPolicy spawnPolicy;
     private final CombatManager combatManager = new CombatManager();
+    private final TeamMatchAiController teamMatchAiController = new TeamMatchAiController();
+    private final TeamMatchOutcomeEvaluator teamMatchOutcomeEvaluator = new TeamMatchOutcomeEvaluator();
     private final TargetItemMission targetMission = new TargetItemMission();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private final List<GameEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
     private boolean isPaused = false;
     private boolean isGameOver = false;
+    private TeamMatchOutcome teamMatchOutcome = TeamMatchOutcome.ONGOING;
 
     // Tower-mode context: set by DungeonLevelFactory when a floor is started.
     private int towerLevelNumber = 0;
@@ -92,6 +96,7 @@ public class GameEngine {
     private Timer sorcererAttackTimer;
     private Timer bossAttackTimer;
     private Timer projectileTimer;
+    private Timer teamMatchActionTimer;
     private Timer petTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
     /** Transient on-grid presence of the equipped pet for this floor; null when none. */
@@ -181,6 +186,7 @@ public class GameEngine {
     private GameEngine(Random random, DungeonMap designedMap) {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
+        this.gameMode = GameMode.PLAY;
         this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 - Build Mode") : designedMap;
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
@@ -192,6 +198,24 @@ public class GameEngine {
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
+    }
+
+    static GameEngine createTeamMatch(DungeonMap dungeonMap, Hero hero) {
+        return new GameEngine(ThreadLocalRandom.current(), dungeonMap, hero, GameMode.TEAM_MATCH);
+    }
+
+    private GameEngine(Random random, DungeonMap dungeonMap, Hero hero, GameMode gameMode) {
+        if (dungeonMap == null || hero == null) {
+            throw new IllegalArgumentException("Team Match requires a map and hero.");
+        }
+        this.random = random;
+        this.enemyFactory = new EnemyFactory(random);
+        this.gameMode = gameMode == null ? GameMode.PLAY : gameMode;
+        this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
+        this.dungeonMap = dungeonMap;
+        this.hero = hero;
+        placeHeroOnMap();
+        startTeamMatchTimers();
     }
 
     private int[] findHeroStart(DungeonMap map) {
@@ -227,6 +251,7 @@ public class GameEngine {
             EnemySpawnPolicy spawnPolicy) {
         this.random = ThreadLocalRandom.current();
         this.enemyFactory = new EnemyFactory(random);
+        this.gameMode = GameMode.PLAY;
         if (dungeonMap == null || hero == null) {
             throw new IllegalArgumentException("Loaded game requires a map and hero.");
         }
@@ -274,6 +299,30 @@ public class GameEngine {
 
     public TargetItemMission getTargetMission() {
         return targetMission;
+    }
+
+    public GameMode getGameMode() {
+        return gameMode;
+    }
+
+    public TeamMatchOutcome getTeamMatchOutcome() {
+        return teamMatchOutcome;
+    }
+
+    public String getGameOverTitle() {
+        return gameMode == GameMode.TEAM_MATCH ? "MATCH OVER" : "DEFEAT";
+    }
+
+    public String getGameOverMessage() {
+        if (gameMode != GameMode.TEAM_MATCH) {
+            return "Your HP reached 0.";
+        }
+        return switch (teamMatchOutcome) {
+            case TEAM_A_WINS -> "Red Team wins the match.";
+            case TEAM_B_WINS -> "Blue Team wins the match.";
+            case DRAW -> "Both teams were eliminated. The match is a draw.";
+            case ONGOING -> "The match has ended.";
+        };
     }
 
     public void addGameStateListener(GameStateListener listener) {
@@ -367,6 +416,12 @@ public class GameEngine {
         return isGameOver;
     }
 
+    boolean canHeroAct() {
+        return !isPaused
+                && !isGameOver
+                && !(gameMode == GameMode.TEAM_MATCH && hero.getHp() <= 0);
+    }
+
     public void togglePause() {
         if (isGameOver) {
             return;
@@ -389,6 +444,29 @@ public class GameEngine {
         isPaused = true;
         pauseAllTimers();
         notifyListeners();
+    }
+
+    private void finishTeamMatch(TeamMatchOutcome outcome) {
+        if (gameMode != GameMode.TEAM_MATCH || outcome == TeamMatchOutcome.ONGOING || isGameOver) {
+            return;
+        }
+        teamMatchOutcome = outcome;
+        isGameOver = true;
+        isPaused = true;
+        pauseAllTimers();
+        notifyListeners();
+    }
+
+    boolean resolveTeamMatchOutcome() {
+        if (gameMode != GameMode.TEAM_MATCH || isGameOver) {
+            return false;
+        }
+        TeamMatchOutcome outcome = teamMatchOutcomeEvaluator.evaluate(dungeonMap);
+        if (outcome == TeamMatchOutcome.ONGOING) {
+            return false;
+        }
+        finishTeamMatch(outcome);
+        return true;
     }
 
     // DEMO WALLS
@@ -689,7 +767,7 @@ public class GameEngine {
     }
 
     public void updateHeroPosition(int nx, int ny) {
-        if (isPaused || isGameOver) {
+        if (!canHeroAct()) {
             return;
         }
         GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
@@ -1346,7 +1424,7 @@ public class GameEngine {
      * with line of sight; melee range rules do not apply.
      */
     public CombatManager.AttackResult launchHeroRangedAttackAt(int targetX, int targetY) {
-        if (isPaused || isGameOver) {
+        if (!canHeroAct()) {
             return null;
         }
         GridCell cell = dungeonMap.getCell(targetX, targetY);
@@ -1587,6 +1665,9 @@ public class GameEngine {
             cell.getEntities().remove(target);
             fireEnemyDefeated(target);
         }
+        if (resolveTeamMatchOutcome()) {
+            return;
+        }
         notifyListeners();
     }
 
@@ -1598,20 +1679,54 @@ public class GameEngine {
             fireHeroTookDamage(result);
         }
         if (hero.getHp() <= 0) {
+            if (gameMode == GameMode.TEAM_MATCH) {
+                removeEntityFromMap(hero);
+                resolveTeamMatchOutcome();
+                return;
+            }
             triggerGameOver();
         }
     }
 
-    private static Entity firstHostileInCell(GridCell cell) {
+    Entity firstHostileInCell(GridCell cell) {
         if (cell == null) {
             return null;
         }
         for (Entity entity : cell.getEntities()) {
-            if (entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy) {
+            if (isHostileToHero(entity)) {
                 return entity;
             }
         }
         return null;
+    }
+
+    private boolean removeEntityFromMap(Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        GridCell current = dungeonMap.getCell(entity.getX(), entity.getY());
+        if (current != null && current.getEntities().remove(entity)) {
+            return true;
+        }
+        for (int y = 0; y < dungeonMap.getHeight(); y++) {
+            for (int x = 0; x < dungeonMap.getWidth(); x++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell != null && cell.getEntities().remove(entity)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    boolean isHostileToHero(Entity entity) {
+        if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy)) {
+            return false;
+        }
+        if (hero.getTeam() == model.Team.NONE) {
+            return true;
+        }
+        return entity.getTeam() != hero.getTeam();
     }
 
     /** Walls and blocking fixtures (columns, crates, chests, etc.) stop projectiles. */
@@ -1753,6 +1868,25 @@ public class GameEngine {
         return true;
     }
 
+    private void startTeamMatchTimers() {
+        teamMatchActionTimer = new Timer(KNIGHT_ACTION_TICK_MS, e -> updateTeamMatchAi());
+        teamMatchActionTimer.setRepeats(true);
+        teamMatchActionTimer.start();
+    }
+
+    private void updateTeamMatchAi() {
+        if (isPaused || isGameOver) {
+            return;
+        }
+        TeamMatchAiResult result = teamMatchAiController.update(dungeonMap, hero);
+        if (result.outcome() != TeamMatchOutcome.ONGOING) {
+            finishTeamMatch(result.outcome());
+            return;
+        }
+        if (result.changed()) {
+          notifyListeners();
+        }
+    }
     // ---------------------------------------------------------------------
     // Pets: spawn, roam beside the hero, and use abilities each pet tick.
     // ---------------------------------------------------------------------
@@ -2090,6 +2224,7 @@ public class GameEngine {
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
         if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
+        if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
         if (petTimer != null) petTimer.stop();
     }
 
@@ -2101,6 +2236,7 @@ public class GameEngine {
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
         if (bossAttackTimer != null) bossAttackTimer.stop();
         if (projectileTimer != null) projectileTimer.stop();
+        if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
         if (petTimer != null) petTimer.stop();
     }
 
@@ -2112,6 +2248,7 @@ public class GameEngine {
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();
         if (bossAttackTimer != null) bossAttackTimer.start();
         if (projectileTimer != null) projectileTimer.start();
+        if (teamMatchActionTimer != null) teamMatchActionTimer.start();
         if (petTimer != null) petTimer.start();
     }
 }
