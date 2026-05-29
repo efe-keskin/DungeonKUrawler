@@ -1,6 +1,7 @@
 package save;
 
 import model.AIState;
+import model.BossEnemy;
 import model.Entity;
 import model.Knight;
 import model.Sorcerer;
@@ -13,6 +14,7 @@ final class EntityDtoFactory {
 
     private static final String KNIGHT = "KNIGHT";
     private static final String SORCERER = "SORCERER";
+    private static final String BOSS = "BOSS";
 
     EntityDto toDto(Entity entity) {
         if (entity == null) {
@@ -39,6 +41,14 @@ final class EntityDtoFactory {
             dto.hasMagicRing = sorcerer.isHasMagicRing();
             dto.panicTeleportUsed = sorcerer.isPanicTeleportUsed();
             dto.aiState = sorcerer.getAiState().name();
+        } else if (entity instanceof BossEnemy boss) {
+            dto.type = BOSS;
+            dto.hp = boss.getHp();
+            dto.maxHp = boss.getMaxHp();
+            dto.mana = boss.getMana();
+            dto.def = boss.getDef();
+            dto.str = boss.getProjectileAttack();
+            dto.aiState = boss.getAiState().name();
         }
         return dto;
     }
@@ -50,6 +60,7 @@ final class EntityDtoFactory {
         return switch (fallback(dto.type, "")) {
             case KNIGHT -> restoreKnight(dto);
             case SORCERER -> restoreSorcerer(dto);
+            case BOSS -> restoreBoss(dto);
             default -> null;
         };
     }
@@ -69,6 +80,15 @@ final class EntityDtoFactory {
         sorcerer.setPanicTeleportUsed(dto.panicTeleportUsed);
         sorcerer.setAiState(parseAiState(dto.aiState));
         return sorcerer;
+    }
+
+    private BossEnemy restoreBoss(EntityDto dto) {
+        int maxHp = positive(dto.maxHp, positive(dto.hp, 180));
+        BossEnemy boss = new BossEnemy(dto.x, dto.y, fallback(dto.name, "Boss"),
+                maxHp, positive(dto.mana, 120), positive(dto.def, 8), positive(dto.str, 11));
+        boss.setHp(positive(dto.hp, maxHp));
+        boss.setAiState(parseAiState(dto.aiState));
+        return boss;
     }
 
     private static AIState parseAiState(String value) {

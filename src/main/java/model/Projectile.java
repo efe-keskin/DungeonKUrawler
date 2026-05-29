@@ -13,10 +13,16 @@ public class Projectile {
     private final int damageGenerated;
     private final int damageReceived;
     private final boolean heroOwned;
+    private final boolean bossOwned;
     private boolean active;
 
     public Projectile(int startX, int startY, int dx, int dy, int damageGenerated, int damageReceived,
             boolean heroOwned) {
+        this(startX, startY, dx, dy, damageGenerated, damageReceived, heroOwned, false);
+    }
+
+    public Projectile(int startX, int startY, int dx, int dy, int damageGenerated, int damageReceived,
+            boolean heroOwned, boolean bossOwned) {
         this.x = startX;
         this.y = startY;
         this.dx = dx;
@@ -24,6 +30,7 @@ public class Projectile {
         this.damageGenerated = damageGenerated;
         this.damageReceived = damageReceived;
         this.heroOwned = heroOwned;
+        this.bossOwned = bossOwned;
         this.active = true;
     }
 
@@ -58,6 +65,10 @@ public class Projectile {
 
     public boolean isHeroOwned() {
         return heroOwned;
+    }
+
+    public boolean isBossOwned() {
+        return bossOwned;
     }
 
     public boolean isActive() {

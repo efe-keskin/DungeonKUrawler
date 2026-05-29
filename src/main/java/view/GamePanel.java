@@ -29,6 +29,7 @@ import engine.LockController;
 import engine.PlayerModeController;
 import engine.GameStateListener;
 import engine.InteractionController;
+import model.BossEnemy;
 import model.Container;
 import model.DefeatedEnemyMarker;
 import model.DungeonMap;
@@ -667,7 +668,7 @@ private void handleInventoryKeyPress() {
                             g2.drawImage(enemySprite, drawX, drawY, spriteW, spriteH, null);
                         } else {
                             g2.setColor(ent instanceof Knight ? KNIGHT
-                                    : ent instanceof Sorcerer ? SORCERER
+                                    : ent instanceof Sorcerer || ent instanceof BossEnemy ? SORCERER
                                             : Color.LIGHT_GRAY);
                             int inset = Math.max(1, Math.min(cellW, cellH) / 5);
                             int entityW = Math.max(1, cellW - inset * 2);
@@ -916,7 +917,7 @@ private void handleInventoryKeyPress() {
                     continue;
                 }
                 for (Entity entity : cell.getEntitiesView()) {
-                    if (!(entity instanceof Knight || entity instanceof Sorcerer)) {
+                    if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy)) {
                         continue;
                     }
                     seen.add(entity);
@@ -968,14 +969,15 @@ private void handleInventoryKeyPress() {
             }
             int px = offsetX + projectile.getX() * tileSize;
             int py = offsetY + projectile.getY() * tileSize;
-            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned());
+            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned(), projectile.isBossOwned());
         }
     }
 
     /**
      * 8-bit projectile: sorcerer fireball (red/orange/yellow) or hero ice bolt (blue/cyan/white).
      */
-    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, boolean heroOwned) {
+    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize,
+            boolean heroOwned, boolean bossOwned) {
         int pixel = Math.max(2, tileSize / 7);
         int size = pixel * 5;
         int left = tileX + (tileSize - size) / 2;
@@ -987,6 +989,13 @@ private void handleInventoryKeyPress() {
             g2.setColor(Color.CYAN);
             g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
             g2.setColor(Color.WHITE);
+            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+        } else if (bossOwned) {
+            g2.setColor(new Color(70, 20, 120));
+            g2.fillRect(left, top, size, size);
+            g2.setColor(new Color(160, 60, 230));
+            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+            g2.setColor(new Color(235, 170, 255));
             g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
         } else {
             g2.setColor(Color.RED);
@@ -1112,6 +1121,9 @@ private void handleInventoryKeyPress() {
         } else if (ent instanceof Sorcerer sorcerer) {
             currentHp = sorcerer.getHp();
             maxHp = SORCERER_MAX_HP;
+        } else if (ent instanceof BossEnemy boss) {
+            currentHp = boss.getHp();
+            maxHp = boss.getMaxHp();
         } else {
             return;
         }
@@ -1144,6 +1156,10 @@ private void handleInventoryKeyPress() {
         } else if (ent instanceof Sorcerer s) {
             label = s.getAiState().name();
             color = s.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
+        } else if (ent instanceof BossEnemy boss) {
+            label = boss.getAiState().name();
+            color = boss.getAiState() == model.AIState.CHASING
+                    ? new Color(210, 110, 255) : new Color(200, 200, 200);
         } else {
             return;
         }

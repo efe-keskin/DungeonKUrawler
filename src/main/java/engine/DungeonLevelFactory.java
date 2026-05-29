@@ -4,6 +4,7 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import model.Arch;
+import model.BossEnemy;
 import model.Chest;
 import model.Coin;
 import model.Difficulty;
@@ -15,7 +16,6 @@ import model.HealPotion;
 import model.Hero;
 import model.Key;
 import model.KeyColor;
-import model.Knight;
 import model.LevelType;
 
 /**
@@ -49,7 +49,7 @@ public final class DungeonLevelFactory {
     public GameEngine createEngine(DungeonLevel level, GameStateSnapshot state) {
         DungeonMap map = createMap(level);
         // In-game items (potions, valuables found here) do not carry between
-        // floors — only the persistent meta-state (gold, stats) follows the hero.
+        // floors; only the persistent meta-state (gold, stats) follows the hero.
         Hero hero = (state == null || state.hero() == null) ? defaultHero() : carryOverHero(state.hero());
         placeExitArch(map);
         seedBoss(level, map);
@@ -160,9 +160,9 @@ public final class DungeonLevelFactory {
      * reaching the exit arch, not from defeating the boss.
      */
     private void seedBoss(DungeonLevel level, DungeonMap map) {
-        Knight boss = switch (level.levelType()) {
-            case BOSS -> new Knight(0, 0, "The Warden", 120, 14, 8, 8);
-            case FINAL_BOSS -> new Knight(0, 0, "The Dread King", 250, 18, 10, 10);
+        BossEnemy boss = switch (level.levelType()) {
+            case BOSS -> new BossEnemy(0, 0, "The Warden", 180, 120, 8, 11);
+            case FINAL_BOSS -> new BossEnemy(0, 0, "The Dread King", 340, 180, 11, 15);
             default -> null;
         };
         if (boss == null) {
@@ -187,7 +187,7 @@ public final class DungeonLevelFactory {
     }
 
     /**
-     * Nearest free cell at or after the preferred coordinates — walkable, with
+     * Nearest free cell at or after the preferred coordinates; walkable, with
      * no entities and no items, so placed chests/doors/bosses never collide and
      * the start cell stays clear.
      */

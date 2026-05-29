@@ -9,6 +9,7 @@ import java.util.Map;
 import model.Chest;
 import model.Coin;
 import model.Book;
+import model.BossEnemy;
 import model.DefeatedEnemyMarker;
 import model.Entity;
 import model.HealPotion;
@@ -124,6 +125,11 @@ public final class SpriteRegistry {
             prefix = "/characters/bot";
         } else if (entity instanceof Sorcerer) {
             prefix = "/characters/wizard";
+        } else if (entity instanceof BossEnemy) {
+            int safe = Math.floorMod(index, 6) + 1;
+            String suffix = safe < 10 ? "0" + safe : Integer.toString(safe);
+            BufferedImage frame = AssetManager.get().image("/characters/boss1_move_" + suffix + ".png");
+            return frame != null ? frame : spriteFor(entity);
         } else {
             return spriteFor(entity);
         }
