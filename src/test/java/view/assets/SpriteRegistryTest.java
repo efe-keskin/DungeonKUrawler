@@ -35,4 +35,26 @@ class SpriteRegistryTest {
         assertSame(expected, SpriteRegistry.spriteFor(knight));
     }
 
+    @Test
+    void teamASorcererWalkFrameUsesRedWizardSprite() {
+        Sorcerer sorcerer = new Sorcerer(1, 1, "Team A Sorcerer", 10, 30, 3, false);
+        sorcerer.setTeam(Team.TEAM_A);
+
+        BufferedImage expected = AssetManager.get().image(AssetId.RED_WIZARD);
+
+        assertNotNull(expected);
+        assertSame(expected, SpriteRegistry.walkFrameFor(sorcerer, 0));
+    }
+
+    @Test
+    void teamAKnightWalkFrameUsesRedKnightSprite() {
+        Knight knight = new Knight(1, 1, "Team A Knight", 20, 8, 4, 5);
+        knight.setTeam(Team.TEAM_A);
+
+        BufferedImage expected = AssetManager.get().image(AssetId.RED_KNIGHT);
+
+        assertNotNull(expected);
+        assertSame(expected, SpriteRegistry.walkFrameFor(knight, 0));
+    }
+
 }

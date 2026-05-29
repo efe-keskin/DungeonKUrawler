@@ -139,6 +139,9 @@ public final class SpriteRegistry {
         if (entity == null) {
             return null;
         }
+        if ((entity instanceof Knight || entity instanceof Sorcerer) && entity.getTeam() == Team.TEAM_A) {
+            return spriteFor(entity);
+        }
         String prefix;
         if (entity instanceof Knight) {
             prefix = "/characters/bot";

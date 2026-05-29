@@ -274,6 +274,7 @@ public class GameEngine {
         }
         this.random = ThreadLocalRandom.current();
         this.enemyFactory = new EnemyFactory(random);
+        this.gameMode = GameMode.PLAY;
         this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = map;
         this.hero = hero;
