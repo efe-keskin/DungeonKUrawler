@@ -2,11 +2,11 @@ package view;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -16,20 +16,17 @@ import java.io.InputStream;
 import java.util.function.IntConsumer;
 
 import javax.imageio.ImageIO;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.Scrollable;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.border.EmptyBorder;
+import javax.swing.ImageIcon;
 
 import engine.TowerProgressController;
 import engine.audio.AudioManager;
@@ -48,10 +45,14 @@ public final class TowerMapWindow extends JFrame {
     private static final Color BACKDROP = new Color(16, 14, 20);
     private static final Color TITLE_GOLD = new Color(244, 205, 103);
     private static final Color TEXT = new Color(220, 214, 200);
-    private static final Color MUTED = new Color(140, 134, 124);
     private static final int WINDOW_W = 920;
     private static final int WINDOW_H = 560;
     private static final int FLOOR_COUNT = 10;
+    private static final int MAP_BUTTON_MARGIN = 12;
+    private static final int BACK_BUTTON_W = 104;
+    private static final int BACK_BUTTON_H = 46;
+    private static final int SHOP_BUTTON_SIZE = 74;
+    private static final int SHOP_ICON_SIZE = 62;
 
     // --- Tower geometry, expressed as fractions of scenario_levels.png.
     //     One entry per actual floor keeps clicks aligned with the hand-placed
@@ -166,10 +167,12 @@ public final class TowerMapWindow extends JFrame {
 
     private static final BufferedImage TOWER = loadImage("/scenario_levels.png", false);
     private static final BufferedImage LOCK = loadImage("/level_locked_indicator.png", true);
+    private static final BufferedImage SHOP = loadImage("/shop/shop_item.png", false);
 
     private final transient TowerProgressController progress;
     private final transient IntConsumer onEnter;
     private final transient Runnable onBack;
+    private final transient Runnable onShop;
     private final int heroFloor;
     private final int climbToFloor;
 
@@ -179,10 +182,11 @@ public final class TowerMapWindow extends JFrame {
      *                 enters an available floor
      */
     public TowerMapWindow(TowerProgressController progress, IntConsumer onEnter, Runnable onBack,
-            int heroFloor, int climbToFloor) {
+            Runnable onShop, int heroFloor, int climbToFloor) {
         this.progress = progress;
         this.onEnter = onEnter;
         this.onBack = onBack;
+        this.onShop = onShop;
         this.heroFloor = clampFloor(heroFloor);
         this.climbToFloor = climbToFloor >= 1 && climbToFloor <= FLOOR_COUNT ? climbToFloor : -1;
 
@@ -192,7 +196,6 @@ public final class TowerMapWindow extends JFrame {
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(BACKDROP);
-        root.add(new HeaderPanel(), BorderLayout.NORTH);
 
         TowerPanel towerPanel = new TowerPanel();
         JScrollPane scroll = new JScrollPane(towerPanel,
@@ -202,7 +205,26 @@ public final class TowerMapWindow extends JFrame {
         scroll.getViewport().setBackground(BACKDROP);
         scroll.setWheelScrollingEnabled(true);
         scroll.getVerticalScrollBar().setUnitIncrement(20);
-        root.add(scroll, BorderLayout.CENTER);
+
+        JButton back = createBackButton();
+        JButton shop = createShopButton();
+        JPanel mapLayer = new JPanel(null) {
+            @Override
+            public void doLayout() {
+                scroll.setBounds(0, 0, getWidth(), getHeight());
+                back.setBounds(MAP_BUTTON_MARGIN, MAP_BUTTON_MARGIN, BACK_BUTTON_W, BACK_BUTTON_H);
+                shop.setBounds(Math.max(MAP_BUTTON_MARGIN, getWidth() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN),
+                        Math.max(MAP_BUTTON_MARGIN, getHeight() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN),
+                        SHOP_BUTTON_SIZE, SHOP_BUTTON_SIZE);
+            }
+        };
+        mapLayer.setBackground(BACKDROP);
+        mapLayer.add(scroll);
+        mapLayer.add(back);
+        mapLayer.add(shop);
+        mapLayer.setComponentZOrder(back, 0);
+        mapLayer.setComponentZOrder(shop, 0);
+        root.add(mapLayer, BorderLayout.CENTER);
 
         setContentPane(root);
         setSize(WINDOW_W, WINDOW_H);
@@ -217,43 +239,40 @@ public final class TowerMapWindow extends JFrame {
         });
     }
 
-    /** Small header block: title + a one-line legend. */
-    private final class HeaderPanel extends JPanel {
-        HeaderPanel() {
-            setOpaque(false);
-            setLayout(new BorderLayout());
-            setBorder(new EmptyBorder(18, 20, 14, 20));
+    private JButton createBackButton() {
+        JButton back = new JButton("BACK");
+        RetroTheme.styleRetroButton(back, new Color(54, 41, 30));
+        back.setFocusable(false);
+        back.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            if (onBack != null) {
+                onBack.run();
+            }
+        });
+        return back;
+    }
 
-            JPanel titleStack = new JPanel();
-            titleStack.setOpaque(false);
-            titleStack.setLayout(new BoxLayout(titleStack, BoxLayout.Y_AXIS));
-
-            JLabel title = new JLabel("THE TOWER");
-            title.setFont(heading(26f));
-            title.setForeground(TITLE_GOLD);
-            title.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-            JLabel hint = new JLabel("Clear a floor to unlock the next. Locked floors show a seal.");
-            hint.setFont(body(12f));
-            hint.setForeground(MUTED);
-            hint.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-            titleStack.add(title);
-            titleStack.add(Box.createVerticalStrut(6));
-            titleStack.add(hint);
-            add(titleStack, BorderLayout.WEST);
-
-            JButton back = new JButton("BACK");
-            RetroTheme.styleRetroButton(back, new Color(54, 41, 30));
-            back.setFocusable(false);
-            back.addActionListener(e -> {
-                AudioManager.shared().play("button_click");
-                if (onBack != null) {
-                    onBack.run();
-                }
-            });
-            add(back, BorderLayout.EAST);
+    private JButton createShopButton() {
+        JButton shop = new JButton();
+        shop.setBorder(BorderFactory.createEmptyBorder());
+        shop.setContentAreaFilled(false);
+        shop.setBorderPainted(false);
+        shop.setOpaque(false);
+        shop.setFocusable(false);
+        shop.setToolTipText("Shop");
+        if (SHOP != null) {
+            Image scaled = SHOP.getScaledInstance(SHOP_ICON_SIZE, SHOP_ICON_SIZE, Image.SCALE_SMOOTH);
+            shop.setIcon(new ImageIcon(scaled));
+        } else {
+            shop.setText("$");
         }
+        shop.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            if (onShop != null) {
+                onShop.run();
+            }
+        });
+        return shop;
     }
 
     /** The interactive tower: paints the art, lock seals, and hover/click state. */
@@ -575,9 +594,4 @@ public final class TowerMapWindow extends JFrame {
         return base.deriveFont(java.awt.Font.BOLD, size);
     }
 
-    private static java.awt.Font body(float size) {
-        java.awt.Font base = RetroTheme.UI_MONO_SMALL != null ? RetroTheme.UI_MONO_SMALL
-                : new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, Math.round(size));
-        return base.deriveFont(java.awt.Font.PLAIN, size);
-    }
 }

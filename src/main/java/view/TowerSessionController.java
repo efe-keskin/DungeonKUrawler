@@ -25,6 +25,7 @@ public final class TowerSessionController {
 
     private TowerMapWindow mapWindow;
     private GameWindow gameWindow;
+    private ShopWindow shopWindow;
     private int currentFloor = 1;
 
     public TowerSessionController(TowerProgressController progress) {
@@ -42,8 +43,24 @@ public final class TowerSessionController {
     private void openTowerMap(int heroFloor, int climbToFloor) {
         currentFloor = heroFloor;
         mapWindow = new TowerMapWindow(progress, this::enterLevel, this::returnToMainMenu,
-                heroFloor, climbToFloor);
+                this::openShop, heroFloor, climbToFloor);
         mapWindow.setVisible(true);
+    }
+
+    private void openShop() {
+        if (mapWindow != null) {
+            mapWindow.dispose();
+            mapWindow = null;
+        }
+        int gold = 0;
+        if (progress.getActiveEngine() != null && progress.getActiveEngine().getHero() != null) {
+            gold = progress.getActiveEngine().getHero().getCoinBalance();
+        }
+        shopWindow = new ShopWindow(gold, () -> {
+            shopWindow = null;
+            openTowerMap(currentFloor, -1);
+        });
+        shopWindow.setVisible(true);
     }
 
     /**
@@ -115,6 +132,10 @@ public final class TowerSessionController {
         if (mapWindow != null) {
             mapWindow.dispose();
             mapWindow = null;
+        }
+        if (shopWindow != null) {
+            shopWindow.dispose();
+            shopWindow = null;
         }
         AudioManager.shared().startMenuMusic();
         new MainMenuWindow().setVisible(true);
