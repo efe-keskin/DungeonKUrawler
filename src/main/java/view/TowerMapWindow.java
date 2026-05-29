@@ -168,11 +168,13 @@ public final class TowerMapWindow extends JFrame {
     private static final BufferedImage TOWER = loadImage("/scenario_levels.png", false);
     private static final BufferedImage LOCK = loadImage("/level_locked_indicator.png", true);
     private static final BufferedImage SHOP = loadImage("/shop/shop_item.png", false);
+    private static final BufferedImage INVENTORY = loadImage("/inventorychest.png", false);
 
     private final transient TowerProgressController progress;
     private final transient IntConsumer onEnter;
     private final transient Runnable onBack;
     private final transient Runnable onShop;
+    private final transient Runnable onInventory;
     private final int heroFloor;
     private final int climbToFloor;
 
@@ -182,11 +184,12 @@ public final class TowerMapWindow extends JFrame {
      *                 enters an available floor
      */
     public TowerMapWindow(TowerProgressController progress, IntConsumer onEnter, Runnable onBack,
-            Runnable onShop, int heroFloor, int climbToFloor) {
+            Runnable onShop, Runnable onInventory, int heroFloor, int climbToFloor) {
         this.progress = progress;
         this.onEnter = onEnter;
         this.onBack = onBack;
         this.onShop = onShop;
+        this.onInventory = onInventory;
         this.heroFloor = clampFloor(heroFloor);
         this.climbToFloor = climbToFloor >= 1 && climbToFloor <= FLOOR_COUNT ? climbToFloor : -1;
 
@@ -208,22 +211,28 @@ public final class TowerMapWindow extends JFrame {
 
         JButton back = createBackButton();
         JButton shop = createShopButton();
+        JButton inventory = createInventoryButton();
         JPanel mapLayer = new JPanel(null) {
             @Override
             public void doLayout() {
                 scroll.setBounds(0, 0, getWidth(), getHeight());
                 back.setBounds(MAP_BUTTON_MARGIN, MAP_BUTTON_MARGIN, BACK_BUTTON_W, BACK_BUTTON_H);
-                shop.setBounds(Math.max(MAP_BUTTON_MARGIN, getWidth() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN),
-                        Math.max(MAP_BUTTON_MARGIN, getHeight() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN),
-                        SHOP_BUTTON_SIZE, SHOP_BUTTON_SIZE);
+                int shopX = Math.max(MAP_BUTTON_MARGIN, getWidth() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN);
+                int shopY = Math.max(MAP_BUTTON_MARGIN, getHeight() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN);
+                shop.setBounds(shopX, shopY, SHOP_BUTTON_SIZE, SHOP_BUTTON_SIZE);
+                // Inventory icon sits just to the left of the shop icon.
+                inventory.setBounds(Math.max(MAP_BUTTON_MARGIN, shopX - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN),
+                        shopY, SHOP_BUTTON_SIZE, SHOP_BUTTON_SIZE);
             }
         };
         mapLayer.setBackground(BACKDROP);
         mapLayer.add(scroll);
         mapLayer.add(back);
         mapLayer.add(shop);
+        mapLayer.add(inventory);
         mapLayer.setComponentZOrder(back, 0);
         mapLayer.setComponentZOrder(shop, 0);
+        mapLayer.setComponentZOrder(inventory, 0);
         root.add(mapLayer, BorderLayout.CENTER);
 
         setContentPane(root);
@@ -273,6 +282,29 @@ public final class TowerMapWindow extends JFrame {
             }
         });
         return shop;
+    }
+
+    private JButton createInventoryButton() {
+        JButton inventory = new JButton();
+        inventory.setBorder(BorderFactory.createEmptyBorder());
+        inventory.setContentAreaFilled(false);
+        inventory.setBorderPainted(false);
+        inventory.setOpaque(false);
+        inventory.setFocusable(false);
+        inventory.setToolTipText("Inventory");
+        if (INVENTORY != null) {
+            Image scaled = INVENTORY.getScaledInstance(SHOP_ICON_SIZE, SHOP_ICON_SIZE, Image.SCALE_SMOOTH);
+            inventory.setIcon(new ImageIcon(scaled));
+        } else {
+            inventory.setText("INV");
+        }
+        inventory.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            if (onInventory != null) {
+                onInventory.run();
+            }
+        });
+        return inventory;
     }
 
     /** The interactive tower: paints the art, lock seals, and hover/click state. */

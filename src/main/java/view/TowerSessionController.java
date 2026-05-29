@@ -6,11 +6,13 @@ import engine.DungeonLevelFactory;
 import engine.GameEngine;
 import engine.GameStateSnapshot;
 import engine.LevelCompletionResult;
+import engine.PetController;
 import engine.ShopController;
 import engine.TowerProgressController;
 import engine.audio.AudioManager;
 import model.DungeonLevel;
 import model.FullGameInventory;
+import model.Hero;
 import model.ShopCatalog;
 import model.ValuableItem;
 import save.SaveGameException;
@@ -30,6 +32,7 @@ public final class TowerSessionController {
     private TowerMapWindow mapWindow;
     private GameWindow gameWindow;
     private ShopWindow shopWindow;
+    private TowerInventoryWindow inventoryWindow;
     private int currentFloor = 1;
 
     public TowerSessionController(TowerProgressController progress) {
@@ -47,7 +50,7 @@ public final class TowerSessionController {
     private void openTowerMap(int heroFloor, int climbToFloor) {
         currentFloor = heroFloor;
         mapWindow = new TowerMapWindow(progress, this::enterLevel, this::returnToMainMenu,
-                this::openShop, heroFloor, climbToFloor);
+                this::openShop, this::openInventory, heroFloor, climbToFloor);
         mapWindow.setVisible(true);
     }
 
@@ -63,19 +66,39 @@ public final class TowerSessionController {
         ShopController shopController = new ShopController(fullInventory, new ShopCatalog());
         shopWindow = new ShopWindow(fullInventory, shopController, () -> {
             shopWindow = null;
-            persistShopChanges();
+            persistProgress();
             openTowerMap(currentFloor, -1);
         });
         shopWindow.setVisible(true);
     }
 
-    /** Persists buy/sell results made in the shop, mirroring floor-completion saves. */
-    private void persistShopChanges() {
+    /** Opens the persistent full-game inventory from the tower map's inventory icon. */
+    private void openInventory() {
+        if (mapWindow != null) {
+            mapWindow.dispose();
+            mapWindow = null;
+        }
+        FullGameInventory fullInventory = new FullGameInventory();
+        PetController petController = null;
+        if (progress.getActiveEngine() != null && progress.getActiveEngine().getHero() != null) {
+            Hero hero = progress.getActiveEngine().getHero();
+            fullInventory = hero.getFullInventory();
+            petController = new PetController(hero);
+        }
+        inventoryWindow = new TowerInventoryWindow(fullInventory, petController, this::persistProgress, () -> {
+            inventoryWindow = null;
+            openTowerMap(currentFloor, -1);
+        });
+        inventoryWindow.setVisible(true);
+    }
+
+    /** Persists in-memory changes made outside gameplay (shop buy/sell, pet equip). */
+    private void persistProgress() {
         try {
             progress.saveActiveProgress();
         } catch (SaveGameException ex) {
-            ItemActionMenuDialog.showNotice(null, "Shop", "Save Failed",
-                    "Your shop changes could not be saved.");
+            ItemActionMenuDialog.showNotice(null, "Tower", "Save Failed",
+                    "Your changes could not be saved.");
         }
     }
 
@@ -152,6 +175,10 @@ public final class TowerSessionController {
         if (shopWindow != null) {
             shopWindow.dispose();
             shopWindow = null;
+        }
+        if (inventoryWindow != null) {
+            inventoryWindow.dispose();
+            inventoryWindow = null;
         }
         AudioManager.shared().startMenuMusic();
         new MainMenuWindow().setVisible(true);

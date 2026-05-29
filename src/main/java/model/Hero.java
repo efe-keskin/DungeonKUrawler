@@ -20,6 +20,8 @@ public class Hero extends Entity {
     private Armor equippedArmor;
     private Weapon equippedWeapon;
     private Ring equippedRing;
+    /** Active companion (persistent; lives in {@link #fullInventory}). */
+    private Pet equippedPet;
 
     public Hero(int x, int y, String name, int hp, int str, int mana, int def, int energy) {
         super(x, y, name);
@@ -99,6 +101,15 @@ public class Hero extends Entity {
     /** The run-wide persistent inventory (gold + valuables + purchases). */
     public FullGameInventory getFullInventory() {
         return fullInventory;
+    }
+
+    /** The active companion, or {@code null} if none is equipped. */
+    public Pet getEquippedPet() {
+        return equippedPet;
+    }
+
+    public void setEquippedPet(Pet equippedPet) {
+        this.equippedPet = equippedPet;
     }
 
     /**

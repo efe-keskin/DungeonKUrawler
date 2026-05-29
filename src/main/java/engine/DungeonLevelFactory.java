@@ -231,6 +231,8 @@ public final class DungeonLevelFactory {
                 source.getMaxHp(), source.getStr(), source.getMaxMana(),
                 source.getBaseDef(), source.getMaxEnergy());
         hero.getFullInventory().copyFrom(source.getFullInventory());
+        // copyFrom keeps the same item instances, so the equipped pet is still present.
+        hero.setEquippedPet(source.getEquippedPet());
         return hero;
     }
 }

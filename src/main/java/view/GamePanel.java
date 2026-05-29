@@ -38,6 +38,7 @@ import model.GridCell;
 import model.Hero;
 import model.Item;
 import model.Knight;
+import model.PetEntity;
 import model.Potion;
 import model.Projectile;
 import model.SearchableObject;
@@ -917,7 +918,8 @@ private void handleInventoryKeyPress() {
                     continue;
                 }
                 for (Entity entity : cell.getEntitiesView()) {
-                    if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy)) {
+                    if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy
+                            || entity instanceof PetEntity)) {
                         continue;
                     }
                     seen.add(entity);
@@ -1124,6 +1126,9 @@ private void handleInventoryKeyPress() {
         } else if (ent instanceof BossEnemy boss) {
             currentHp = boss.getHp();
             maxHp = boss.getMaxHp();
+        } else if (ent instanceof PetEntity petEntity) {
+            currentHp = petEntity.getPet().getHp();
+            maxHp = petEntity.getPet().getMaxHp();
         } else {
             return;
         }
@@ -1150,7 +1155,10 @@ private void handleInventoryKeyPress() {
     private void drawAiStateLabel(Graphics2D g2, Entity ent, int px, int py, int cellW) {
         String label;
         Color color;
-        if (ent instanceof Knight k) {
+        if (engine.isEnemyFrozen(ent)) {
+            label = "FROZEN";
+            color = new Color(110, 220, 255);
+        } else if (ent instanceof Knight k) {
             label = k.getAiState().name();
             color = k.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
         } else if (ent instanceof Sorcerer s) {
