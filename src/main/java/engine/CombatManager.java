@@ -132,6 +132,10 @@ public final class CombatManager {
         return HERO_RANGED_MANA_COST;
     }
 
+    public static int sorcererProjectileManaCost() {
+        return SORCERER_PROJECTILE_MANA_COST;
+    }
+
     /**
      * Applies a knight melee attack to the hero.
      *
@@ -143,7 +147,16 @@ public final class CombatManager {
         return applyDamageToHero(hero, damageGenerated, damageReceived);
     }
 
-  /**
+    public AttackResult teamKnightAttacks(Knight attacker, Entity target) {
+        if (attacker == null || target == null || !attacker.hasWeapon()) {
+            return null;
+        }
+        int damageGenerated = generateDamage(attacker.getWeapon().getAtkValue(), attacker.getStr());
+        int damageReceived = receiveDamage(damageGenerated, defenseOf(target), strengthOf(target));
+        return applyDamageToEntity(target, damageGenerated, damageReceived);
+    }
+
+    /**
      * Raw projectile roll after mana is spent (damage is applied on impact).
      */
     public static final class SorcererProjectilePrep {
@@ -169,6 +182,16 @@ public final class CombatManager {
         int damageGenerated = generateDamage(SORCERER_PROJECTILE_ATK, 0);
         int damageReceived = receiveDamage(damageGenerated, hero.getDef(), hero.getStr());
         return new SorcererProjectilePrep(damageGenerated, damageReceived);
+    }
+
+    public AttackResult teamSorcererAttacks(Sorcerer attacker, Entity target) {
+        if (attacker == null || target == null || attacker.getMana() < SORCERER_PROJECTILE_MANA_COST) {
+            return null;
+        }
+        attacker.setMana(attacker.getMana() - SORCERER_PROJECTILE_MANA_COST);
+        int damageGenerated = generateDamage(SORCERER_PROJECTILE_ATK, 0);
+        int damageReceived = receiveDamage(damageGenerated, defenseOf(target), strengthOf(target));
+        return applyDamageToEntity(target, damageGenerated, damageReceived);
     }
 
     /**
@@ -200,6 +223,29 @@ public final class CombatManager {
         return weapon == null ? UNARMED_ATK : weapon.getAtkValue();
     }
 
+    private int defenseOf(Entity target) {
+        if (target instanceof Hero hero) {
+            return hero.getDef();
+        }
+        if (target instanceof Knight knight) {
+            return knight.getDef();
+        }
+        if (target instanceof Sorcerer sorcerer) {
+            return sorcerer.getDef();
+        }
+        return 0;
+    }
+
+    private int strengthOf(Entity target) {
+        if (target instanceof Hero hero) {
+            return hero.getStr();
+        }
+        if (target instanceof Knight knight) {
+            return knight.getStr();
+        }
+        return 0;
+    }
+
     private int generateDamage(int weaponAtk, int attackerStr) {
         return (int) Math.round(weaponAtk * (1 + attackerStr / 20.0));
     }
@@ -228,5 +274,18 @@ public final class CombatManager {
         int hpAfter = Math.max(0, target.getHp() - damageReceived);
         target.setHp(hpAfter);
         return new AttackResult(damageGenerated, damageReceived, hpAfter, hpAfter == 0);
+    }
+
+    private AttackResult applyDamageToEntity(Entity target, int damageGenerated, int damageReceived) {
+        if (target instanceof Hero hero) {
+            return applyDamageToHero(hero, damageGenerated, damageReceived);
+        }
+        if (target instanceof Knight knight) {
+            return applyDamageToKnight(knight, damageGenerated, damageReceived);
+        }
+        if (target instanceof Sorcerer sorcerer) {
+            return applyDamageToSorcerer(sorcerer, damageGenerated, damageReceived);
+        }
+        return new AttackResult(damageGenerated, 0, 0, false);
     }
 }

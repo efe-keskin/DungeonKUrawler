@@ -23,6 +23,7 @@ import engine.CombatController;
 import engine.CombatManager;
 import engine.Direction;
 import engine.GameEngine;
+import engine.GameMode;
 import engine.InventoryController;
 import engine.LockController;
 import engine.PlayerModeController;
@@ -885,10 +886,12 @@ private void handleInventoryKeyPress() {
 
     private void drawHero(Graphics2D g2, DungeonMap map, int tileSize, int offsetX, int offsetY) {
         Hero hero = engine.getHero();
-        if (hero == null) {
+        if (hero == null || (engine.getGameMode() == GameMode.TEAM_MATCH && hero.getHp() <= 0)) {
             return;
         }
 
+        // In Team Match the hero is controlled by the player and remains visually
+        // the hero character, even though he belongs to Team B's knight-side group.
         BufferedImage heroSprite = SpriteRegistry.heroFrame(heroFrame);
         if (heroSprite == null) {
             GridCell cell = map.getCell(hero.getX(), hero.getY());

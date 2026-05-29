@@ -66,6 +66,7 @@ class BuildModeControllerTest {
         controller.placeToolAt(2, 2, controller.findTool("HEAL"));
         controller.placeToolAt(3, 3, controller.findTool("WALL"));
         controller.placeToolAt(4, 0, controller.findTool("POOL"));
+        controller.placeToolAt(5, 5, controller.findTool("LOCKED_CHEST"));
 
         Path path = tempDir.resolve("roundtrip.dkmap");
         controller.saveMap(path);

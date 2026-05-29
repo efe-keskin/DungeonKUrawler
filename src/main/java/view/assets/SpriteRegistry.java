@@ -20,6 +20,7 @@ import model.EnergyPotion;
 import model.ManaPotion;
 import model.Ring;
 import model.Sorcerer;
+import model.Team;
 import model.ValuableItem;
 
 /**
@@ -104,6 +105,14 @@ public final class SpriteRegistry {
         AssetId primary = assetFor(entity);
         if (primary == null) {
             return null;
+        }
+        // Team color decision: Team A is the red team. Team B keeps the default
+        // blue-ish sprites, and the player-controlled hero keeps the hero art.
+        if (entity instanceof Knight && entity.getTeam() == Team.TEAM_A) {
+            return AssetManager.get().imageOrFallback(AssetId.RED_KNIGHT, AssetId.KNIGHT);
+        }
+        if (entity instanceof Sorcerer && entity.getTeam() == Team.TEAM_A) {
+            return AssetManager.get().imageOrFallback(AssetId.RED_WIZARD, AssetId.SORCERER, AssetId.WIZARD);
         }
         if (primary == AssetId.SORCERER) {
             return AssetManager.get().imageOrFallback(AssetId.SORCERER, AssetId.WIZARD);
