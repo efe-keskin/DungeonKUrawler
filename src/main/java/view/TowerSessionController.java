@@ -25,6 +25,7 @@ public final class TowerSessionController {
 
     private TowerMapWindow mapWindow;
     private GameWindow gameWindow;
+    private int currentFloor = 1;
 
     public TowerSessionController(TowerProgressController progress) {
         this.progress = progress;
@@ -32,7 +33,16 @@ public final class TowerSessionController {
 
     /** Opens (or reopens) the tower map showing current floor statuses. */
     public void openTowerMap() {
-        mapWindow = new TowerMapWindow(progress, this::enterLevel, this::returnToMainMenu);
+        if (progress.getProgress() != null) {
+            currentFloor = progress.getProgress().highestUnlockedLevel();
+        }
+        openTowerMap(currentFloor, -1);
+    }
+
+    private void openTowerMap(int heroFloor, int climbToFloor) {
+        currentFloor = heroFloor;
+        mapWindow = new TowerMapWindow(progress, this::enterLevel, this::returnToMainMenu,
+                heroFloor, climbToFloor);
         mapWindow.setVisible(true);
     }
 
@@ -45,6 +55,7 @@ public final class TowerSessionController {
         if (!progress.canEnter(levelNumber)) {
             return;
         }
+        currentFloor = levelNumber;
         DungeonLevel level = progress.getLevel(levelNumber);
         GameStateSnapshot snapshot = GameStateSnapshot.of(progress.getActiveEngine());
         GameEngine engine = levelFactory.createEngine(level, snapshot);
@@ -89,8 +100,10 @@ public final class TowerSessionController {
         if (result.finalLevel()) {
             ItemActionMenuDialog.showNotice(null, "Tower", "Tower Cleared",
                     "You have conquered the final floor. The tower is yours!");
+            openTowerMap(result.levelNumber(), -1);
+            return;
         }
-        openTowerMap();
+        openTowerMap(result.levelNumber(), result.levelNumber() + 1);
     }
 
     /** Convenience for the menu: build a session around loaded progress and show the map. */
