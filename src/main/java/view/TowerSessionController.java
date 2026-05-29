@@ -6,10 +6,14 @@ import engine.DungeonLevelFactory;
 import engine.GameEngine;
 import engine.GameStateSnapshot;
 import engine.LevelCompletionResult;
+import engine.ShopController;
 import engine.TowerProgressController;
 import engine.audio.AudioManager;
 import model.DungeonLevel;
+import model.FullGameInventory;
+import model.ShopCatalog;
 import model.ValuableItem;
+import save.SaveGameException;
 
 /**
  * GRASP Controller / Indirection for the map to gameplay transition. Lives in the
@@ -52,15 +56,27 @@ public final class TowerSessionController {
             mapWindow.dispose();
             mapWindow = null;
         }
-        int gold = 0;
+        FullGameInventory fullInventory = new FullGameInventory();
         if (progress.getActiveEngine() != null && progress.getActiveEngine().getHero() != null) {
-            gold = progress.getActiveEngine().getHero().getCoinBalance();
+            fullInventory = progress.getActiveEngine().getHero().getFullInventory();
         }
-        shopWindow = new ShopWindow(gold, () -> {
+        ShopController shopController = new ShopController(fullInventory, new ShopCatalog());
+        shopWindow = new ShopWindow(fullInventory, shopController, () -> {
             shopWindow = null;
+            persistShopChanges();
             openTowerMap(currentFloor, -1);
         });
         shopWindow.setVisible(true);
+    }
+
+    /** Persists buy/sell results made in the shop, mirroring floor-completion saves. */
+    private void persistShopChanges() {
+        try {
+            progress.saveActiveProgress();
+        } catch (SaveGameException ex) {
+            ItemActionMenuDialog.showNotice(null, "Shop", "Save Failed",
+                    "Your shop changes could not be saved.");
+        }
     }
 
     /**

@@ -124,12 +124,30 @@ public final class TowerProgressController implements LevelCompletionListener {
 
         boolean alreadyCompleted = progress.statusOf(levelNumber) == LevelStatus.COMPLETED;
         progress.completeLevel(levelNumber);
-        if (!alreadyCompleted && activeEngine != null && activeEngine.getHero() != null) {
-            activeEngine.getHero().earnCoins(level.rewardGold());
+        if (activeEngine != null && activeEngine.getHero() != null) {
+            // UC-4: persist this floor's valuables into the full-game inventory
+            // before the save write; the per-level bag is discarded next floor.
+            activeEngine.getHero().commitLevelLoot();
+            if (!alreadyCompleted) {
+                activeEngine.getHero().earnCoins(level.rewardGold());
+            }
         }
 
         currentSave = saveController.updateSave(currentSave, activeEngine, progress);
         return level;
+    }
+
+    /**
+     * Persists the current carry-over session and progress into the existing
+     * save slot. Used for changes made outside floor completion (e.g. shop
+     * buy/sell). No-op when there is no loaded save slot yet — the changes stay
+     * in memory and are written on the next floor completion.
+     */
+    public void saveActiveProgress() throws SaveGameException {
+        if (progress == null || currentSave == null || activeEngine == null) {
+            return;
+        }
+        currentSave = saveController.updateSave(currentSave, activeEngine, progress);
     }
 
     /**

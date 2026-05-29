@@ -13,8 +13,9 @@ public class Hero extends Entity {
     private int def;
     private int energy;
     private final int maxEnergy;
-    private int coinBalance;
-    /** Strict capacity of 8 — enforced by {@link Inventory}. */
+    /** Run-wide persistent store: gold + valuables + shop purchases. */
+    private final FullGameInventory fullInventory = new FullGameInventory();
+    /** Per-level bag, strict capacity of 8 — enforced by {@link Inventory}. */
     private final Inventory inventory;
     private Armor equippedArmor;
     private Weapon equippedWeapon;
@@ -30,7 +31,7 @@ public class Hero extends Entity {
         this.def = def;
         this.energy = energy;
         this.maxEnergy = energy;
-        this.inventory = new Inventory(8);
+        this.inventory = new InGameInventory(8);
     }
 
     public int getMaxHp() {
@@ -95,6 +96,22 @@ public class Hero extends Entity {
         return inventory;
     }
 
+    /** The run-wide persistent inventory (gold + valuables + purchases). */
+    public FullGameInventory getFullInventory() {
+        return fullInventory;
+    }
+
+    /**
+     * UC-4 commit: moves the valuables collected this floor out of the per-level
+     * bag and into the persistent inventory. Coins already live in the gold
+     * balance; remaining temporary items are dropped when the bag is discarded.
+     */
+    public void commitLevelLoot() {
+        if (inventory instanceof InGameInventory bag) {
+            fullInventory.addAll(bag.drainValuables());
+        }
+    }
+
     public Armor getEquippedArmor() {
         return equippedArmor;
     }
@@ -152,11 +169,11 @@ public class Hero extends Entity {
     }
 
     public int getCoinBalance() {
-        return coinBalance;
+        return fullInventory.getGold();
     }
 
     public void setCoinBalance(int coinBalance) {
-        this.coinBalance = Math.max(0, coinBalance);
+        fullInventory.setGold(coinBalance);
     }
 
     /**
@@ -165,11 +182,7 @@ public class Hero extends Entity {
      * @return true when the balance changed; false for zero or negative rewards.
      */
     public boolean earnCoins(int amount) {
-        if (amount <= 0) {
-            return false;
-        }
-        coinBalance += amount;
-        return true;
+        return fullInventory.earn(amount);
     }
 
     public void updatePosition(int x, int y) {

@@ -76,6 +76,8 @@ public final class SaveDtos {
         public int equippedWeaponIndex = -1;
         public int equippedRingIndex = -1;
         public List<ItemDto> inventory = new ArrayList<>();
+        /** Run-wide persistent items (valuables + shop purchases); gold rides in coinBalance. */
+        public List<ItemDto> fullInventory = new ArrayList<>();
     }
 
     public static final class ItemDto {
