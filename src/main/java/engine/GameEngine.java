@@ -849,6 +849,8 @@ public class GameEngine {
         if (!canHeroAct()) {
             return;
         }
+        int heroDx = nx - hero.getX();
+        int heroDy = ny - hero.getY();
         GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
         GridCell to = dungeonMap.getCell(nx, ny);
 
@@ -861,6 +863,7 @@ public class GameEngine {
         if (to != null && !to.getEntities().contains(hero)) {
             to.getEntities().add(hero);
         }
+        moveShadowClonesOpposite(heroDx, heroDy);
 
         lastMoveNanos = System.nanoTime();
         fogEngine.revealAround(dungeonMap, hero);
@@ -1146,6 +1149,41 @@ public class GameEngine {
             }
         }
         return false;
+    }
+
+    private void moveShadowClonesOpposite(int heroDx, int heroDy) {
+        if (heroDx == 0 && heroDy == 0) {
+            return;
+        }
+        List<ShadowClone> clones = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Entity entity : cell.getEntitiesView()) {
+                    if (entity instanceof ShadowClone clone) {
+                        clones.add(clone);
+                    }
+                }
+            }
+        }
+        for (ShadowClone clone : clones) {
+            moveShadowClone(clone, -heroDx, -heroDy);
+        }
+    }
+
+    private void moveShadowClone(ShadowClone clone, int dx, int dy) {
+        GridCell from = dungeonMap.getCell(clone.getX(), clone.getY());
+        GridCell to = dungeonMap.getCell(clone.getX() + dx, clone.getY() + dy);
+        if (from == null || to == null || !to.isWalkable() || !to.getEntitiesView().isEmpty()) {
+            return;
+        }
+        from.getEntities().remove(clone);
+        clone.setX(to.getX());
+        clone.setY(to.getY());
+        to.getEntities().add(clone);
     }
 
     /**
