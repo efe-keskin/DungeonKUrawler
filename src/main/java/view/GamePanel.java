@@ -270,7 +270,6 @@ public class GamePanel extends JPanel implements GameStateListener {
                 if (!isContentVisible(map, gridX, gridY)) {
                     return;
                 }
-                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
                 if (attackResult != null) {
@@ -287,6 +286,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
                 for (int i = 0; i < interactions.size(); i++) {
                     InteractionController.ItemInteraction interaction = interactions.get(i);
                     boolean handled = presentItemInteraction(parent, interaction, i, interactions.size());
@@ -351,9 +351,9 @@ public class GamePanel extends JPanel implements GameStateListener {
             }
         } else if (picked.getInventoryAction() == model.ItemAction.SEARCH
                 && interaction.getItem() instanceof SearchableObject searchableObject) {
-            showSearchResult(parent, interactionController.search(searchableObject));
+            showSearchResult(interactionController.search(searchableObject));
         } else if (picked.getInventoryAction() == model.ItemAction.BREAK) {
-            showBreakResult(parent, interactionController.breakObjectAt(interaction.getItem(),
+            showBreakResult(interactionController.breakObjectAt(interaction.getItem(),
                     interaction.getX(), interaction.getY()));
         } else if (!interactionController.applyGroundAction(interaction.getItem(),
                 interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
@@ -412,16 +412,18 @@ public class GamePanel extends JPanel implements GameStateListener {
         SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
     }
 
-    private void showSearchResult(Window parent, GameEngine.SearchResult result) {
+    private void showSearchResult(GameEngine.SearchResult result) {
         switch (result.getOutcome()) {
-            case FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Found",
-                    "You have found a " + result.getFoundItem().getName() + ".");
-            case NOTHING_FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Nothing Found",
-                    "you couldn't found anything");
-            case INVENTORY_FULL -> ItemActionMenuDialog.showNotice(parent, "Search", "Inventory Full",
-                    "You have found a " + result.getFoundItem().getName()
+            case FOUND -> {
+                // Successful search already gives visual feedback by revealing the
+                // item on the ground, so no blocking popup is needed here.
+            }
+            case NOTHING_FOUND -> showTransientWarning("Nothing Found",
+                    "You couldn't find anything.");
+            case INVENTORY_FULL -> showTransientWarning("Inventory Full",
+                    "You found a " + result.getFoundItem().getName()
                             + ", but your inventory is full.");
-            case NOT_SEARCHABLE -> ItemActionMenuDialog.showNotice(parent, "Search", "Cannot Search",
+            case NOT_SEARCHABLE -> showTransientWarning("Cannot Search",
                     "This location cannot be searched.");
         }
     }
@@ -456,7 +458,10 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         Container container = engine.findContainerNearHero();
         if (container == null) {
-            // No container in reach; stay silent rather than nagging.
+            SearchableObject searchableObject = engine.findSearchableNearHero();
+            if (searchableObject != null) {
+                showSearchResult(interactionController.search(searchableObject));
+            }
             requestFocusInWindow();
             return;
         }
@@ -510,24 +515,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         // No enemy in reach; try to break a nearby breakable object instead.
         InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
         // Nothing breakable in reach (breakResult == null): stay silent.
-        showBreakResult(SwingUtilities.getWindowAncestor(this), breakResult);
+        showBreakResult(breakResult);
         requestFocusInWindow();
     }
 
-    private void showBreakResult(Window parent, InteractionController.BreakResult result) {
+    private void showBreakResult(InteractionController.BreakResult result) {
         if (result == null || result.broken()) {
+            // Successful break removes the object and drops loot directly on the
+            // tile, so the map itself is the feedback.
             return;
         }
         if (result.outcome() == InteractionController.BreakOutcome.NOT_ENOUGH_ENERGY) {
-            ItemActionMenuDialog.showNotice(parent, "Break", "Not Enough Energy",
+            showTransientWarning("Not Enough Energy",
                     "Breaking the " + result.objectName() + " requires "
                             + result.energyCost() + " energy.");
             return;
         }
         int chancePercent = Math.round((float) (result.successChance() * 100));
-        ItemActionMenuDialog.showNotice(parent, "Break", "Break Failed",
-                "You failed to break the " + result.objectName()
-                        + ". Success chance was " + chancePercent + "%.");
+        showTransientWarning("Break Failed",
+                "Not strong enough this time. Success chance was " + chancePercent + "%.");
     }
 
     private void handleTakeKeyPress() {

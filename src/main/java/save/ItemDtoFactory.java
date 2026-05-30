@@ -113,6 +113,7 @@ final class ItemDtoFactory {
 
         if (item instanceof SearchableObject searchableObject) {
             dto.hiddenItem = toDto(searchableObject.getHiddenItem(), missionTarget);
+            dto.searched = searchableObject.isSearched();
         }
 
         if (item instanceof Pet pet) {
@@ -177,6 +178,9 @@ final class ItemDtoFactory {
         if (item instanceof Pet pet && dto.petMaxHp > 0) {
             pet.setHp(dto.petHp);
             pet.setState(parsePetState(dto.petState));
+        }
+        if (item instanceof SearchableObject searchableObject) {
+            searchableObject.setSearched(dto.searched);
         }
         if (dto.missionTarget && item instanceof ValuableItem valuableItem && context != null) {
             context.missionTarget = valuableItem;

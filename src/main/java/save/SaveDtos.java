@@ -111,6 +111,7 @@ public final class SaveDtos {
 
         public boolean blocking;
         public ItemDto hiddenItem;
+        public boolean searched;
 
         public int petHp;
         public int petMaxHp;

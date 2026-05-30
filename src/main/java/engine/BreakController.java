@@ -5,26 +5,16 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import model.Armor;
 import model.Column;
-import model.Coin;
 import model.Container;
 import model.Crate;
-import model.EnergyPotion;
 import model.GridCell;
-import model.HealPotion;
 import model.Hero;
 import model.Item;
 import model.ItemAction;
-import model.Key;
-import model.KeyColor;
-import model.ManaPotion;
 import model.SearchableObject;
-import model.Ring;
 import model.Vase;
 import model.WaterPipe;
-import model.Weapon;
-import model.WeaponCatalog;
 
 /**
  * GRASP Controller for the BREAK action. It owns the break chance formula and
@@ -37,7 +27,6 @@ final class BreakController {
     private static final double STR_CHANCE_STEP = 0.05;
     private static final double MIN_SUCCESS_CHANCE = 0.10;
     private static final double MAX_SUCCESS_CHANCE = 0.90;
-    private static final double RANDOM_LOOT_CHANCE = 0.75;
 
     private static final int VASE_DIFFICULTY = 4;
     private static final int CRATE_DIFFICULTY = 7;
@@ -134,37 +123,14 @@ final class BreakController {
         }
         // If the object did not already hide loot, successful breaks still have
         // a 75% chance to reward the player from the small loot table below.
-        if (drops.isEmpty() && random.nextDouble() < RANDOM_LOOT_CHANCE) {
-            drops.add(randomLoot());
+        if (drops.isEmpty() && ObjectLootTable.shouldDropRandomLoot(random)) {
+            drops.add(ObjectLootTable.randomLoot(random));
         }
         return drops;
     }
 
     // Loot table after a successful break with no hidden item:
     // 35% coin, 20% heal, 15% energy, 15% mana, 7% key, 5% ring, 3% weapon/armor.
-    private Item randomLoot() {
-        double roll = random.nextDouble();
-        if (roll < 0.35) {
-            return new Coin(10);
-        }
-        if (roll < 0.55) {
-            return new HealPotion();
-        }
-        if (roll < 0.70) {
-            return new EnergyPotion();
-        }
-        if (roll < 0.85) {
-            return new ManaPotion();
-        }
-        if (roll < 0.92) {
-            return new Key("silver", KeyColor.SILVER);
-        }
-        if (roll < 0.97) {
-            return new Ring("Protective Ring", 1);
-        }
-        if (random.nextDouble() < 0.5) {
-            return new Weapon(WeaponCatalog.get().byId("W006"));
-        }
-        return new Armor("Leather Armor", 1);
-    }
+    // The actual item creation lives in ObjectLootTable so search and break use
+    // the same probabilities.
 }

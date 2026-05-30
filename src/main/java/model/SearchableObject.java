@@ -9,6 +9,7 @@ public class SearchableObject extends StaticObject {
 
     private final String spriteResource;
     private Item hiddenItem;
+    private boolean searched;
 
     public SearchableObject(String name, boolean blocking, String spriteResource) {
         this(name, blocking, spriteResource, null);
@@ -26,12 +27,27 @@ public class SearchableObject extends StaticObject {
 
     public void setHiddenItem(Item hiddenItem) {
         this.hiddenItem = hiddenItem;
+        if (hiddenItem != null) {
+            searched = false;
+        }
     }
 
     public Item takeHiddenItem() {
         Item item = hiddenItem;
         hiddenItem = null;
         return item;
+    }
+
+    public boolean isSearched() {
+        return searched;
+    }
+
+    public void setSearched(boolean searched) {
+        this.searched = searched;
+    }
+
+    public void markSearched() {
+        searched = true;
     }
 
     @Override

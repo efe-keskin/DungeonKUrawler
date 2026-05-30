@@ -1,5 +1,6 @@
 package engine;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,6 +39,11 @@ class DesignedMapMissionTest {
             assertSame(target, searchable.getHiddenItem());
 
             assertTrue(engine.search(searchable).getFoundItem() == target);
+            assertTrue(map.getCell(3, 0).getItemsView().contains(target));
+            assertFalse(engine.isMissionVictory());
+            assertFalse(engine.isGameOver());
+
+            assertTrue(engine.takeItem(target, 3, 0));
             assertTrue(engine.isMissionVictory());
             assertTrue(engine.isGameOver());
         } finally {
