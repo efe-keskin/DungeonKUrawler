@@ -25,13 +25,26 @@ public final class SaveGameController {
         return service.saveGame(engine, saveName);
     }
 
+    public SaveDescriptor saveCustomGame(GameEngine engine, String saveName) throws SaveGameException {
+        return service.saveCustomGame(engine, saveName);
+    }
+
     public SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName)
             throws SaveGameException {
         return service.saveGame(engine, towerProgress, saveName);
     }
 
+    public SaveDescriptor saveScenarioCheckpoint(GameEngine engine, TowerProgress towerProgress, String saveName)
+            throws SaveGameException {
+        return service.saveScenarioCheckpoint(engine, towerProgress, saveName);
+    }
+
     public List<SaveDescriptor> listSaves() throws SaveGameException {
         return service.listSaves();
+    }
+
+    public List<SaveDescriptor> listSaves(SaveGameType saveType) throws SaveGameException {
+        return service.listSaves(saveType);
     }
 
     public GameEngine loadGame(SaveDescriptor descriptor) throws SaveGameException {

@@ -46,7 +46,9 @@ public final class ItemActionMenuDialog {
     private static final Color TITLE = new Color(240, 222, 180);
     private static final Color DETAIL = new Color(198, 190, 170);
     private static final Color BADGE = new Color(224, 176, 68);
-    private static final int WIDTH = 390;
+    private static final int MIN_WIDTH = 390;
+    private static final int MAX_WIDTH = 720;
+    private static final int BUTTON_GAP = 12;
 
     private ItemActionMenuDialog() {
     }
@@ -83,7 +85,7 @@ public final class ItemActionMenuDialog {
         CardPanel card = new CardPanel();
         card.setLayout(new BorderLayout(0, 18));
         card.setBorder(new EmptyBorder(30, 29, 27, 29));
-        card.setPreferredSize(new Dimension(WIDTH, calculateHeight(detail, labels.length)));
+        card.setPreferredSize(new Dimension(calculateWidth(labels), calculateHeight(detail, labels.length)));
 
         JPanel header = transparentPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
@@ -117,7 +119,7 @@ public final class ItemActionMenuDialog {
         card.add(header, BorderLayout.CENTER);
 
         JPanel buttonRow = transparentPanel();
-        buttonRow.setLayout(new GridLayout(1, Math.max(1, labels.length), 12, 0));
+        buttonRow.setLayout(new GridLayout(1, Math.max(1, labels.length), BUTTON_GAP, 0));
         for (int i = 0; i < labels.length; i++) {
             final int optionIndex = i;
             ActionButton button = new ActionButton(labels[i], i == 0);
@@ -145,8 +147,25 @@ public final class ItemActionMenuDialog {
                 detailLines += Math.max(1, (line.length() + 43) / 44);
             }
         }
-        return 224 + Math.min(3, Math.max(0, detailLines - 1)) * 16
+        return 224 + Math.min(12, Math.max(0, detailLines - 1)) * 16
                 + (optionCount > 2 ? 4 : 0);
+    }
+
+    private static int calculateWidth(String[] labels) {
+        int optionCount = labels == null ? 0 : labels.length;
+        if (optionCount <= 2) {
+            return MIN_WIDTH;
+        }
+        int longest = 0;
+        for (String label : labels) {
+            longest = Math.max(longest, label == null ? 0 : label.length());
+        }
+        // The retro font is wide; give each button enough room for long labels
+        // like "Return to Tower" without shrinking the rest of the dialog.
+        int buttonWidth = Math.max(118, longest * 9 + 54);
+        int horizontalInsets = 58;
+        int width = horizontalInsets + optionCount * buttonWidth + (optionCount - 1) * BUTTON_GAP;
+        return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
     }
 
     private static Font font(Font configured, int style, float size) {

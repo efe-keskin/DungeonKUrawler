@@ -428,6 +428,20 @@ public class GameEngine {
         this.levelCompleted = false;
     }
 
+    /** True when this engine is currently running a scenario/tower floor. */
+    public boolean isTowerLevel() {
+        return towerLevelNumber > 0;
+    }
+
+    /** 1-based scenario floor number, or 0 outside scenario mode. */
+    public int getTowerLevelNumber() {
+        return towerLevelNumber;
+    }
+
+    public boolean isFinalTowerLevel() {
+        return finalTowerLevel;
+    }
+
     /** Registers the single subscriber notified when this floor is completed. */
     public void setLevelCompletionListener(LevelCompletionListener listener) {
         this.levelCompletionListener = listener;

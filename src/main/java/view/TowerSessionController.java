@@ -16,6 +16,7 @@ import model.Hero;
 import model.ShopCatalog;
 import model.TowerScenario;
 import model.ValuableItem;
+import save.ScenarioCheckpointSaveStrategy;
 import save.SaveGameException;
 
 /**
@@ -128,7 +129,8 @@ public final class TowerSessionController {
             mapWindow.dispose();
             mapWindow = null;
         }
-        gameWindow = new GameWindow(engine);
+        gameWindow = new GameWindow(engine, new ScenarioCheckpointSaveStrategy(progress),
+                new TowerReturnStrategy(this::returnToTowerFromGameplay));
         if (levelNumber == 5) {
             showFearOfTheDarkIntro();
         }
@@ -162,11 +164,40 @@ public final class TowerSessionController {
             mapWindow.dispose();
             mapWindow = null;
         }
-        gameWindow = new GameWindow(engine);
+        gameWindow = new GameWindow(engine, new ScenarioCheckpointSaveStrategy(progress),
+                new TowerReturnStrategy(this::returnToTowerFromGameplay));
         if (levelNumber == 5) {
             showFearOfTheDarkIntro();
         }
         gameWindow.setVisible(true);
+    }
+
+    /**
+     * Opens the loaded scenario checkpoint directly in gameplay. If the selected
+     * save has no in-floor checkpoint metadata, fall back to the tower map.
+     */
+    public void resumeCheckpoint() {
+        GameEngine engine = progress.getActiveEngine();
+        if (engine == null || !engine.isTowerLevel()) {
+            openTowerMap();
+            return;
+        }
+        currentFloor = engine.getTowerLevelNumber();
+        engine.setLevelCompletionListener(progress);
+        progress.setOnLevelCompleted(result ->
+                SwingUtilities.invokeLater(() -> onFloorCleared(result)));
+        AudioManager.shared().stopMenuMusic();
+        gameWindow = new GameWindow(engine, new ScenarioCheckpointSaveStrategy(progress),
+                new TowerReturnStrategy(this::returnToTowerFromGameplay));
+        gameWindow.setVisible(true);
+    }
+
+    private void returnToTowerFromGameplay() {
+        if (gameWindow != null) {
+            gameWindow.dispose();
+            gameWindow = null;
+        }
+        openTowerMap(currentFloor, -1);
     }
 
     /**
@@ -223,6 +254,11 @@ public final class TowerSessionController {
     /** Convenience for the menu: build a session around loaded progress and show the map. */
     public static void startFrom(TowerProgressController progress) {
         new TowerSessionController(progress).openTowerMap();
+    }
+
+    /** Convenience for the menu: resume a loaded in-floor checkpoint directly. */
+    public static void resumeFromCheckpoint(TowerProgressController progress) {
+        new TowerSessionController(progress).resumeCheckpoint();
     }
 
     private void returnToMainMenu() {
