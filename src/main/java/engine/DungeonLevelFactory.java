@@ -1,5 +1,6 @@
 package engine;
 
+import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -18,6 +19,7 @@ import model.Key;
 import model.KeyColor;
 import model.LevelType;
 import model.Torch;
+import model.TowerScenario;
 
 /**
  * Simple Factory (GoF / Pure Fabrication): builds a configured {@link GameEngine}
@@ -32,15 +34,23 @@ public final class DungeonLevelFactory {
 
     private static final int HERO_START_X = 1;
     private static final int HERO_START_Y = 1;
+    private static final String TOWER_MAP_DIR = "/maps/tower/";
 
     private final Random random;
+    private final BuildMapPersistence mapPersistence;
 
     public DungeonLevelFactory() {
         this(ThreadLocalRandom.current());
     }
 
     public DungeonLevelFactory(Random random) {
-        this.random = random;
+        this(random, new BuildMapPersistence(
+                new BuildToolCatalog(), new BuildMapFactory(), new StandardBuildPlacementStrategy()));
+    }
+
+    DungeonLevelFactory(Random random, BuildMapPersistence mapPersistence) {
+        this.random = random == null ? ThreadLocalRandom.current() : random;
+        this.mapPersistence = mapPersistence;
     }
 
     /**
@@ -48,7 +58,7 @@ public final class DungeonLevelFactory {
      * from {@code state} (or a fresh hero if none) on a newly built floor map.
      */
     public GameEngine createEngine(DungeonLevel level, GameStateSnapshot state) {
-        DungeonMap map = createMap(level);
+        DungeonMap map = createMapForFloor(level);
         // In-game items (potions, valuables found here) do not carry between
         // floors; only the persistent meta-state (gold, stats) follows the hero.
         Hero hero = (state == null || state.hero() == null) ? defaultHero() : carryOverHero(state.hero());
@@ -80,11 +90,44 @@ public final class DungeonLevelFactory {
     }
 
     /**
-     * Builds a bordered room sized to the floor's difficulty, with a few
-     * interior obstacles and a loot chest. The cell at (1,1) is always
-     * walkable so the hero has a valid start.
+     * Loads the designed JSON map for a tower floor. The generated room remains
+     * as a defensive fallback so a missing resource never prevents play.
      */
-    private DungeonMap createMap(DungeonLevel level) {
+    public DungeonMap createMapForFloor(int floorNumber) {
+        return createMapForFloor(TowerScenario.defaultScenario().getLevel(floorNumber));
+    }
+
+    public DungeonMap createMapForFloor(DungeonLevel level) {
+        if (level == null) {
+            throw new IllegalArgumentException("Tower level is required.");
+        }
+        DungeonMap map = loadDesignedMap(level);
+        if (map == null) {
+            map = createGeneratedFallbackMap(level);
+        }
+        map.setFogEnabled(level.fogHidden());
+        if (level.fogHidden()) {
+            seedStarterTorch(map);
+        }
+        return map;
+    }
+
+    private DungeonMap loadDesignedMap(DungeonLevel level) {
+        String resource = TOWER_MAP_DIR + String.format("floor%02d.json", level.levelNumber());
+        try {
+            return mapPersistence.loadResource(resource);
+        } catch (IOException ex) {
+            System.err.println("[tower] using generated fallback for floor "
+                    + level.levelNumber() + ": " + ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Builds a bordered fallback room sized to the floor's difficulty, with a
+     * few interior obstacles and a loot chest. The cell at (1,1) stays walkable.
+     */
+    private DungeonMap createGeneratedFallbackMap(DungeonLevel level) {
         int[] size = sizeFor(level.difficulty());
         int w = size[0];
         int h = size[1];
@@ -129,15 +172,6 @@ public final class DungeonLevelFactory {
         GridCell keyCell = walkableCell(map, 1 + random.nextInt(w - 2), 1 + random.nextInt(h - 2));
         if (keyCell != null) {
             keyCell.getItems().add(new Key("arch-gold", KeyColor.GOLD));
-        }
-
-        // Fog-enabled floors guarantee one Torch near the hero's
-        // starting cell so the player can always engage with the
-        // Fear of the Dark mechanic. Without this, the lottery-based
-        // spawn in randomHiddenSearchItem can fail to produce a torch
-        // for an entire floor (especially the level-5 introduction).
-        if (level.fogHidden()) {
-            seedStarterTorch(map);
         }
 
         return map;

@@ -8,6 +8,10 @@ import java.awt.image.BufferedImage;
 import model.Knight;
 import model.Sorcerer;
 import model.Team;
+import model.Column;
+import model.Crate;
+import model.Vase;
+import model.WaterPipe;
 
 import org.junit.jupiter.api.Test;
 
@@ -55,6 +59,26 @@ class SpriteRegistryTest {
 
         assertNotNull(expected);
         assertSame(expected, SpriteRegistry.walkFrameFor(knight, 0));
+    }
+
+    @Test
+    void movedBreakableAndSearchableAssetsResolveFromCanonicalPaths() {
+        assertNotNull(AssetManager.get().image(Column.GRAY_SPRITE));
+        assertNotNull(AssetManager.get().image(WaterPipe.LARGE_RING_SPRITE));
+        assertNotNull(AssetManager.get().image(new Vase().spriteResource()));
+        assertNotNull(AssetManager.get().image(Vase.BROKEN_SPRITE));
+        assertNotNull(AssetManager.get().image(Crate.WOOD_TALL_SPRITE));
+        assertNotNull(AssetManager.get().image(Crate.BREAKABLE_WOOD_TALL_SPRITE));
+    }
+
+    @Test
+    void oldAssetPathsStillResolveAfterFolderMove() {
+        assertSame(AssetManager.get().image(Column.GRAY_SPRITE),
+                AssetManager.get().image("/background_floor/assets/searchable assets/column2.png"));
+        assertSame(AssetManager.get().image(WaterPipe.LARGE_RING_SPRITE),
+                AssetManager.get().image("/background_floor/assets/searchable assets/water_pipes.png"));
+        assertSame(AssetManager.get().image(Crate.WOOD_TALL_SPRITE),
+                AssetManager.get().image("/items/crates/17_crate_wood_tall_corrected.png"));
     }
 
 }

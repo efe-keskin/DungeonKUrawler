@@ -17,6 +17,8 @@ public final class BuildTool {
     public enum PlacementKind {
         FLOOR_BRUSH,
         WALL_BRUSH,
+        WALL_OBJECT,
+        DOOR_OBJECT,
         FLOOR_OBJECT,
         HORIZONTAL_WALL_SEARCH
     }
@@ -58,6 +60,14 @@ public final class BuildTool {
 
     public boolean isWallBrush() {
         return placementKind == PlacementKind.WALL_BRUSH;
+    }
+
+    public boolean isWallObject() {
+        return placementKind == PlacementKind.WALL_OBJECT;
+    }
+
+    public boolean isDoorObject() {
+        return placementKind == PlacementKind.DOOR_OBJECT;
     }
 
     public boolean isHorizontalWallSearch() {

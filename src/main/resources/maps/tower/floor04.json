@@ -1,0 +1,1522 @@
+{
+  "schema": "DungeonKUrawler.DungeonMap",
+  "version": 2,
+  "levelName": "Sunken Gallery",
+  "width": 18,
+  "height": 13,
+  "fogEnabled": false,
+  "cells": [
+    {
+      "x": 0,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 0,
+      "passable": false,
+      "items": [
+        {
+          "type": "gargoyle",
+          "name": "Stone Gargoyle",
+          "spriteResource": "/background_floor/assets/searchable assets/gargoyle_blue.png"
+        }
+      ]
+    },
+    {
+      "x": 13,
+      "y": 0,
+      "passable": false,
+      "items": [
+        {
+          "type": "grill",
+          "name": "Grill",
+          "spriteResource": "/background_floor/assets/searchable assets/grill1.png"
+        }
+      ]
+    },
+    {
+      "x": 14,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 0,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 1,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 1,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 2,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 2,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 2,
+      "passable": true,
+      "items": [
+        {
+          "type": "key",
+          "name": "Gold Key",
+          "keyId": "arch-gold",
+          "keyColor": "GOLD",
+          "singleUse": false
+        }
+      ]
+    },
+    {
+      "x": 16,
+      "y": 2,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 2,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "passable": true,
+      "items": [
+        {
+          "type": "decorativeObject",
+          "name": "Trap Floor",
+          "spriteResource": "/background_floor/assets/trap_floors/62_trap_floor_spikes.png",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 3,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 3,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 3,
+      "passable": true,
+      "items": [
+        {
+          "type": "decorativeObject",
+          "name": "Trap Floor",
+          "spriteResource": "/background_floor/assets/trap_floors/61_trap_floor_holes.png",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "x": 12,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 3,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 3,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 4,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "passable": true,
+      "items": [
+        {
+          "type": "column",
+          "name": "Stone Column",
+          "spriteResource": "/background_floor/assets/breakable assets/column1.png"
+        }
+      ]
+    },
+    {
+      "x": 6,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 4,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 4,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 4,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 4,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 4,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 5,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 5,
+      "passable": true,
+      "items": [
+        {
+          "type": "column",
+          "name": "Stone Column",
+          "spriteResource": "/background_floor/assets/breakable assets/column2.png"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 5,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 5,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 5,
+      "passable": true,
+      "items": [
+        {
+          "type": "decorativeObject",
+          "name": "Trap Floor",
+          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "x": 16,
+      "y": 5,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 5,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 6,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 6,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 6,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 6,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 6,
+      "passable": true,
+      "items": [
+        {
+          "type": "waterPipe",
+          "name": "Water Pipe",
+          "spriteResource": "/background_floor/assets/breakable assets/water_pipes.png"
+        }
+      ]
+    },
+    {
+      "x": 15,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 6,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 6,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 7,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 7,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 7,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 7,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 7,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 8,
+      "passable": true,
+      "items": [
+        {
+          "type": "decorativeObject",
+          "name": "Trap Floor",
+          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "x": 7,
+      "y": 8,
+      "passable": true,
+      "items": [
+        {
+          "type": "vase",
+          "name": "Clay Vase",
+          "spriteResource": "/background_floor/assets/breakable assets/vase.png"
+        }
+      ]
+    },
+    {
+      "x": 8,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 8,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 8,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 8,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 9,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 9,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 9,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 9,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 9,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 9,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 9,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 10,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 10,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 10,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 10,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 10,
+      "passable": true,
+      "items": [
+        {
+          "type": "chest",
+          "name": "Floor 4 Cache",
+          "spriteResource": "/items/chests/01_chest_closed_blue_trim.png",
+          "capacity": 16,
+          "locked": false,
+          "requiresKey": false,
+          "breakable": false,
+          "breakStrengthRequired": 0,
+          "portable": false,
+          "contents": [
+            {
+              "type": "healPotion",
+              "name": "Heal Potion"
+            },
+            {
+              "type": "coin",
+              "name": "Coin Pile",
+              "spriteResource": "/items/golds_coins/20_coin_pile_gold.png",
+              "value": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "x": 16,
+      "y": 10,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 10,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 11,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 14,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 16,
+      "y": 11,
+      "passable": true,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 11,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 0,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 1,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 2,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 3,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 4,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 5,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 6,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 7,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 8,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 9,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 10,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 11,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 12,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 13,
+      "y": 12,
+      "passable": false,
+      "items": [
+        {
+          "type": "hole",
+          "name": "Hole",
+          "spriteResource": "/background_floor/assets/searchable assets/hole1.png"
+        }
+      ]
+    },
+    {
+      "x": 14,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 15,
+      "y": 12,
+      "passable": false,
+      "items": [
+        {
+          "type": "grill",
+          "name": "Grill",
+          "spriteResource": "/background_floor/assets/searchable assets/grill2.png"
+        }
+      ]
+    },
+    {
+      "x": 16,
+      "y": 12,
+      "passable": false,
+      "items": []
+    },
+    {
+      "x": 17,
+      "y": 12,
+      "passable": false,
+      "items": []
+    }
+  ]
+}

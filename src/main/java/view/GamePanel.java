@@ -352,6 +352,9 @@ public class GamePanel extends JPanel implements GameStateListener {
         } else if (picked.getInventoryAction() == model.ItemAction.SEARCH
                 && interaction.getItem() instanceof SearchableObject searchableObject) {
             showSearchResult(parent, interactionController.search(searchableObject));
+        } else if (picked.getInventoryAction() == model.ItemAction.BREAK) {
+            showBreakResult(parent, interactionController.breakObjectAt(interaction.getItem(),
+                    interaction.getX(), interaction.getY()));
         } else if (!interactionController.applyGroundAction(interaction.getItem(),
                 interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
             showTransientWarning("Cannot Use Item",
@@ -507,12 +510,24 @@ public class GamePanel extends JPanel implements GameStateListener {
         // No enemy in reach; try to break a nearby breakable object instead.
         InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
         // Nothing breakable in reach (breakResult == null): stay silent.
-        if (breakResult != null && !breakResult.broken()) {
-            Window parent = SwingUtilities.getWindowAncestor(this);
-            ItemActionMenuDialog.showNotice(parent, "Too Strong", "Cannot Break",
-                    "You are not strong enough to break the " + breakResult.objectName() + ".");
-        }
+        showBreakResult(SwingUtilities.getWindowAncestor(this), breakResult);
         requestFocusInWindow();
+    }
+
+    private void showBreakResult(Window parent, InteractionController.BreakResult result) {
+        if (result == null || result.broken()) {
+            return;
+        }
+        if (result.outcome() == InteractionController.BreakOutcome.NOT_ENOUGH_ENERGY) {
+            ItemActionMenuDialog.showNotice(parent, "Break", "Not Enough Energy",
+                    "Breaking the " + result.objectName() + " requires "
+                            + result.energyCost() + " energy.");
+            return;
+        }
+        int chancePercent = Math.round((float) (result.successChance() * 100));
+        ItemActionMenuDialog.showNotice(parent, "Break", "Break Failed",
+                "You failed to break the " + result.objectName()
+                        + ". Success chance was " + chancePercent + "%.");
     }
 
     private void handleTakeKeyPress() {
@@ -881,7 +896,7 @@ private void handleInventoryKeyPress() {
         int inset = Math.max(1, Math.min(cellW, cellH) / 6);
         int boxW = Math.max(1, cellW - inset * 2);
         int boxH = Math.max(1, cellH - inset * 2);
-        if (item instanceof SearchableObject) {
+        if (item instanceof SearchableObject || item instanceof model.BreakableObject) {
             double scale = Math.min(boxW / (double) sprite.getWidth(), boxH / (double) sprite.getHeight());
             int drawW = Math.max(1, (int) Math.round(sprite.getWidth() * scale));
             int drawH = Math.max(1, (int) Math.round(sprite.getHeight() * scale));

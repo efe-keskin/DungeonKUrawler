@@ -4,6 +4,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
@@ -90,8 +92,32 @@ public final class BuildMapPersistence {
             throw new IOException("No map file was selected.");
         }
 
-        MapDto dto;
         try (Reader reader = Files.newBufferedReader(path, UTF_8)) {
+            return load(reader);
+        }
+    }
+
+    /**
+     * Loads a packaged build map from the classpath. Tower floors use the same
+     * JSON schema as maps saved from Build Mode, so designed maps stay editable.
+     */
+    public DungeonMap loadResource(String resourcePath) throws IOException {
+        if (resourcePath == null || resourcePath.isBlank()) {
+            throw new IOException("No map resource was selected.");
+        }
+        String normalized = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
+        InputStream input = BuildMapPersistence.class.getResourceAsStream(normalized);
+        if (input == null) {
+            throw new IOException("Map resource was not found: " + normalized);
+        }
+        try (Reader reader = new InputStreamReader(input, UTF_8)) {
+            return load(reader);
+        }
+    }
+
+    private DungeonMap load(Reader reader) throws IOException {
+        MapDto dto;
+        try {
             dto = GSON.fromJson(reader, MapDto.class);
         } catch (RuntimeException ex) {
             throw new IOException("Map JSON is not valid.", ex);
@@ -181,10 +207,8 @@ public final class BuildMapPersistence {
             dto.blocking = decorativeObject.isBlocking();
         } else if (item instanceof Column column) {
             dto.type = "column";
-            addSearchableState(dto, column);
         } else if (item instanceof WaterPipe waterPipe) {
             dto.type = "waterPipe";
-            addSearchableState(dto, waterPipe);
         } else if (item instanceof SearchableObject searchableObject) {
             dto.type = "searchableObject";
             dto.blocking = searchableObject.isBlocking();
@@ -289,11 +313,11 @@ public final class BuildMapPersistence {
                     bool(dto.blocking), dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "column" -> dto.spriteResource == null
                     ? new Column()
-                    : new Column(dto.spriteResource, fromNullableDto(dto.hiddenItem));
-            case "vase" -> new Vase();
+                    : new Column(dto.spriteResource);
+            case "vase" -> new Vase(Vase.BROKEN_SPRITE.equals(dto.spriteResource));
             case "waterPipe" -> dto.spriteResource == null
                     ? new WaterPipe()
-                    : new WaterPipe(dto.spriteResource, fromNullableDto(dto.hiddenItem));
+                    : new WaterPipe(dto.spriteResource);
             case "healPotion" -> new HealPotion();
             case "energyPotion" -> new EnergyPotion();
             case "manaPotion" -> new ManaPotion();

@@ -52,6 +52,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         this.engine = engine;
         this.audioManager = AudioManager.shared();
         engine.addGameEventListener(audioManager);
+        engine.getTargetMission().addListener(audioManager);
         setTitle("Dungeon Krawler - Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -140,6 +141,7 @@ public class GameWindow extends JFrame implements GameStateListener {
             public void windowClosed(WindowEvent e) {
                 engine.removeGameStateListener(GameWindow.this);
                 engine.removeGameEventListener(audioManager);
+                engine.getTargetMission().removeListener(audioManager);
                 engine.shutdown();
             }
         });
@@ -163,8 +165,13 @@ public class GameWindow extends JFrame implements GameStateListener {
         if (engine.isGameOver() && !gameOverDialogShown) {
             gameOverDialogShown = true;
             SwingUtilities.invokeLater(() -> {
-                GameOverDialog.show(GameWindow.this,
-                        engine.getGameOverTitle(), engine.getGameOverMessage());
+                if (engine.isMissionVictory()) {
+                    MissionSplashDialog.showVictory(GameWindow.this,
+                            engine.getTargetMission().getTarget());
+                } else {
+                    GameOverDialog.show(GameWindow.this,
+                            engine.getGameOverTitle(), engine.getGameOverMessage());
+                }
                 dispose();
                 SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
             });

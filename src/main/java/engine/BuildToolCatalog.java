@@ -2,8 +2,10 @@ package engine;
 
 import static engine.BuildTool.PlacementKind.FLOOR_BRUSH;
 import static engine.BuildTool.PlacementKind.FLOOR_OBJECT;
+import static engine.BuildTool.PlacementKind.DOOR_OBJECT;
 import static engine.BuildTool.PlacementKind.HORIZONTAL_WALL_SEARCH;
 import static engine.BuildTool.PlacementKind.WALL_BRUSH;
+import static engine.BuildTool.PlacementKind.WALL_OBJECT;
 
 
 import java.util.LinkedHashMap;
@@ -58,29 +60,25 @@ public final class BuildToolCatalog {
         tools = List.of(
                 brush("FLOOR", "Floor Brush", FLOOR_BRUSH),
                 brush("WALL", "Wall Brush", WALL_BRUSH),
-                decor("FLOOR_LARGE_LEFT", "Floor Large Left", false,
-                        BACKGROUND_DIR + "floors/03_floor_large_left.png"),
                 decor("FLOOR_WORN_PATCH", "Floor Worn Patch", false,
                         BACKGROUND_DIR + "floors/04_floor_worn_patch_round.png"),
-                decor("FLOOR_STRIP_TOP", "Floor Strip Top", false,
-                        BACKGROUND_DIR + "floors/07_floor_strip_top_clean_long.png"),
-                decor("WALL_TOP_PLAIN", "Wall Top Plain", true,
+                wallDecor("WALL_TOP_PLAIN", "Wall Top Plain",
                         BACKGROUND_DIR + "walls/01_wall_section_top_plain_left.png"),
-                decor("WALL_FRAME_VERTICAL", "Wall Frame Vertical", true,
+                wallDecor("WALL_FRAME_VERTICAL", "Wall Frame Vertical",
                         BACKGROUND_DIR + "walls/11_wall_frame_vertical_open.png"),
-                decor("WALL_WINDOW", "Wall Window", true,
+                wallDecor("WALL_WINDOW", "Wall Window",
                         BACKGROUND_DIR + "walls/12_wall_frame_window.png"),
-                decor("WALL_BLOCK_SMALL", "Wall Block Small", true,
+                wallDecor("WALL_BLOCK_SMALL", "Wall Block Small",
                         BACKGROUND_DIR + "walls/13_wall_block_small.png"),
-                decor("WALL_DOOR_LEFT", "Wall Door Left", true,
+                wallDecor("WALL_DOOR_LEFT", "Wall Door Left",
                         BACKGROUND_DIR + "walls/14_wall_section_mid_door_left.png"),
-                decor("WALL_DOOR_RIGHT", "Wall Door Right", true,
+                wallDecor("WALL_DOOR_RIGHT", "Wall Door Right",
                         BACKGROUND_DIR + "walls/16_wall_section_mid_door_right.png"),
-                decor("WALL_ARCH_RIGHT", "Wall Arch Right", true,
+                wallDecor("WALL_ARCH_RIGHT", "Wall Arch Right",
                         BACKGROUND_DIR + "walls/18_wall_section_mid_arch_right.png"),
-                decor("DOOR_CLOSED", "Door Closed", true,
+                doorDecor("DOOR_CLOSED", "Door Closed", true,
                         BACKGROUND_DIR + "doors/15_door_closed_wood.png"),
-                decor("DOOR_OPEN", "Door Open", false,
+                doorDecor("DOOR_OPEN", "Door Open", false,
                         BACKGROUND_DIR + "doors/17_door_open_wood.png"),
                 decor("RUG_ORANGE_LARGE_V", "Rug Orange Large V", false,
                         BACKGROUND_DIR + "rugs/41_rug_orange_large_vertical.png"),
@@ -138,43 +136,63 @@ public final class BuildToolCatalog {
                         ITEM_DIR + "tombstones/25_tombstone_cross.png"),
                 decor("TOMBSTONE_SKULL", "Tombstone Skull", false,
                         ITEM_DIR + "tombstones/26_tombstone_skull.png"),
-                chest("CHEST", "Chest Blue Trim", "01_chest_closed_blue_trim.png", false),
-                chest("LOCKED_CHEST", "Chest Gold Trim", "02_chest_closed_gold_trim.png", true),
-                chest("CHEST_ORNATE_TAN", "Ornate Chest Tan", "07_ornate_chest_gold_tan.png", false),
-                chest("CHEST_ORNATE_RED", "Ornate Chest Red", "08_ornate_chest_gold_red.png", false),
-                chest("CHEST_ORNATE_BLUE", "Ornate Chest Blue", "09_ornate_chest_gold_blue.png", false),
-                chest("CHEST_ORANGE_FRAME_1", "Orange Chest 1", "10_orange_chest_closed_frame1.png", false),
-                chest("CHEST_ORANGE_FRAME_2", "Orange Chest 2", "13_orange_chest_closed_frame2.png", false),
+                chest("CHEST", "Locked Blue Chest", "01_chest_closed_blue_trim.png", true),
+                chest("LOCKED_CHEST", "Locked Gold Chest", "02_chest_closed_gold_trim.png", true),
+                chest("CHEST_ORNATE_TAN", "Locked Ornate Tan Chest", "07_ornate_chest_gold_tan.png", true),
+                chest("CHEST_ORNATE_RED", "Locked Ornate Red Chest", "08_ornate_chest_gold_red.png", true),
+                chest("CHEST_ORNATE_BLUE", "Locked Ornate Blue Chest", "09_ornate_chest_gold_blue.png", true),
+                chest("CHEST_ORANGE_FRAME_1", "Locked Orange Chest 1", "10_orange_chest_closed_frame1.png", true),
+                chest("CHEST_ORANGE_FRAME_2", "Locked Orange Chest 2", "13_orange_chest_closed_frame2.png", true),
+                emptyChest("CHEST_OPEN_EMPTY_BLUE", "Open Empty Blue Chest",
+                        "03_chest_open_empty_blue_trim.png"),
+                emptyChest("CHEST_OPEN_EMPTY_GOLD", "Open Empty Gold Chest",
+                        "04_chest_open_empty_gold_trim.png"),
+                emptyChest("CHEST_ORANGE_OPEN_EMPTY_1", "Open Empty Orange Chest 1",
+                        "11_orange_chest_open_empty_frame1.png"),
+                emptyChest("CHEST_ORANGE_OPEN_EMPTY_2", "Open Empty Orange Chest 2",
+                        "12_orange_chest_open_empty_frame2.png"),
+                chest("CHEST_OPEN_LOOT_BLUE", "Open Loot Blue Chest",
+                        "05_chest_open_loot_blue_trim.png", false),
+                chest("CHEST_OPEN_LOOT_GOLD", "Open Loot Gold Chest",
+                        "06_chest_open_loot_gold_trim.png", false),
+                chest("CHEST_ORANGE_OPEN_LOOT_1", "Open Loot Orange Chest 1",
+                        "14_orange_chest_open_loot_frame1.png", false),
+                chest("CHEST_ORANGE_OPEN_LOOT_2", "Open Loot Orange Chest 2",
+                        "15_orange_chest_open_loot_frame2.png", false),
                 object("BAG_BROWN", "Bag Brown", () -> bag("Bag Brown", "19_bag_brown.png")),
                 object("BAG_BLUE", "Bag Blue", () -> bag("Bag Blue", "20_bag_blue.png")),
-                wallSearch("CRATE", "Crate", () -> new Crate(Crate.WOOD_TALL_SPRITE, new EnergyPotion())),
-                wallSearch("CRATE_WOOD_RIGHT", "Crate Wood Right",
-                        () -> new Crate(Crate.WOOD_RIGHT_SPRITE, new EnergyPotion())),
-                wallSearch("CRATE_ORANGE", "Crate Orange",
-                        () -> new Crate(Crate.ORANGE_TALL_SPRITE, new EnergyPotion())),
-                wallSearch("COLUMN", "Column Gray", () -> new Column(Column.GRAY_SPRITE, new EnergyPotion())),
-                wallSearch("COLUMN_PURPLE", "Column Purple",
-                        () -> new Column(Column.PURPLE_SPRITE, new EnergyPotion())),
-                wallSearch("COLUMN_TOP", "Column Top", () -> new Column(Column.WALL_TOP_SPRITE, new EnergyPotion())),
-                object("VASE", "Vase", Vase::new),
-                wallSearch("WATER_PIPE", "Water Pipe",
-                        () -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE, new EnergyPotion())),
-                wallSearch("PEDESTAL", "Pedestal", () -> new Pedestal(new EnergyPotion())),
-                wallSearch("HOLE", "Hole 1", () -> new Hole(Hole.SPRITE, new Key("silver", KeyColor.SILVER))),
-                wallSearch("HOLE_2", "Hole 2", () -> new Hole(Hole.SPRITE_2, new Key("silver", KeyColor.SILVER))),
-                wallSearch("HOLE_3", "Hole 3", () -> new Hole(Hole.SPRITE_3, new Key("silver", KeyColor.SILVER))),
-                wallSearch("GRILL", "Grill 1", () -> new Grill(Grill.HORIZONTAL_SPRITE, new EnergyPotion())),
-                wallSearch("GRILL_2", "Grill 2", () -> new Grill(Grill.VERTICAL_SPRITE, new EnergyPotion())),
+                wallSearch("CRATE", "Searchable Crate Wood Tall",
+                        () -> new Crate(Crate.WOOD_TALL_SPRITE, null)),
+                wallSearch("CRATE_WOOD_RIGHT", "Searchable Crate Wood Right",
+                        () -> new Crate(Crate.WOOD_RIGHT_SPRITE, null)),
+                wallSearch("CRATE_ORANGE", "Searchable Crate Orange",
+                        () -> new Crate(Crate.ORANGE_TALL_SPRITE, null)),
+                wallSearch("HOLE", "Hole 1", () -> new Hole(Hole.SPRITE, null)),
+                wallSearch("HOLE_2", "Hole 2", () -> new Hole(Hole.SPRITE_2, null)),
+                wallSearch("HOLE_3", "Hole 3", () -> new Hole(Hole.SPRITE_3, null)),
+                wallSearch("GRILL", "Grill 1", () -> new Grill(Grill.HORIZONTAL_SPRITE, null)),
+                wallSearch("GRILL_2", "Grill 2", () -> new Grill(Grill.VERTICAL_SPRITE, null)),
                 wallSearch("GARGOYLE", "Gargoyle Red",
-                        () -> new Gargoyle(Gargoyle.RED_LEFT_SPRITE, new Key("silver", KeyColor.SILVER))),
+                        () -> new Gargoyle(Gargoyle.RED_LEFT_SPRITE, null)),
                 wallSearch("GARGOYLE_GREEN", "Gargoyle Green",
-                        () -> new Gargoyle(Gargoyle.GREEN_LEFT_SPRITE, new Key("silver", KeyColor.SILVER))),
+                        () -> new Gargoyle(Gargoyle.GREEN_LEFT_SPRITE, null)),
                 wallSearch("GARGOYLE_BLUE", "Gargoyle Blue",
-                        () -> new Gargoyle(Gargoyle.CYAN_LEFT_SPRITE, new Key("silver", KeyColor.SILVER))),
+                        () -> new Gargoyle(Gargoyle.CYAN_LEFT_SPRITE, null)),
                 wallSearch("MISSING_BRICK", "Missing Brick 1",
-                        () -> new MissingBrick(MissingBrick.SPRITE_1, new EnergyPotion())),
+                        () -> new MissingBrick(MissingBrick.SPRITE_1, null)),
                 wallSearch("MISSING_BRICK_2", "Missing Brick 2",
-                        () -> new MissingBrick(MissingBrick.SPRITE_2, new EnergyPotion())),
+                        () -> new MissingBrick(MissingBrick.SPRITE_2, null)),
+                object("COLUMN", "Breakable Column Gray", () -> new Column(Column.GRAY_SPRITE)),
+                object("COLUMN_PURPLE", "Breakable Column Purple", () -> new Column(Column.PURPLE_SPRITE)),
+                object("COLUMN_TOP", "Breakable Column Top", () -> new Column(Column.WALL_TOP_SPRITE)),
+                object("VASE", "Breakable Vase", Vase::new),
+                object("WATER_PIPE", "Breakable Water Pipe", () -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE)),
+                wallSearch("BREAKABLE_CRATE", "Breakable Crate Wood Tall",
+                        () -> new Crate(Crate.BREAKABLE_WOOD_TALL_SPRITE, null)),
+                wallSearch("BREAKABLE_CRATE_WOOD_RIGHT", "Breakable Crate Wood Right",
+                        () -> new Crate(Crate.BREAKABLE_WOOD_RIGHT_SPRITE, null)),
+                wallSearch("BREAKABLE_CRATE_ORANGE", "Breakable Crate Orange",
+                        () -> new Crate(Crate.BREAKABLE_ORANGE_TALL_SPRITE, null)),
                 object("HEAL", "Heal", HealPotion::new),
                 object("ENERGY", "Energy", EnergyPotion::new),
                 object("MANA", "Mana", ManaPotion::new),
@@ -232,6 +250,8 @@ public final class BuildToolCatalog {
         // POOL, but its sprite is now represented by the gargoyle variants.
         byId.put("POOL", wallSearch("POOL", "Legacy Gargoyle Pool",
                 () -> new Pool(Pool.CYAN_DRIP_SPRITE, new ManaPotion())));
+        byId.put("PEDESTAL", wallSearch("PEDESTAL", "Legacy Pedestal",
+                () -> new Pedestal(new EnergyPotion())));
     }
 
     public List<BuildTool> tools() {
@@ -327,6 +347,16 @@ public final class BuildToolCatalog {
         return new BuildTool(id, label, HORIZONTAL_WALL_SEARCH, itemFactory);
     }
 
+    private static BuildTool wallDecor(String id, String label, String spriteResource) {
+        return new BuildTool(id, label, WALL_OBJECT,
+                () -> new DecorativeObject(label, true, spriteResource));
+    }
+
+    private static BuildTool doorDecor(String id, String label, boolean blocking, String spriteResource) {
+        return new BuildTool(id, label, DOOR_OBJECT,
+                () -> new DecorativeObject(label, blocking, spriteResource));
+    }
+
     private static BuildTool decor(String id, String label, boolean blocking, String spriteResource) {
         return object(id, label, () -> new DecorativeObject(label, blocking, spriteResource));
     }
@@ -339,6 +369,10 @@ public final class BuildToolCatalog {
             chest.addItem(locked ? new ManaPotion() : new HealPotion());
             return chest;
         });
+    }
+
+    private static BuildTool emptyChest(String id, String label, String spriteFile) {
+        return object(id, label, () -> new Chest(label, 16, ITEM_DIR + "chests/" + spriteFile));
     }
 
     private static Container bag(String name, String spriteFile) {
