@@ -20,6 +20,7 @@ import model.GridCell;
 import model.Hero;
 import model.Knight;
 import model.Ring;
+import model.TowerProgress;
 import model.Weapon;
 import model.WeaponType;
 import save.SaveDtos.SaveDescriptor;
@@ -105,6 +106,46 @@ class SaveGameServiceTest {
                 tempDir.resolve("alpha.json"));
 
         assertEquals("alpha (2026-05-28 17:21)", descriptor.getDisplayLabel());
+    }
+
+    @Test
+    void saveTypesSeparateScenarioCheckpointsFromCustomGames() throws Exception {
+        SaveGameService service = new SaveGameService(
+                new SaveFileRepository(tempDir, new GsonSaveSerializer()),
+                new GameStateMapper());
+        GameEngine custom = new GameEngine();
+        GameEngine scenario = new GameEngine();
+        GameEngine loadedScenario = null;
+        try {
+            scenario.configureTowerLevel(3, false);
+            TowerProgress progress = TowerProgress.defaultProgress(10);
+            progress.completeLevel(1);
+            progress.completeLevel(2);
+
+            SaveDescriptor customSave = service.saveCustomGame(custom, "custom map run");
+            SaveDescriptor scenarioSave = service.saveScenarioCheckpoint(scenario, progress, "floor three");
+
+            assertEquals(SaveGameType.CUSTOM_GAME, customSave.getSaveType());
+            assertEquals(SaveGameType.SCENARIO_CHECKPOINT, scenarioSave.getSaveType());
+            assertEquals(1, service.listSaves(SaveGameType.CUSTOM_GAME).size());
+            assertEquals(1, service.listSaves(SaveGameType.SCENARIO_CHECKPOINT).size());
+
+            SaveDescriptor progressSave = service.updateSave(scenarioSave, scenario, progress);
+            assertEquals(SaveGameType.SCENARIO_PROGRESS, progressSave.getSaveType());
+            assertEquals(0, service.listSaves(SaveGameType.SCENARIO_CHECKPOINT).size());
+
+            LoadedGame loaded = service.loadGameWithProgress(progressSave);
+            loadedScenario = loaded.engine();
+            assertTrue(loadedScenario.isTowerLevel());
+            assertEquals(3, loadedScenario.getTowerLevelNumber());
+            assertEquals(3, loaded.towerProgress().highestUnlockedLevel());
+        } finally {
+            custom.shutdown();
+            scenario.shutdown();
+            if (loadedScenario != null) {
+                loadedScenario.shutdown();
+            }
+        }
     }
 
     private static void arrangeDistinctState(GameEngine engine) {

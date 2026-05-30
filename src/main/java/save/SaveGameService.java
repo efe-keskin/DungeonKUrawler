@@ -30,11 +30,26 @@ public final class SaveGameService {
     }
 
     public SaveDescriptor saveGame(GameEngine engine, String saveName) throws SaveGameException {
-        return saveGame(engine, null, saveName);
+        return saveCustomGame(engine, saveName);
     }
 
     public SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName)
             throws SaveGameException {
+        SaveGameType type = towerProgress == null ? SaveGameType.CUSTOM_GAME : SaveGameType.SCENARIO_CHECKPOINT;
+        return saveGame(engine, towerProgress, saveName, type);
+    }
+
+    public SaveDescriptor saveCustomGame(GameEngine engine, String saveName) throws SaveGameException {
+        return saveGame(engine, null, saveName, SaveGameType.CUSTOM_GAME);
+    }
+
+    public SaveDescriptor saveScenarioCheckpoint(GameEngine engine, TowerProgress towerProgress, String saveName)
+            throws SaveGameException {
+        return saveGame(engine, towerProgress, saveName, SaveGameType.SCENARIO_CHECKPOINT);
+    }
+
+    private SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName,
+            SaveGameType saveType) throws SaveGameException {
         if (saveName == null || saveName.isBlank()) {
             throw new SaveGameException("Save name is required.");
         }
@@ -42,8 +57,11 @@ public final class SaveGameService {
             throw new SaveLimitExceededException(MAX_SAVE_FILES);
         }
         SaveGameDto dto = new SaveGameDto();
+        dto.saveType = saveType.name();
         dto.saveName = saveName.trim();
         dto.savedAt = OffsetDateTime.now().toString();
+        dto.towerLevelNumber = engine == null ? 0 : engine.getTowerLevelNumber();
+        dto.finalTowerLevel = engine != null && engine.isFinalTowerLevel();
         dto.gameState = mapper.toDto(engine, towerProgress);
         return repository.write(dto);
     }
@@ -56,15 +74,28 @@ public final class SaveGameService {
     public SaveDescriptor updateSave(SaveDescriptor descriptor, GameEngine engine, TowerProgress towerProgress)
             throws SaveGameException {
         SaveGameDto dto = new SaveGameDto();
+        SaveGameType type = towerProgress == null ? SaveGameType.CUSTOM_GAME : SaveGameType.SCENARIO_PROGRESS;
+        dto.saveType = type.name();
         dto.saveName = descriptor == null || descriptor.getSaveName() == null
                 ? "save" : descriptor.getSaveName();
         dto.savedAt = OffsetDateTime.now().toString();
+        dto.towerLevelNumber = engine == null ? 0 : engine.getTowerLevelNumber();
+        dto.finalTowerLevel = engine != null && engine.isFinalTowerLevel();
         dto.gameState = mapper.toDto(engine, towerProgress);
         return repository.overwrite(descriptor, dto);
     }
 
     public List<SaveDescriptor> listSaves() throws SaveGameException {
         return repository.list();
+    }
+
+    public List<SaveDescriptor> listSaves(SaveGameType saveType) throws SaveGameException {
+        if (saveType == null) {
+            return listSaves();
+        }
+        return repository.list().stream()
+                .filter(save -> save.getSaveType() == saveType)
+                .toList();
     }
 
     public GameEngine loadGame(SaveDescriptor descriptor) throws SaveGameException {
