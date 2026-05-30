@@ -41,7 +41,7 @@ public class MainMenuWindow extends JFrame {
     private static final int PREF_H = 560;
 
     public MainMenuWindow() {
-        setTitle("Dungeon KUrawler — Main Menu");
+        setTitle("Dungeon KUrawler - Main Menu");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
 
@@ -185,7 +185,7 @@ public class MainMenuWindow extends JFrame {
             return panel;
         }
 
-        JButton muteButton = new JButton(audio.isMusicMuted() ? "🔇" : "🔊");
+        JButton muteButton = new JButton(audio.isMusicMuted() ? "MUTE" : "SND");
         muteButton.setFocusable(false);
         muteButton.setMargin(new Insets(4, 8, 4, 8));
         muteButton.setToolTipText("Toggle menu music");
@@ -193,7 +193,7 @@ public class MainMenuWindow extends JFrame {
         muteButton.setFont(new Font(Font.DIALOG, Font.PLAIN, 20));
         muteButton.addActionListener(e -> {
             audio.toggleMusicMute();
-            muteButton.setText(audio.isMusicMuted() ? "🔇" : "🔊");
+            muteButton.setText(audio.isMusicMuted() ? "MUTE" : "SND");
         });
         panel.add(muteButton);
         return panel;
