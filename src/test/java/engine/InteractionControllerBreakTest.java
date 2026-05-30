@@ -96,6 +96,29 @@ class InteractionControllerBreakTest {
     }
 
     @Test
+    void breakNearestObject_choosesClosestBreakableObject() {
+        InteractionController controller = controllerWithRoll(0.0);
+        Hero hero = engine.getHero();
+        hero.setStr(20);
+        hero.setEnergy(30);
+        clearNearbyCells();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        GridCell fartherCell = engine.getDungeonMap().getCell(hx - 1, hy - 1);
+        GridCell closerCell = engine.getDungeonMap().getCell(hx + 1, hy);
+        Column farther = new Column(Column.GRAY_SPRITE);
+        Column closer = new Column(Column.PURPLE_SPRITE);
+        fartherCell.getItems().add(farther);
+        closerCell.getItems().add(closer);
+
+        InteractionController.BreakResult result = controller.breakNearestObject();
+
+        assertTrue(result.broken());
+        assertTrue(fartherCell.getItems().contains(farther));
+        assertFalse(closerCell.getItems().contains(closer));
+    }
+
+    @Test
     void breakObjectAt_whenContainerBreaks_dropsItsContents() {
         InteractionController controller = controllerWithRoll(0.0);
         Hero hero = engine.getHero();
@@ -204,6 +227,7 @@ class InteractionControllerBreakTest {
     }
 
     private GridCell targetCell() {
+        clearNearbyItems();
         return engine.getDungeonMap().getCell(engine.getHero().getX() + 1, engine.getHero().getY());
     }
 
