@@ -181,10 +181,8 @@ public final class BuildMapPersistence {
             dto.blocking = decorativeObject.isBlocking();
         } else if (item instanceof Column column) {
             dto.type = "column";
-            addSearchableState(dto, column);
         } else if (item instanceof WaterPipe waterPipe) {
             dto.type = "waterPipe";
-            addSearchableState(dto, waterPipe);
         } else if (item instanceof SearchableObject searchableObject) {
             dto.type = "searchableObject";
             dto.blocking = searchableObject.isBlocking();
@@ -289,11 +287,11 @@ public final class BuildMapPersistence {
                     bool(dto.blocking), dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "column" -> dto.spriteResource == null
                     ? new Column()
-                    : new Column(dto.spriteResource, fromNullableDto(dto.hiddenItem));
+                    : new Column(dto.spriteResource);
             case "vase" -> new Vase();
             case "waterPipe" -> dto.spriteResource == null
                     ? new WaterPipe()
-                    : new WaterPipe(dto.spriteResource, fromNullableDto(dto.hiddenItem));
+                    : new WaterPipe(dto.spriteResource);
             case "healPotion" -> new HealPotion();
             case "energyPotion" -> new EnergyPotion();
             case "manaPotion" -> new ManaPotion();

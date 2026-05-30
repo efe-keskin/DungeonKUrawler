@@ -16,10 +16,16 @@ import model.DungeonMap;
 import model.GridCell;
 import model.HealPotion;
 import model.Item;
+import model.ItemAction;
+import model.BreakableObject;
 import model.Chest;
+import model.Column;
+import model.Crate;
 import model.Key;
 import model.MissingBrick;
 import model.SearchableObject;
+import model.Vase;
+import model.WaterPipe;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -99,6 +105,32 @@ class BuildModeControllerTest {
     }
 
     @Test
+    void movedBreakableToolsCanBePlacedInsideMapWithoutSearchAction() {
+        BuildModeController controller = controller();
+
+        assertBreakableOnly(controller, "COLUMN", Column.class, 3, 3);
+        assertBreakableOnly(controller, "COLUMN_PURPLE", Column.class, 4, 3);
+        assertBreakableOnly(controller, "COLUMN_TOP", Column.class, 5, 3);
+        assertBreakableOnly(controller, "VASE", Vase.class, 6, 3);
+        assertBreakableOnly(controller, "WATER_PIPE", WaterPipe.class, 7, 3);
+    }
+
+    @Test
+    void cratesRemainSearchableAndBreakableInBothPaletteGroups() {
+        BuildModeController controller = controller();
+
+        for (String id : java.util.List.of(
+                "CRATE", "CRATE_WOOD_RIGHT", "CRATE_ORANGE",
+                "BREAKABLE_CRATE", "BREAKABLE_CRATE_WOOD_RIGHT", "BREAKABLE_CRATE_ORANGE")) {
+            BuildTool tool = controller.findTool(id);
+            assertNotNull(tool, id);
+            Crate crate = assertInstanceOf(Crate.class, tool.previewItem(), id);
+            assertTrue(crate.getInventoryActions().contains(ItemAction.SEARCH), id);
+            assertTrue(crate.getInventoryActions().contains(ItemAction.BREAK), id);
+        }
+    }
+
+    @Test
     void wallToolsCanBePlacedOnEverySideAndInsideTheMap() {
         BuildModeController controller = controller();
         DungeonMap map = controller.getDesignMap();
@@ -158,6 +190,25 @@ class BuildModeControllerTest {
     }
 
     @Test
+    void lockedChestUsesSearchableFixturePlacedFromPaletteBeforeFloorFallback() {
+        BuildModeController controller = controller();
+
+        assertTrue(controller.placeToolAt(3, 0, controller.findTool("GARGOYLE")));
+        SearchableObject searchable = assertInstanceOf(SearchableObject.class,
+                controller.getDesignMap().getCell(3, 0).getItemsView().get(0));
+        assertTrue(searchable.getHiddenItem() == null);
+
+        assertTrue(controller.placeToolAt(3, 3, controller.findTool("CHEST")));
+
+        Chest chest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(3, 3).getItemsView().get(0));
+        Key key = assertInstanceOf(Key.class, searchable.getHiddenItem());
+        assertTrue(key.matches(chest.getRequiredKeyId()));
+        assertFalse(hasGroundKeyMatching(controller.getDesignMap(), chest.getRequiredKeyId()));
+        assertTrue(controller.getLastPlacementMessage().contains("hidden in Stone Gargoyle"));
+    }
+
+    @Test
     void lockedChestAssignsKeyToFloorWhenNoEmptySearchableExists() {
         BuildModeController controller = controller();
 
@@ -197,6 +248,28 @@ class BuildModeControllerTest {
         assertNotNull(searchableObject.getHiddenItem());
     }
 
+    @Test
+    void saveLoadRoundTripRestoresBreakableAndDualRoleCrateBehavior() throws IOException {
+        BuildModeController controller = controller();
+        controller.placeToolAt(3, 3, controller.findTool("COLUMN"));
+        controller.placeToolAt(4, 0, controller.findTool("CRATE"));
+
+        Path path = tempDir.resolve("breakables-roundtrip.dkmap");
+        controller.saveMap(path);
+        controller.clearMap();
+        controller.loadMap(path);
+
+        Column column = assertInstanceOf(Column.class,
+                controller.getDesignMap().getCell(3, 3).getItemsView().get(0));
+        assertTrue(column.getInventoryActions().contains(ItemAction.BREAK));
+        assertFalse(column.getInventoryActions().contains(ItemAction.SEARCH));
+
+        Crate crate = assertInstanceOf(Crate.class,
+                controller.getDesignMap().getCell(4, 0).getItemsView().get(0));
+        assertTrue(crate.getInventoryActions().contains(ItemAction.SEARCH));
+        assertTrue(crate.getInventoryActions().contains(ItemAction.BREAK));
+    }
+
     private BuildModeController controller() {
         return new BuildModeController(new BuildToolCatalog(), new BuildMapFactory(),
                 new StandardBuildPlacementStrategy(), new Random(4));
@@ -228,6 +301,17 @@ class BuildModeControllerTest {
         assertInstanceOf(SearchableObject.class,
                 map.getCell(3, map.getHeight() - 1).getItemsView().get(0), tool.id());
         controller.eraseAt(3, map.getHeight() - 1);
+    }
+
+    private void assertBreakableOnly(BuildModeController controller, String toolId,
+            Class<? extends BreakableObject> type, int x, int y) {
+        BuildTool tool = controller.findTool(toolId);
+        assertNotNull(tool, toolId);
+        assertTrue(controller.placeToolAt(x, y, tool), toolId);
+        BreakableObject object = assertInstanceOf(type,
+                controller.getDesignMap().getCell(x, y).getItemsView().get(0), toolId);
+        assertTrue(object.getInventoryActions().contains(ItemAction.BREAK), toolId);
+        assertFalse(object.getInventoryActions().contains(ItemAction.SEARCH), toolId);
     }
 
     private void assertWallPlacement(BuildModeController controller, BuildTool tool, int x, int y) {

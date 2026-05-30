@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import model.Chest;
 import model.Coin;
 import model.Container;
+import model.Crate;
 import model.BossEnemy;
 import model.DungeonMap;
 import model.EnemyFactory;
@@ -44,6 +45,7 @@ import model.DragonPet;
 import model.Gargoyle;
 import model.Grill;
 import model.HeroProjectileStyle;
+import model.Hole;
 import model.Knight;
 import model.MissingBrick;
 import model.PenguinPet;
@@ -52,7 +54,6 @@ import model.PetEntity;
 import model.Projectile;
 import model.SearchableObject;
 import model.Sorcerer;
-import model.WaterPipe;
 import model.Torch;
 
 /**
@@ -625,13 +626,18 @@ public class GameEngine {
 
     private SearchableObject randomSearchableObject(DungeonMap map, boolean topWall) {
         Item hiddenItem = randomHiddenSearchItem(map);
-        return switch (random.nextInt(20)) {
-            case 0, 1, 2, 3 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
-            case 4, 5, 6, 7 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
-            case 8, 9, 10, 11 -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
-            case 12, 13, 14 -> new Grill(Grill.HORIZONTAL_SPRITE, hiddenItem);
-            case 15, 16, 17 -> new Grill(Grill.VERTICAL_SPRITE, hiddenItem);
-            default -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE, hiddenItem);
+        return switch (random.nextInt(13)) {
+            case 0 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
+            case 1 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
+            case 2 -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
+            case 3 -> new Grill(Grill.HORIZONTAL_SPRITE, hiddenItem);
+            case 4 -> new Grill(Grill.VERTICAL_SPRITE, hiddenItem);
+            case 5 -> new Hole(Hole.SPRITE, hiddenItem);
+            case 6 -> new Hole(Hole.SPRITE_2, hiddenItem);
+            case 7 -> new Hole(Hole.SPRITE_3, hiddenItem);
+            case 8, 9 -> new Crate(Crate.WOOD_TALL_SPRITE, hiddenItem);
+            case 10, 11 -> new Crate(Crate.WOOD_RIGHT_SPRITE, hiddenItem);
+            default -> new Crate(Crate.ORANGE_TALL_SPRITE, hiddenItem);
         };
     }
 

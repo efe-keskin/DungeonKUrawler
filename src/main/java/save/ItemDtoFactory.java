@@ -147,15 +147,13 @@ final class ItemDtoFactory {
                     dto, context);
             case MISSING_BRICK -> new MissingBrick(fallback(dto.spriteResource, MissingBrick.SPRITE_1),
                     fromDto(dto.hiddenItem, context));
-            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE),
-                    fromDto(dto.hiddenItem, context));
+            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE));
             case GARGOYLE -> new Gargoyle(fallback(dto.spriteResource, Gargoyle.RED_LEFT_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case HOLE -> new Hole(fallback(dto.spriteResource, Hole.SPRITE), fromDto(dto.hiddenItem, context));
             case GRILL -> new Grill(fallback(dto.spriteResource, Grill.HORIZONTAL_SPRITE),
                     fromDto(dto.hiddenItem, context));
-            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE),
-                    fromDto(dto.hiddenItem, context));
+            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE));
             case POOL -> new Pool(fallback(dto.spriteResource, Pool.CYAN_DRIP_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case SEARCHABLE -> new SearchableObject(fallback(dto.name, "Searchable Location"),

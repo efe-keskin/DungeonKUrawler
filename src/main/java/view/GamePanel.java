@@ -873,7 +873,7 @@ private void handleInventoryKeyPress() {
         int inset = Math.max(1, Math.min(cellW, cellH) / 6);
         int boxW = Math.max(1, cellW - inset * 2);
         int boxH = Math.max(1, cellH - inset * 2);
-        if (item instanceof SearchableObject) {
+        if (item instanceof SearchableObject || item instanceof model.BreakableObject) {
             double scale = Math.min(boxW / (double) sprite.getWidth(), boxH / (double) sprite.getHeight());
             int drawW = Math.max(1, (int) Math.round(sprite.getWidth() * scale));
             int drawH = Math.max(1, (int) Math.round(sprite.getHeight() * scale));
