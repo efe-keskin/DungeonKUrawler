@@ -1,8 +1,11 @@
 package engine;
 
 import model.GridCell;
+import model.Hero;
 import model.Knight;
 import model.Sorcerer;
+import model.Weapon;
+import model.WeaponCatalog;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -128,5 +131,27 @@ class CombatControllerTest {
 
         assertNotNull(combatController.attackAt(2, 1));
         assertTrue(knight.getHp() < 20);
+    }
+
+    @Test
+    void autoAimUsesWeaponMaxRangeNotTwoTiles() {
+        Hero hero = engine.getHero();
+        hero.updatePosition(5, 1);
+        hero.setEnergy(100);
+
+        Weapon bow = new Weapon(WeaponCatalog.get().byId("B23_BOW"));
+        hero.getInventory().tryAdd(bow);
+        hero.equipWeapon(bow);
+        assertEquals(4, bow.getMaxRange());
+
+        GridCell farCell = engine.getDungeonMap().getCell(9, 1);
+        farCell.getEntities().clear();
+        farCell.getEntities().add(new Knight(9, 1, "Far", 20, 0, 0, 5));
+
+        assertTrue(engine.canHeroShootAt(9, 1));
+        CombatController.TargetedAttack attack = combatController.autoAimRangedAttack();
+        assertNotNull(attack);
+        assertEquals(9, attack.x());
+        assertEquals(1, attack.y());
     }
 }

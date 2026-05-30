@@ -1532,7 +1532,8 @@ public class GameEngine {
         if (!heroOnStraightRayFrom(hx, hy, targetX, targetY)) {
             return false;
         }
-        return hasClearProjectilePath(hx, hy, targetX, targetY, weapon.getMaxRange());
+        // Test mode: keep straight-line and obstacle checks, but ignore weapon range.
+        return hasClearProjectilePath(hx, hy, targetX, targetY, Integer.MAX_VALUE);
     }
 
     private boolean hasClearProjectilePath(int sx, int sy, int hx, int hy, int maxRange) {
@@ -1638,6 +1639,16 @@ public class GameEngine {
 
     /** @return true when the projectile moved or hit something */
     private boolean advanceHeroProjectile(Projectile projectile) {
+        GridCell currentCell = dungeonMap.getCell(projectile.getX(), projectile.getY());
+        Entity currentTarget = firstHostileInCell(currentCell);
+        if (currentTarget != null) {
+            CombatManager.HeroProjectilePrep prep = new CombatManager.HeroProjectilePrep(
+                    projectile.getDamageGenerated(), projectile.getDamageReceived(), projectile.getHeroStyle());
+            resolveHeroProjectileHit(currentTarget, prep, currentCell);
+            projectile.setActive(false);
+            return true;
+        }
+
         int nextX = projectile.getX() + projectile.getDx();
         int nextY = projectile.getY() + projectile.getDy();
 

@@ -145,7 +145,7 @@ public final class WeaponCatalog {
                 "Wooden Bow",
                 "bows",
                 "/weapons/bows/058_curved_bow.png",
-                3,
+                4,
                 true,
                 4,
                 RangedCostType.ENERGY,
@@ -156,23 +156,12 @@ public final class WeaponCatalog {
                 "Magic Wand",
                 "staves",
                 "/weapons/staves/012_long_wooden_pole.png",
-                3,
+                4,
                 true,
                 4,
                 RangedCostType.MANA,
                 5,
                 HeroProjectileStyle.ICE_BOLT));
-        registerWeapon(new WeaponType(
-                "B23_RING",
-                "Fire Ring",
-                "hero_rings",
-                "/items_keys_extracted/assets/10_ring_red_gem.png",
-                6,
-                true,
-                4,
-                RangedCostType.MANA,
-                10,
-                HeroProjectileStyle.FIRE_BALL));
     }
 
     private void registerWeapon(WeaponType type) {
