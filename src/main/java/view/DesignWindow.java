@@ -52,7 +52,6 @@ import engine.BuildRandomItemPlacer;
 import engine.BuildTool;
 import engine.GameEngine;
 import engine.TeamMatchController;
-import model.Armor;
 import model.DecorativeObject;
 import model.DungeonMap;
 import model.GridCell;
@@ -535,14 +534,12 @@ public class DesignWindow extends JFrame {
 
             if (!cell.getItemsView().isEmpty()) {
                 Item item = cell.getItemsView().get(0);
-                BufferedImage sprite = isMagicWand(item) || isWoodenBow(item) || item instanceof Armor
+                BufferedImage sprite = isMagicWand(item) || isWoodenBow(item)
                         ? null : SpriteRegistry.spriteFor(item);
                 if (isMagicWand(item)) {
                     paintWandPixelArt(g2, px, py, tile);
                 } else if (isWoodenBow(item)) {
                     paintBowPixelArt(g2, px, py, tile);
-                } else if (item instanceof Armor) {
-                    paintArmorPixelArt(g2, px, py, tile);
                 } else if (sprite != null) {
                     int inset = item instanceof DecorativeObject ? 1 : Math.max(2, tile / 6);
                     g2.drawImage(sprite, px + inset, py + inset,
@@ -792,10 +789,6 @@ public class DesignWindow extends JFrame {
                 }
                 if (isWoodenBow(tool.previewItem())) {
                     paintBowPixelArt(g2, x, y, size);
-                    return;
-                }
-                if (tool.previewItem() instanceof Armor) {
-                    paintArmorPixelArt(g2, x, y, size);
                     return;
                 }
                 if (sprite != null) {

@@ -7,6 +7,8 @@ import java.util.List;
  */
 public class Armor extends Item {
 
+    private static final String SPRITE = "/weapons/armor.png";
+
     private int defModifier;
 
     public Armor(String name, int defModifier) {
@@ -25,5 +27,10 @@ public class Armor extends Item {
     @Override
     public List<ItemAction> getInventoryActions() {
         return List.of(ItemAction.WEAR, ItemAction.EQUIP, ItemAction.DISCARD);
+    }
+
+    @Override
+    public String spriteResource() {
+        return SPRITE;
     }
 }
