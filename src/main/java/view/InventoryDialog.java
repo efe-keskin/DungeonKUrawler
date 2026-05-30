@@ -233,8 +233,7 @@ public class InventoryDialog extends JDialog {
 
         boolean customWand = isMagicWand(item);
         boolean customBow = isWoodenBow(item);
-        boolean customArmor = item instanceof Armor;
-        BufferedImage sprite = customWand || customBow || customArmor ? null : itemSprite(item);
+        BufferedImage sprite = customWand || customBow ? null : itemSprite(item);
         JLabel marker = new JLabel(typeMarker(item), SwingConstants.CENTER);
         marker.setOpaque(true);
         marker.setBackground(typeColor(item));
@@ -268,18 +267,6 @@ public class InventoryDialog extends JDialog {
 
         if (customBow) {
             JComponent icon = new BowIconPanel();
-            icon.setBounds(20, 8, 44, 44);
-            overlay.add(icon);
-            if (equipped == null) {
-                attachActionHandler(slot, overlay, item, icon, marker);
-            } else {
-                attachActionHandler(slot, overlay, item, icon, marker, equipped);
-            }
-            return slot;
-        }
-
-        if (customArmor) {
-            JComponent icon = new ArmorIconPanel();
             icon.setBounds(20, 8, 44, 44);
             overlay.add(icon);
             if (equipped == null) {

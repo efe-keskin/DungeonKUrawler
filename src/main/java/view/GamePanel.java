@@ -687,8 +687,6 @@ private void handleInventoryKeyPress() {
                             drawGroundBowPixelArt(g2, px, py, cellW, cellH);
                         } else if (first instanceof Weapon weapon && isMagicWand(weapon)) {
                             drawGroundWandPixelArt(g2, px, py, cellW, cellH);
-                        } else if (first instanceof model.Armor) {
-                            drawGroundArmorPixelArt(g2, px, py, cellW, cellH);
                         } else {
                             BufferedImage sprite = spriteFor(first);
                             if (sprite != null) {
@@ -1306,10 +1304,10 @@ private void handleInventoryKeyPress() {
 
     private void drawEquippedArmorOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
             int spriteH) {
-        if (hero.getEquippedArmor() == null || HeroArmorPixelArt.armorImage == null) {
+        if (hero.getEquippedArmor() == null) {
             return;
         }
-        g2.drawImage(HeroArmorPixelArt.armorImage, drawX, drawY, spriteW, spriteH, null);
+        HeroArmorPixelArt.paintEquipped(g2, drawX, drawY, spriteW, spriteH, heroFacingLeft);
     }
 
     private void drawEquippedWeaponOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
