@@ -231,6 +231,10 @@ class InteractionControllerBreakTest {
         return engine.getDungeonMap().getCell(engine.getHero().getX() + 1, engine.getHero().getY());
     }
 
+    private void clearNearbyCells(){
+        clearNearbyItems();
+    }
+
     private void clearNearbyItems() {
         Hero hero = engine.getHero();
         for (int dy = -1; dy <= 1; dy++) {
