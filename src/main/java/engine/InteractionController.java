@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.List;
 
 import model.Coin;
-import model.Container;
 import model.DungeonMap;
 import model.GridCell;
 import model.Hero;
@@ -18,10 +17,16 @@ public class InteractionController {
 
     private final GameEngine engine;
     private final InventoryController inventoryController;
+    private final BreakController breakController;
 
     public InteractionController(GameEngine engine) {
+        this(engine, new BreakController());
+    }
+
+    InteractionController(GameEngine engine, BreakController breakController) {
         this.engine = engine;
         this.inventoryController = new InventoryController(engine);
+        this.breakController = breakController;
     }
 
     /**
@@ -157,10 +162,8 @@ public class InteractionController {
 
     /**
      * Breaks the first breakable object found in the hero's 3x3 interaction
-     * range, scanning adjacent tiles before the hero's own tile. A breakable is
-     * any ground item that declares {@link ItemAction#BREAK} (e.g. vase, column,
-     * crate, water pipe) or a breakable {@link Container}. Containers also
-     * enforce a strength requirement.
+     * range. The attempt spends energy first, then uses the hero's STR against
+     * the object's difficulty to decide whether the break succeeds.
      *
      * @return the outcome, or {@code null} when nothing breakable is in reach.
      */
@@ -169,41 +172,59 @@ public class InteractionController {
         DungeonMap map = engine.getDungeonMap();
         int hx = hero.getX();
         int hy = hero.getY();
+        // P key reaches the same 3x3 interaction area as attack/search/open.
+        // We scan nearby tiles and let BreakController do the energy + STR roll.
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
                 GridCell cell = map.getCell(hx + dx, hy + dy);
                 if (cell == null) {
                     continue;
                 }
-                for (Item item : cell.getItemsView()) {
-                    if (!isBreakable(item)) {
+                for (Item item : new ArrayList<>(cell.getItemsView())) {
+                    if (!breakController.isBreakable(item)) {
                         continue;
                     }
-                    int required = item instanceof Container container
-                            ? container.getBreakStrengthRequired()
-                            : 0;
-                    if (hero.getStr() < required) {
-                        return new BreakResult(item.getName(), false);
-                    }
-                    cell.getItems().remove(item);
-                    engine.notifyGameStateChanged();
-                    return new BreakResult(item.getName(), true);
+                    BreakResult result = breakController.attemptBreak(hero, cell, item);
+                    notifyAfterBreak(result);
+                    return result;
                 }
             }
         }
         return null;
     }
 
-    private boolean isBreakable(Item item) {
-        return item.getInventoryActions().contains(ItemAction.BREAK)
-                || (item instanceof Container container && container.isBreakable());
+    public BreakResult breakObjectAt(Item item, int x, int y) {
+        GridCell cell = engine.getDungeonMap().getCell(x, y);
+        BreakResult result = breakController.attemptBreak(engine.getHero(), cell, item);
+        notifyAfterBreak(result);
+        return result;
+    }
+
+    private void notifyAfterBreak(BreakResult result) {
+        if (result != null && result.stateChanged()) {
+            engine.notifyGameStateChanged();
+        }
+    }
+
+    public enum BreakOutcome {
+        BROKEN,
+        FAILED,
+        NOT_ENOUGH_ENERGY
     }
 
     /**
-     * Outcome of a break attempt: the object's name and whether it was actually
-     * destroyed. {@code broken == false} means the hero lacked the strength.
+     * Outcome of a break attempt. Failed attempts still spend energy; insufficient
+     * energy leaves the map and hero unchanged.
      */
-    public record BreakResult(String objectName, boolean broken) {
+    public record BreakResult(String objectName, BreakOutcome outcome,
+            int energyCost, double successChance, int droppedItemCount) {
+        public boolean broken() {
+            return outcome == BreakOutcome.BROKEN;
+        }
+
+        boolean stateChanged() {
+            return outcome == BreakOutcome.BROKEN || outcome == BreakOutcome.FAILED;
+        }
     }
 
     /**
@@ -232,6 +253,10 @@ public class InteractionController {
         }
         if (action == ItemAction.SEARCH && item instanceof SearchableObject searchableObject) {
             return engine.search(searchableObject).getOutcome() != GameEngine.SearchOutcome.NOT_SEARCHABLE;
+        }
+        if (action == ItemAction.BREAK) {
+            BreakResult result = breakObjectAt(item, x, y);
+            return result != null && result.broken();
         }
         if (!engine.takeItem(item, x, y)) {
             return false;
