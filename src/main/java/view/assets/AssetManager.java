@@ -130,7 +130,13 @@ public final class AssetManager {
             Map.entry("/items_objects/manapotion.png", "/items/potions/08_potion_blue.png"),
             Map.entry("/items_objects/energypotion.png", "/items/potions/09_potion_green.png"),
             Map.entry("/characters/sorcerer1.png", "/characters/wizard1.png"),
-            Map.entry("/chest_models_plus_crates_sacks_v6/bag - empty.png", "/inventorychest.png"));
+            Map.entry("/chest_models_plus_crates_sacks_v6/bag - empty.png", "/inventorychest.png"),
+            Map.entry("/items/crates/16_crate_wood_tall_right.png",
+                    "/background_floor/assets/searchable assets/crates/16_crate_wood_tall_right.png"),
+            Map.entry("/items/crates/17_crate_wood_tall_corrected.png",
+                    "/background_floor/assets/searchable assets/crates/17_crate_wood_tall_corrected.png"),
+            Map.entry("/items/crates/18_crate_orange_tall_corrected.png",
+                    "/background_floor/assets/searchable assets/crates/18_crate_orange_tall_corrected.png"));
 
     private static String relocateKeySheetItem(String filename) {
         return switch (filename) {
@@ -154,7 +160,7 @@ public final class AssetManager {
         return switch (prefix) {
             case "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14",
                     "15" -> "/items/chests/" + filename;
-            case "16", "17", "18" -> "/items/crates/" + filename;
+            case "16", "17", "18" -> "/background_floor/assets/searchable assets/crates/" + filename;
             case "19", "20" -> "/items/bags/" + filename;
             default -> "/items/" + filename;
         };
@@ -162,14 +168,16 @@ public final class AssetManager {
 
     private static String relocateSearchableBackground(String filename) {
         return switch (filename) {
-            case "10_wall_column_round_top.png" -> "/background_floor/assets/searchable assets/column3.png";
+            case "10_wall_column_round_top.png", "column3.png" ->
+                    "/background_floor/assets/breakable assets/column3.png";
             case "20_wall_detail_growth_green.png" -> "/background_floor/assets/searchable assets/hole1.png";
             case "21_wall_detail_grate_horizontal_blue.png", "grill.png" ->
                     "/background_floor/assets/searchable assets/grill1.png";
             case "22_wall_detail_grate_vertical_blue.png" -> "/background_floor/assets/searchable assets/grill2.png";
             case "23_wall_detail_ring_small_blue.png", "24_wall_detail_ring_large_blue.png",
                     "25_wall_detail_ring_teardrop_blue.png", "water_pipe.png" ->
-                    "/background_floor/assets/searchable assets/water_pipes.png";
+                    "/background_floor/assets/breakable assets/water_pipes.png";
+            case "water_pipes.png" -> "/background_floor/assets/breakable assets/water_pipes.png";
             case "26_wall_detail_drip_red_left.png", "26_wall_detail_drip_red_left(below).png",
                     "29_wall_detail_drip_red_mid.png",
                     "34_wall_detail_drip_red_right.png", "gargoyle_pool_red.png" ->
@@ -180,8 +188,10 @@ public final class AssetManager {
             case "28_wall_detail_drip_cyan_left(above).png", "28_wall_detail_drip_cyan_left.png",
                     "31_wall_detail_drip_cyan_mid.png", "33_wall_detail_drip_cyan_right.png",
                     "gargoyle_pool_blue.png" -> "/background_floor/assets/searchable assets/gargoyle_blue.png";
-            case "39_pillar_purple.png" -> "/background_floor/assets/searchable assets/column1.png";
-            case "40_pillar_gray.png" -> "/background_floor/assets/searchable assets/column2.png";
+            case "39_pillar_purple.png", "column1.png" ->
+                    "/background_floor/assets/breakable assets/column1.png";
+            case "40_pillar_gray.png", "column2.png" ->
+                    "/background_floor/assets/breakable assets/column2.png";
             default -> "/background_floor/assets/searchable assets/" + filename;
         };
     }

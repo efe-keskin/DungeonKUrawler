@@ -11,6 +11,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
+import javax.swing.ButtonModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -39,11 +41,11 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JToggleButton;
-import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 
 import engine.BuildModeController;
 import engine.BuildRandomItemPlacer;
@@ -117,7 +119,7 @@ public class DesignWindow extends JFrame {
 
         JPanel wrap = new JPanel(new BorderLayout());
         RetroTheme.stylePanelDark(wrap);
-        wrap.add(createPalettePanel("PALETTE"), BorderLayout.NORTH);
+        wrap.add(createPalettePanel("BUILD PALETTE"), BorderLayout.NORTH);
         wrap.add(canvas, BorderLayout.CENTER);
         wrap.add(createCommandPanel(), BorderLayout.SOUTH);
         setContentPane(wrap);
@@ -132,16 +134,21 @@ public class DesignWindow extends JFrame {
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, CONTROL_BORDER),
                 new EmptyBorder(8, 12, 8, 12)));
-        panel.setPreferredSize(new Dimension(WINDOW_W, 140));
+        panel.setPreferredSize(new Dimension(WINDOW_W, 156));
 
         JLabel titleLabel = new JLabel(title, JLabel.LEFT);
         titleLabel.setForeground(GOLD);
-        titleLabel.setFont(controlFont(11f));
+        titleLabel.setFont(controlFont(13f));
 
         selectedLabel = new JLabel();
         selectedLabel.setForeground(TEXT);
-        selectedLabel.setFont(controlFont(12f));
+        selectedLabel.setBackground(new Color(42, 34, 28));
+        selectedLabel.setFont(controlFont(11f));
         selectedLabel.setHorizontalAlignment(JLabel.RIGHT);
+        selectedLabel.setOpaque(true);
+        selectedLabel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(125, 98, 55), 1),
+                new EmptyBorder(4, 8, 4, 8)));
         refreshSelectedLabel();
 
         JPanel header = new JPanel(new BorderLayout(12, 0));
@@ -154,20 +161,24 @@ public class DesignWindow extends JFrame {
         paletteTabs.setFont(controlFont(11f));
         paletteTabs.setForeground(TEXT);
         paletteTabs.setBackground(CONTROL_BACKGROUND);
+        paletteTabs.setOpaque(false);
+        paletteTabs.setBorder(BorderFactory.createEmptyBorder());
+        paletteTabs.setUI(new PaletteTabbedPaneUI());
         paletteTabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
         for (Map.Entry<String, List<BuildTool>> entry : paletteGroups.entrySet()) {
-            JPanel carpet = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 4));
-            carpet.setBackground(new Color(28, 26, 32));
+            JPanel carpet = new PaletteShelf();
             for (BuildTool tool : entry.getValue()) {
                 carpet.add(createToolButton(tool));
             }
             JScrollPane scroll = new JScrollPane(carpet,
                     JScrollPane.VERTICAL_SCROLLBAR_NEVER,
                     JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-            scroll.setBorder(BorderFactory.createLineBorder(CONTROL_BORDER, 1));
-            scroll.getViewport().setBackground(new Color(28, 26, 32));
-            scroll.setPreferredSize(new Dimension(WINDOW_W - 24, 72));
+            scroll.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(92, 73, 52), 1),
+                    BorderFactory.createLineBorder(new Color(12, 11, 15), 2)));
+            scroll.getViewport().setBackground(new Color(24, 22, 28));
+            scroll.setPreferredSize(new Dimension(WINDOW_W - 24, 84));
             styleCarpetScrollBar(scroll.getHorizontalScrollBar());
             paletteTabs.addTab(entry.getKey(), scroll);
         }
@@ -595,18 +606,48 @@ public class DesignWindow extends JFrame {
         private ToolButton(BuildTool tool) {
             super();
             this.tool = tool;
-            setIcon(new ToolIcon(tool, 30));
+            setIcon(new ToolIcon(tool, 36));
             setToolTipText(tool.label());
-            setPreferredSize(new Dimension(42, 42));
-            setMinimumSize(new Dimension(42, 42));
-            setMaximumSize(new Dimension(42, 42));
+            setPreferredSize(new Dimension(50, 50));
+            setMinimumSize(new Dimension(50, 50));
+            setMaximumSize(new Dimension(50, 50));
             setForeground(TEXT);
-            setBackground(colorFor(tool).darker());
-            setOpaque(true);
+            setOpaque(false);
             setText(null);
-            setBorder(BorderFactory.createLineBorder(GOLD, 1));
+            setBorder(BorderFactory.createEmptyBorder(7, 7, 7, 7));
+            setBorderPainted(false);
+            setContentAreaFilled(false);
             setFocusPainted(false);
+            setRolloverEnabled(true);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                ButtonModel model = getModel();
+                boolean selected = isSelected();
+                boolean hover = model.isRollover();
+                Color fill = selected
+                        ? new Color(78, 55, 31)
+                        : hover ? new Color(50, 43, 43) : new Color(30, 28, 34);
+                Color border = selected
+                        ? new Color(244, 205, 103)
+                        : hover ? new Color(165, 132, 74) : new Color(78, 68, 61);
+                g2.setColor(fill);
+                g2.fillRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 6, 6);
+                g2.setColor(border);
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 6, 6);
+                if (selected) {
+                    g2.setColor(new Color(244, 205, 103, 125));
+                    g2.drawRoundRect(4, 4, getWidth() - 9, getHeight() - 9, 4, 4);
+                }
+            } finally {
+                g2.dispose();
+            }
+            super.paintComponent(graphics);
         }
     }
 
@@ -640,7 +681,7 @@ public class DesignWindow extends JFrame {
     private static Map<String, List<BuildTool>> groupTools(List<BuildTool> tools) {
         Map<String, List<BuildTool>> groups = new LinkedHashMap<>();
         for (String category : List.of("Floors", "Walls & Doors", "Rugs", "Decor", "Searchable",
-                "Chests", "Containers", "Keys & Rings", "Valuables", "Loot")) {
+                "Breakable", "Chests", "Containers", "Keys & Rings", "Valuables", "Loot")) {
             groups.put(category, new ArrayList<>());
         }
         for (BuildTool tool : tools) {
@@ -666,15 +707,19 @@ public class DesignWindow extends JFrame {
                 || id.startsWith("SKULL_") || id.startsWith("TOMBSTONE_")) {
             return "Decor";
         }
-        if (id.startsWith("MISSING_BRICK") || id.startsWith("GARGOYLE") || id.startsWith("POOL")
-                || id.startsWith("WATER_PIPE") || id.startsWith("GRILL") || id.startsWith("COLUMN")
-                || id.startsWith("HOLE") || id.equals("PEDESTAL") || id.equals("VASE")) {
+        if (id.startsWith("CRATE") || id.startsWith("MISSING_BRICK") || id.startsWith("GARGOYLE")
+                || id.startsWith("POOL") || id.startsWith("GRILL") || id.startsWith("HOLE")
+                || id.equals("PEDESTAL")) {
             return "Searchable";
+        }
+        if (id.startsWith("BREAKABLE_") || id.startsWith("COLUMN")
+                || id.startsWith("WATER_PIPE") || id.equals("VASE")) {
+            return "Breakable";
         }
         if (id.contains("CHEST")) {
             return "Chests";
         }
-        if (id.startsWith("CRATE") || id.startsWith("BAG_")) {
+        if (id.startsWith("BAG_")) {
             return "Containers";
         }
         if (id.equals("KEY") || id.startsWith("KEY_") || id.equals("RING") || id.startsWith("RING_")) {
@@ -729,7 +774,13 @@ public class DesignWindow extends JFrame {
                 }
                 if (sprite != null) {
                     int inset = 3;
-                    g2.drawImage(sprite, x + inset, y + inset, size - inset * 2, size - inset * 2, null);
+                    int box = size - inset * 2;
+                    double scale = Math.min(box / (double) sprite.getWidth(), box / (double) sprite.getHeight());
+                    int drawW = Math.max(1, (int) Math.round(sprite.getWidth() * scale));
+                    int drawH = Math.max(1, (int) Math.round(sprite.getHeight() * scale));
+                    int drawX = x + (size - drawW) / 2;
+                    int drawY = y + (size - drawH) / 2;
+                    g2.drawImage(sprite, drawX, drawY, drawW, drawH, null);
                     return;
                 }
                 paintFallbackObject(g2, x, y);
@@ -776,15 +827,83 @@ public class DesignWindow extends JFrame {
         }
     }
 
+    private static final class PaletteShelf extends JPanel {
+        private PaletteShelf() {
+            super(new FlowLayout(FlowLayout.LEFT, 7, 6));
+            setBackground(new Color(24, 22, 28));
+            setBorder(new EmptyBorder(0, 3, 0, 3));
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setColor(new Color(51, 43, 43));
+                g2.drawLine(0, 1, getWidth(), 1);
+                g2.setColor(new Color(12, 11, 15));
+                g2.drawLine(0, getHeight() - 2, getWidth(), getHeight() - 2);
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
+    private static final class PaletteTabbedPaneUI extends BasicTabbedPaneUI {
+        @Override
+        protected void installDefaults() {
+            super.installDefaults();
+            tabInsets = new Insets(5, 11, 5, 11);
+            selectedTabPadInsets = new Insets(0, 0, 0, 0);
+            tabAreaInsets = new Insets(0, 0, 2, 0);
+            contentBorderInsets = new Insets(0, 0, 0, 0);
+        }
+
+        @Override
+        protected void paintTabBackground(Graphics graphics, int tabPlacement, int tabIndex,
+                int x, int y, int width, int height, boolean selected) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setColor(selected ? new Color(82, 57, 30) : new Color(33, 30, 35));
+                g2.fillRoundRect(x + 1, y + 1, width - 3, height - 1, 6, 6);
+            } finally {
+                g2.dispose();
+            }
+        }
+
+        @Override
+        protected void paintTabBorder(Graphics graphics, int tabPlacement, int tabIndex,
+                int x, int y, int width, int height, boolean selected) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setColor(selected ? GOLD : new Color(74, 65, 60));
+                g2.drawRoundRect(x + 1, y + 1, width - 3, height - 1, 6, 6);
+            } finally {
+                g2.dispose();
+            }
+        }
+
+        @Override
+        protected void paintContentBorder(Graphics graphics, int tabPlacement, int selectedIndex) {
+            // Each shelf owns its frame so the selected category reads as one surface.
+        }
+
+        @Override
+        protected void paintFocusIndicator(Graphics graphics, int tabPlacement, Rectangle[] rectangles,
+                int tabIndex, Rectangle iconRect, Rectangle textRect, boolean selected) {
+            // Selection is already visible through the gold frame.
+        }
+    }
+
     private static final class CarpetScrollBarUI extends BasicScrollBarUI {
         @Override
         protected JButton createDecreaseButton(int orientation) {
-            return new ScrollArrowButton(orientation);
+            return new HiddenScrollButton();
         }
 
         @Override
         protected JButton createIncreaseButton(int orientation) {
-            return new ScrollArrowButton(orientation);
+            return new HiddenScrollButton();
         }
 
         @Override
@@ -838,46 +957,15 @@ public class DesignWindow extends JFrame {
         }
     }
 
-    private static final class ScrollArrowButton extends JButton {
-        private final int orientation;
-
-        private ScrollArrowButton(int orientation) {
-            this.orientation = orientation;
-            setPreferredSize(new Dimension(17, 17));
-            setMinimumSize(new Dimension(17, 17));
-            setMaximumSize(new Dimension(17, 17));
-            setBorder(BorderFactory.createEmptyBorder());
-            setContentAreaFilled(false);
+    private static final class HiddenScrollButton extends JButton {
+        private HiddenScrollButton() {
+            Dimension hidden = new Dimension(0, 0);
+            setPreferredSize(hidden);
+            setMinimumSize(hidden);
+            setMaximumSize(hidden);
             setFocusable(false);
-            setRolloverEnabled(true);
-        }
-
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g2 = (Graphics2D) graphics.create();
-            try {
-                g2.setColor(new Color(5, 5, 9));
-                g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(getModel().isPressed() ? new Color(126, 84, 31) : new Color(43, 38, 37));
-                g2.fillRect(2, 2, getWidth() - 4, getHeight() - 4);
-                g2.setColor(getModel().isRollover() ? new Color(244, 205, 103) : GOLD);
-                g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-
-                int cx = getWidth() / 2;
-                int cy = getHeight() / 2;
-                int[] xs;
-                int[] ys;
-                if (orientation == SwingConstants.WEST) {
-                    xs = new int[] { cx + 3, cx - 3, cx + 3 };
-                    ys = new int[] { cy - 4, cy, cy + 4 };
-                } else {
-                    xs = new int[] { cx - 3, cx + 3, cx - 3 };
-                    ys = new int[] { cy - 4, cy, cy + 4 };
-                }
-                g2.fillPolygon(xs, ys, 3);
-            } finally {
-                g2.dispose();
-            }
+            setBorderPainted(false);
+            setContentAreaFilled(false);
         }
     }
 }

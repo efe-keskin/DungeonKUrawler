@@ -25,9 +25,8 @@ public final class BuildRandomItemPlacer {
             "HEAL", "ENERGY", "MANA", "KEY", "WEAPON", "ARMOR", "RING", "VALUABLE");
     private static final List<String> HIDDEN_ITEM_TOOL_IDS = VISIBLE_ITEM_TOOL_IDS;
     private static final List<String> WALL_SEARCHABLE_TOOL_IDS = List.of(
-            "CRATE", "CRATE_WOOD_RIGHT", "CRATE_ORANGE", "PEDESTAL",
-            "COLUMN", "COLUMN_PURPLE", "COLUMN_TOP", "HOLE", "HOLE_2", "HOLE_3",
-            "WATER_PIPE", "GRILL", "GRILL_2", "GARGOYLE", "GARGOYLE_GREEN",
+            "CRATE", "CRATE_WOOD_RIGHT", "CRATE_ORANGE", "HOLE", "HOLE_2", "HOLE_3",
+            "GRILL", "GRILL_2", "GARGOYLE", "GARGOYLE_GREEN",
             "GARGOYLE_BLUE", "MISSING_BRICK", "MISSING_BRICK_2");
 
     private final BuildToolCatalog catalog;
