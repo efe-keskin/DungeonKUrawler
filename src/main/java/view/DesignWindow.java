@@ -30,6 +30,7 @@ import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -101,6 +102,7 @@ public class DesignWindow extends JFrame {
     private JTabbedPane paletteTabs;
     private JLabel selectedLabel;
     private JButton randomItemsButton;
+    private JCheckBox fogToggle;
     private Path lastMapPath;
 
     public DesignWindow() {
@@ -203,6 +205,7 @@ public class DesignWindow extends JFrame {
         clear.addActionListener(e -> {
             controller.clearMap();
             refreshRandomItemsButton();
+            refreshFogToggle();
             refreshSelectedLabel();
             canvas.repaint();
         });
@@ -233,10 +236,27 @@ public class DesignWindow extends JFrame {
             SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
         });
 
+        fogToggle = new JCheckBox("Fear of the Dark");
+        fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
+        fogToggle.setFocusable(false);
+        fogToggle.setFont(controlFont(12f));
+        fogToggle.setForeground(new Color(218, 200, 158));
+        fogToggle.setBackground(CONTROL_BACKGROUND);
+        fogToggle.setOpaque(false);
+        fogToggle.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        fogToggle.addActionListener(e -> {
+            boolean enabled = fogToggle.isSelected();
+            controller.getDesignMap().setFogEnabled(enabled);
+            if (enabled && engine.audio.AudioManager.shared() != null) {
+                engine.audio.AudioManager.shared().playFearOfTheDark();
+            }
+        });
+
         editRow.add(save);
         editRow.add(load);
         editRow.add(clear);
         editRow.add(randomItemsButton);
+        runRow.add(fogToggle);
         runRow.add(run);
         runRow.add(teamMatch);
         runRow.add(menu);
@@ -260,6 +280,12 @@ public class DesignWindow extends JFrame {
         randomItemsButton.setText(remaining > 0
                 ? "ADD 5 RANDOM ITEMS (" + remaining + " LEFT)"
                 : "RANDOM ITEMS LIMIT REACHED");
+    }
+
+    private void refreshFogToggle() {
+        if (fogToggle != null) {
+            fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
+        }
     }
 
     private void runTeamMatch() {
@@ -292,6 +318,7 @@ public class DesignWindow extends JFrame {
                 lastMapPath = path;
                 refreshRandomItemsButton();
                 refreshSelectedLabel("Loaded " + path.getFileName());
+                refreshFogToggle();
                 canvas.repaint();
             } catch (IOException ex) {
                 ItemActionMenuDialog.showNotice(this, "Build", "Load Failed", ex.getMessage());

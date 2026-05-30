@@ -8,6 +8,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -21,6 +22,7 @@ import javax.swing.JComponent;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.Scrollable;
 import javax.swing.ScrollPaneConstants;
@@ -30,6 +32,7 @@ import javax.swing.ImageIcon;
 
 import engine.TowerProgressController;
 import engine.audio.AudioManager;
+import model.TowerScenario;
 import view.assets.SpriteRegistry;
 
 /**
@@ -175,6 +178,7 @@ public final class TowerMapWindow extends JFrame {
     private final transient Runnable onBack;
     private final transient Runnable onShop;
     private final transient Runnable onInventory;
+    private final transient IntConsumer onDebugSkip;
     private final int heroFloor;
     private final int climbToFloor;
 
@@ -184,12 +188,14 @@ public final class TowerMapWindow extends JFrame {
      *                 enters an available floor
      */
     public TowerMapWindow(TowerProgressController progress, IntConsumer onEnter, Runnable onBack,
-            Runnable onShop, Runnable onInventory, int heroFloor, int climbToFloor) {
+            Runnable onShop, Runnable onInventory, int heroFloor, int climbToFloor,
+            IntConsumer onDebugSkip) {
         this.progress = progress;
         this.onEnter = onEnter;
         this.onBack = onBack;
         this.onShop = onShop;
         this.onInventory = onInventory;
+        this.onDebugSkip = onDebugSkip;
         this.heroFloor = clampFloor(heroFloor);
         this.climbToFloor = climbToFloor >= 1 && climbToFloor <= FLOOR_COUNT ? climbToFloor : -1;
 
@@ -210,6 +216,7 @@ public final class TowerMapWindow extends JFrame {
         scroll.getVerticalScrollBar().setUnitIncrement(20);
 
         JButton back = createBackButton();
+        JButton skip = createSkipToLevelButton();
         JButton shop = createShopButton();
         JButton inventory = createInventoryButton();
         JPanel mapLayer = new JPanel(null) {
@@ -217,6 +224,9 @@ public final class TowerMapWindow extends JFrame {
             public void doLayout() {
                 scroll.setBounds(0, 0, getWidth(), getHeight());
                 back.setBounds(MAP_BUTTON_MARGIN, MAP_BUTTON_MARGIN, BACK_BUTTON_W, BACK_BUTTON_H);
+                skip.setBounds(MAP_BUTTON_MARGIN,
+                        MAP_BUTTON_MARGIN + BACK_BUTTON_H + 8,
+                        BACK_BUTTON_W, BACK_BUTTON_H);
                 int shopX = Math.max(MAP_BUTTON_MARGIN, getWidth() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN);
                 int shopY = Math.max(MAP_BUTTON_MARGIN, getHeight() - SHOP_BUTTON_SIZE - MAP_BUTTON_MARGIN);
                 shop.setBounds(shopX, shopY, SHOP_BUTTON_SIZE, SHOP_BUTTON_SIZE);
@@ -228,9 +238,11 @@ public final class TowerMapWindow extends JFrame {
         mapLayer.setBackground(BACKDROP);
         mapLayer.add(scroll);
         mapLayer.add(back);
+        mapLayer.add(skip);
         mapLayer.add(shop);
         mapLayer.add(inventory);
         mapLayer.setComponentZOrder(back, 0);
+        mapLayer.setComponentZOrder(skip, 0);
         mapLayer.setComponentZOrder(shop, 0);
         mapLayer.setComponentZOrder(inventory, 0);
         root.add(mapLayer, BorderLayout.CENTER);
@@ -259,6 +271,37 @@ public final class TowerMapWindow extends JFrame {
             }
         });
         return back;
+    }
+
+    private JButton createSkipToLevelButton() {
+        JButton skip = new JButton("SKIP");
+        RetroTheme.styleRetroButton(skip, new Color(54, 30, 30));
+        skip.setFocusable(false);
+        skip.addActionListener((ActionEvent e) -> {
+            AudioManager.shared().play("button_click");
+            if (onDebugSkip == null) {
+                return;
+            }
+            String input = JOptionPane.showInputDialog(
+                    this,
+                    "Skip to level (1.." + TowerScenario.LEVEL_COUNT + "):",
+                    "Debug: Skip",
+                    JOptionPane.QUESTION_MESSAGE);
+            if (input == null) {
+                return;
+            }
+            int target;
+            try {
+                target = Integer.parseInt(input.trim());
+            } catch (NumberFormatException ex) {
+                return;
+            }
+            if (target < 1 || target > TowerScenario.LEVEL_COUNT) {
+                return;
+            }
+            onDebugSkip.accept(target);
+        });
+        return skip;
     }
 
     private JButton createShopButton() {

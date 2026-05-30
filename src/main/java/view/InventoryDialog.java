@@ -9,6 +9,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +24,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
+import javax.swing.Timer;
 
 import engine.audio.AudioManager;
 import engine.GameEngine;
@@ -34,6 +37,7 @@ import model.Key;
 import model.Pet;
 import model.Potion;
 import model.Ring;
+import model.Torch;
 import model.ValuableItem;
 import model.Weapon;
 import view.assets.SpriteRegistry;
@@ -69,17 +73,46 @@ public class InventoryDialog extends JDialog {
     private static final Color BADGE_FG = new Color(245, 228, 188);
 
     private final GameEngine engine;
+    private int torchFrame = 0;
+    private Timer torchAnimationTimer;
 
     public InventoryDialog(JDialog owner, GameEngine engine) {
         super(owner, "Inventory", Dialog.ModalityType.APPLICATION_MODAL);
         this.engine = engine;
         buildUi();
+        startTorchAnimationTimer();
     }
 
     public InventoryDialog(java.awt.Frame owner, GameEngine engine) {
         super(owner, "Inventory", true);
         this.engine = engine;
         buildUi();
+        startTorchAnimationTimer();
+    }
+
+    private void startTorchAnimationTimer() {
+        torchAnimationTimer = new Timer(150, e -> {
+            torchFrame = (torchFrame + 1) % SpriteRegistry.torchFrameCount();
+            repaint();
+        });
+        torchAnimationTimer.start();
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                stopTorchAnimationTimer();
+            }
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                stopTorchAnimationTimer();
+            }
+        });
+    }
+
+    private void stopTorchAnimationTimer() {
+        if (torchAnimationTimer != null) {
+            torchAnimationTimer.stop();
+        }
     }
 
     private void rebuildUi() {
@@ -438,6 +471,9 @@ public class InventoryDialog extends JDialog {
     }
 
     private BufferedImage itemSprite(Item item) {
+        if (item instanceof Torch) {
+            return SpriteRegistry.torchFrame(torchFrame);
+        }
         return SpriteRegistry.spriteFor(item);
     }
 

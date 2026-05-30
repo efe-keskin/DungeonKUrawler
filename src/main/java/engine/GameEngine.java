@@ -52,6 +52,7 @@ import model.Projectile;
 import model.SearchableObject;
 import model.Sorcerer;
 import model.WaterPipe;
+import model.Torch;
 
 /**
  * Game state owner and observer subject.
@@ -77,6 +78,7 @@ public class GameEngine {
     private final TeamMatchAiController teamMatchAiController = new TeamMatchAiController();
     private final TeamMatchOutcomeEvaluator teamMatchOutcomeEvaluator = new TeamMatchOutcomeEvaluator();
     private final TargetItemMission targetMission = new TargetItemMission();
+    private final FogOfWarEngine fogEngine = new FogOfWarEngine();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private final List<GameEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
@@ -196,6 +198,7 @@ public class GameEngine {
         int[] heroStart = findHeroStart(this.dungeonMap);
         this.hero = new Hero(heroStart[0], heroStart[1], "Hero", 17, startingStr, 80, 2, 100);
         placeHeroOnMap();
+        fogEngine.revealAround(dungeonMap, hero);
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
@@ -216,6 +219,7 @@ public class GameEngine {
         this.dungeonMap = dungeonMap;
         this.hero = hero;
         placeHeroOnMap();
+        fogEngine.revealAround(dungeonMap, hero);
         startTeamMatchTimers();
     }
 
@@ -260,6 +264,7 @@ public class GameEngine {
         this.hero = hero;
         this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         placeHeroOnMap();
+        fogEngine.revealAround(dungeonMap, hero);
         this.targetMission.restore(missionTarget, missionStarted, missionWon);
         startGameTimers();
     }
@@ -280,6 +285,7 @@ public class GameEngine {
         this.dungeonMap = map;
         this.hero = hero;
         placeHeroOnMap();
+        fogEngine.revealAround(dungeonMap, hero);
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
@@ -562,12 +568,12 @@ public class GameEngine {
         int count = Math.min(candidates.size(), (int) Math.round(candidates.size() * SEARCHABLE_WALL_FILL_RATIO));
         for (int i = 0; i < count; i++) {
             int[] spot = candidates.remove(random.nextInt(candidates.size()));
-            placeSearchable(map, spot[0], spot[1], randomSearchableObject(spot[1] == 0));
+            placeSearchable(map, spot[0], spot[1], randomSearchableObject(map, spot[1] == 0));
         }
     }
 
-    private SearchableObject randomSearchableObject(boolean topWall) {
-        Item hiddenItem = randomHiddenSearchItem();
+    private SearchableObject randomSearchableObject(DungeonMap map, boolean topWall) {
+        Item hiddenItem = randomHiddenSearchItem(map);
         return switch (random.nextInt(20)) {
             case 0, 1, 2, 3 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
             case 4, 5, 6, 7 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
@@ -602,16 +608,17 @@ public class GameEngine {
         return sprites[random.nextInt(sprites.length)];
     }
 
-    private Item randomHiddenSearchItem() {
+    private Item randomHiddenSearchItem(DungeonMap map) {
         if (random.nextDouble() >= SEARCHABLE_HIDDEN_ITEM_CHANCE) {
             return null;
         }
-        return switch (random.nextInt(6)) {
+        return switch (random.nextInt(7)) {
             case 0 -> new HealPotion();
             case 1 -> new ManaPotion();
             case 2 -> new EnergyPotion();
             case 3 -> new Key("silver", KeyColor.SILVER);
             case 4 -> new Ring("Hidden Ring", 1);
+            case 5 -> map != null && map.isFogEnabled() ? new Torch() : new HealPotion();
             default -> new Book("Dusty Note", "A folded note found inside the old wall.");
         };
     }
@@ -695,6 +702,7 @@ public class GameEngine {
         container.removeItem(item);
         targetMission.checkPickup(item);
         fireItemPickedUp(item);
+        fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return true;
     }
@@ -734,6 +742,7 @@ public class GameEngine {
         }
         targetMission.checkPickup(found);
         fireItemPickedUp(found);
+        fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return SearchResult.found(found);
     }
@@ -751,6 +760,10 @@ public class GameEngine {
 
     public Hero getHero() {
         return hero;
+    }
+
+    public FogOfWarEngine getFogEngine() {
+        return fogEngine;
     }
 
     public List<Projectile> getActiveProjectilesView() {
@@ -788,6 +801,7 @@ public class GameEngine {
         }
 
         lastMoveNanos = System.nanoTime();
+        fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         checkTowerExit(to);
     }
@@ -908,6 +922,7 @@ public class GameEngine {
         }
         boolean applied = effect.apply(hero, item);
         if (applied && effect.notifyAfterApply()) {
+            fogEngine.revealAround(dungeonMap, hero);
             notifyListeners();
         }
         return applied;
@@ -998,6 +1013,7 @@ public class GameEngine {
         dungeonMap.removeItemFromCell(item, x, y);
         targetMission.checkPickup(item);
         fireItemPickedUp(item);
+        fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return true;
     }

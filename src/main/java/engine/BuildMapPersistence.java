@@ -39,6 +39,7 @@ import model.Pedestal;
 import model.Pool;
 import model.Ring;
 import model.SearchableObject;
+import model.Torch;
 import model.ValuableItem;
 import model.Vase;
 import model.WaterPipe;
@@ -58,7 +59,7 @@ import model.WeaponType;
 public final class BuildMapPersistence {
 
     private static final String SCHEMA = "DungeonKUrawler.DungeonMap";
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final BuildMapFactory mapFactory;
@@ -98,6 +99,7 @@ public final class BuildMapPersistence {
 
         validate(dto);
         DungeonMap map = mapFactory.createEmptyMap(dto.levelName, dto.width, dto.height);
+        map.setFogEnabled(dto.fogEnabled != null && dto.fogEnabled);
         for (CellDto cellDto : dto.cells) {
             GridCell cell = map.getCell(cellDto.x, cellDto.y);
             if (cell == null) {
@@ -122,6 +124,7 @@ public final class BuildMapPersistence {
         dto.levelName = map.getLevelName();
         dto.width = map.getWidth();
         dto.height = map.getHeight();
+        dto.fogEnabled = map.isFogEnabled();
         dto.cells = new ArrayList<>();
 
         for (int y = 0; y < map.getHeight(); y++) {
@@ -194,6 +197,8 @@ public final class BuildMapPersistence {
             dto.type = "energyPotion";
         } else if (item instanceof ManaPotion) {
             dto.type = "manaPotion";
+        } else if (item instanceof Torch) {
+            dto.type = "torch";
         } else if (item instanceof Key key) {
             dto.type = "key";
             dto.keyId = key.getKeyId();
@@ -292,6 +297,7 @@ public final class BuildMapPersistence {
             case "healPotion" -> new HealPotion();
             case "energyPotion" -> new EnergyPotion();
             case "manaPotion" -> new ManaPotion();
+            case "torch" -> new Torch();
             case "key" -> new Key(valueOr(dto.keyId, "silver"), keyColor(dto.keyColor), bool(dto.singleUse));
             case "weapon" -> new Weapon(weaponType(dto));
             case "armor" -> new Armor(name(dto, "Armor"), intOr(dto.defModifier, 0));
@@ -346,7 +352,9 @@ public final class BuildMapPersistence {
         if (!SCHEMA.equals(dto.schema)) {
             throw new IOException("Unsupported map schema.");
         }
-        if (dto.version != VERSION) {
+        // v1: pre-fog maps load as fog-disabled
+        // v2: adds fogEnabled flag on the map root
+        if (dto.version < 1 || dto.version > VERSION) {
             throw new IOException("Unsupported map version: " + dto.version);
         }
         if (dto.width <= 0 || dto.height <= 0) {
@@ -394,6 +402,7 @@ public final class BuildMapPersistence {
         String levelName;
         int width;
         int height;
+        Boolean fogEnabled;
         List<CellDto> cells;
     }
 

@@ -170,7 +170,8 @@ public final class AssetManager {
             case "23_wall_detail_ring_small_blue.png", "24_wall_detail_ring_large_blue.png",
                     "25_wall_detail_ring_teardrop_blue.png", "water_pipe.png" ->
                     "/background_floor/assets/searchable assets/water_pipes.png";
-            case "26_wall_detail_drip_red_left(below).png", "29_wall_detail_drip_red_mid.png",
+            case "26_wall_detail_drip_red_left.png", "26_wall_detail_drip_red_left(below).png",
+                    "29_wall_detail_drip_red_mid.png",
                     "34_wall_detail_drip_red_right.png", "gargoyle_pool_red.png" ->
                     "/background_floor/assets/searchable assets/gargoyle_red.png";
             case "27_wall_detail_drip_green_left.png", "30_wall_detail_drip_green_mid.png",
@@ -192,7 +193,11 @@ public final class AssetManager {
         String prefix = filename.length() >= 2 ? filename.substring(0, 2) : "";
         return switch (prefix) {
             case "01", "11", "12", "13", "14", "16", "18" -> "/background_floor/assets/walls/" + filename;
+            case "02", "05", "06", "08", "09" -> "/background_floor/assets/walls/01_wall_section_top_plain_left.png";
             case "03", "04", "07" -> "/background_floor/assets/floors/" + filename;
+            case "19" -> "/background_floor/assets/floors/04_floor_worn_patch_round.png";
+            case "10", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32",
+                    "33", "34", "39", "40" -> relocateSearchableBackground(filename);
             case "15" -> "/background_floor/assets/doors/" + filename;
             case "17" -> "/background_floor/assets/doors/17_door_open_wood.png";
             case "35", "36", "37", "38" -> "/background_floor/assets/banners/" + filename;

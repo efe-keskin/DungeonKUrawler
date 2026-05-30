@@ -9,7 +9,8 @@ public final class DragonPet extends Pet {
 
     /** Strictly less than the sorcerer/wizard shoot range. */
     public static final int ATTACK_RANGE = 4;
-    public static final int ATTACK_DAMAGE = 2;
+    /** +30% over the previous 2 damage (rounded to the nearest whole point). */
+    public static final int ATTACK_DAMAGE = 3;
     private static final String SPRITE = "/pets/dragon1.png";
     private static final int FOLLOW_RANGE = 2;
 
