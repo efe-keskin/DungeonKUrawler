@@ -56,7 +56,8 @@ public final class ItemActionMenuDialog {
      * label, or {@code -1} when it is closed or dismissed with ESC.
      */
     public static int show(Component parent, String category, String title, String detail, String... labels) {
-        Window owner = parent instanceof Window window ? window : SwingUtilities.getWindowAncestor(parent);
+        Window owner = parent instanceof Window window ? window
+                : parent == null ? null : SwingUtilities.getWindowAncestor(parent);
         JDialog dialog = new JDialog(owner, Dialog.ModalityType.APPLICATION_MODAL);
         int[] selection = { -1 };
 
