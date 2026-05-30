@@ -60,12 +60,8 @@ public final class BuildToolCatalog {
         tools = List.of(
                 brush("FLOOR", "Floor Brush", FLOOR_BRUSH),
                 brush("WALL", "Wall Brush", WALL_BRUSH),
-                decor("FLOOR_LARGE_LEFT", "Floor Large Left", false,
-                        BACKGROUND_DIR + "floors/03_floor_large_left.png"),
                 decor("FLOOR_WORN_PATCH", "Floor Worn Patch", false,
                         BACKGROUND_DIR + "floors/04_floor_worn_patch_round.png"),
-                decor("FLOOR_STRIP_TOP", "Floor Strip Top", false,
-                        BACKGROUND_DIR + "floors/07_floor_strip_top_clean_long.png"),
                 wallDecor("WALL_TOP_PLAIN", "Wall Top Plain",
                         BACKGROUND_DIR + "walls/01_wall_section_top_plain_left.png"),
                 wallDecor("WALL_FRAME_VERTICAL", "Wall Frame Vertical",

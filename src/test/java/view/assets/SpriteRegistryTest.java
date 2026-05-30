@@ -66,6 +66,7 @@ class SpriteRegistryTest {
         assertNotNull(AssetManager.get().image(Column.GRAY_SPRITE));
         assertNotNull(AssetManager.get().image(WaterPipe.LARGE_RING_SPRITE));
         assertNotNull(AssetManager.get().image(new Vase().spriteResource()));
+        assertNotNull(AssetManager.get().image(Vase.BROKEN_SPRITE));
         assertNotNull(AssetManager.get().image(Crate.WOOD_TALL_SPRITE));
         assertNotNull(AssetManager.get().image(Crate.BREAKABLE_WOOD_TALL_SPRITE));
     }
