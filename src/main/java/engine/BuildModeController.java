@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Random;
 
 import model.DungeonMap;
+import model.Chest;
+import model.GridCell;
+import model.Item;
 
 
 /**
@@ -24,9 +27,11 @@ public final class BuildModeController {
     private final BuildPlacementStrategy placementStrategy;
     private final BuildMapPersistence mapPersistence;
     private final BuildRandomItemPlacer randomItemPlacer;
+    private final LockedChestKeyPlacer lockedChestKeyPlacer;
     private DungeonMap designMap;
     private BuildTool selectedTool;
     private int randomItemAddCount;
+    private String lastPlacementMessage;
 
     public BuildModeController() {
         this(new BuildToolCatalog(), new BuildMapFactory(), new StandardBuildPlacementStrategy(), new Random());
@@ -44,6 +49,7 @@ public final class BuildModeController {
         this.placementStrategy = placementStrategy;
         this.mapPersistence = new BuildMapPersistence(toolCatalog, mapFactory, placementStrategy);
         this.randomItemPlacer = new BuildRandomItemPlacer(toolCatalog, placementStrategy, random);
+        this.lockedChestKeyPlacer = new LockedChestKeyPlacer(random);
         this.selectedTool = toolCatalog.defaultTool();
         clearMap();
     }
@@ -71,6 +77,7 @@ public final class BuildModeController {
     public void clearMap() {
         designMap = mapFactory.createEmptyMap(DEFAULT_LEVEL_NAME, DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT);
         randomItemAddCount = 0;
+        lastPlacementMessage = null;
     }
 
     public void saveMap(Path path) throws IOException {
@@ -80,6 +87,7 @@ public final class BuildModeController {
     public void loadMap(Path path) throws IOException {
         designMap = mapPersistence.load(path);
         randomItemAddCount = 0;
+        lastPlacementMessage = null;
     }
 
     public BuildRandomItemPlacer.Result addFiveRandomItems() {
@@ -107,7 +115,23 @@ public final class BuildModeController {
             return false;
         }
         selectTool(tool);
-        return placementStrategy.place(designMap, x, y, tool);
+        boolean placed = placementStrategy.place(designMap, x, y, tool);
+        lastPlacementMessage = null;
+        if (placed) {
+            GridCell cell = designMap.getCell(x, y);
+            Item item = cell == null || cell.getItemsView().isEmpty()
+                    ? null : cell.getItemsView().get(0);
+            if (item instanceof Chest chest && chest.isLocked()) {
+                LockedChestKeyPlacer.Placement keyPlacement =
+                        lockedChestKeyPlacer.assignAndPlace(designMap, chest);
+                lastPlacementMessage = keyPlacement.messageFor(chest);
+            }
+        }
+        return placed;
+    }
+
+    public String getLastPlacementMessage() {
+        return lastPlacementMessage;
     }
 
     public boolean eraseAt(int x, int y) {

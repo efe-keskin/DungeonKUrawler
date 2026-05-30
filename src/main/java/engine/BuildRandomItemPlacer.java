@@ -7,6 +7,7 @@ import java.util.Random;
 import model.DungeonMap;
 import model.GridCell;
 import model.Item;
+import model.Key;
 import model.SearchableObject;
 
 
@@ -149,7 +150,8 @@ public final class BuildRandomItemPlacer {
             for (int x = 1; x < map.getWidth() - 1; x++) {
                 SearchableObject searchableObject = searchableAt(map, x, y);
                 if (searchableObject != null
-                        && (!requireEmptyHiddenSlot || searchableObject.getHiddenItem() == null)) {
+                        && (!requireEmptyHiddenSlot || searchableObject.getHiddenItem() == null)
+                        && !(searchableObject.getHiddenItem() instanceof Key)) {
                     searchables.add(searchableObject);
                 }
             }

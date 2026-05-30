@@ -23,7 +23,7 @@ public final class MissionSplashDialog {
         String body = target == null
                 ? "Explore the dungeon and survive."
                 : "Find this valuable hidden somewhere in the dungeon.\n"
-                        + "Search every chest, pick it up, then unlock the exit door and step through.";
+                        + "Search chests and wall fixtures, claim it, then unlock the exit when one guards the way.";
         ItemActionMenuDialog.show(parent, "Mission Briefing", "FIND: " + title, body, "Begin");
     }
 

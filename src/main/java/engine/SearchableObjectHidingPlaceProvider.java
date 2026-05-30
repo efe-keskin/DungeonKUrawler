@@ -3,18 +3,17 @@ package engine;
 import java.util.ArrayList;
 import java.util.List;
 
-import model.Container;
-import model.ContainerHidingPlace;
 import model.DungeonMap;
 import model.GridCell;
 import model.HidingPlace;
 import model.Item;
+import model.SearchableObject;
+import model.SearchableObjectHidingPlace;
 
 /**
- * Walks every cell on the map and reports each {@link Container} as a
- * candidate {@link HidingPlace}.
+ * Reports searchable scenery as target-mission hiding places.
  */
-public final class ContainerHidingPlaceProvider implements HidingPlaceProvider {
+public final class SearchableObjectHidingPlaceProvider implements HidingPlaceProvider {
 
     @Override
     public List<HidingPlace> collectHidingPlaces(DungeonMap map) {
@@ -29,8 +28,8 @@ public final class ContainerHidingPlaceProvider implements HidingPlaceProvider {
                     continue;
                 }
                 for (Item item : cell.getItemsView()) {
-                    if (item instanceof Container container) {
-                        places.add(new ContainerHidingPlace(container));
+                    if (item instanceof SearchableObject searchableObject) {
+                        places.add(new SearchableObjectHidingPlace(searchableObject));
                     }
                 }
             }
