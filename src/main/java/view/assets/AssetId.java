@@ -36,6 +36,7 @@ public enum AssetId {
     COIN_PILE("/items/golds_coins/20_coin_pile_gold.png"),
     RING_RED_GEM("/items/rings/10_ring_red_gem.png"),
     BOOK_RED("/items/books/22_book_red.png"),
+    SHADOW_CLONE_SCROLL("/items/scrolls/shadow_clone_scroll.png"),
     GEM_WHITE("/items/golds_coins/16_gem_white.png"),
     DEFEATED_ENEMY_MARKER("/items/tombstones/26_tombstone_skull.png"),
 
