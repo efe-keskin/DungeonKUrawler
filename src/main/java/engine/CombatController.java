@@ -14,6 +14,8 @@ import model.Weapon;
  */
 public class CombatController {
 
+    private static final int RANGED_AUTO_AIM_TILES = 2;
+
     private final GameEngine engine;
     private final CombatManager combatManager;
 
@@ -29,6 +31,10 @@ public class CombatController {
      * @return attack result when an enemy was hit; {@code null} when no valid target exists.
      */
     public CombatManager.AttackResult attackAt(int x, int y) {
+        if (engine.isHeroAttackOnCooldown()) {
+            return null;
+        }
+
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         if (weapon != null && weapon.isRanged()) {
@@ -64,6 +70,7 @@ public class CombatController {
         if (result.isDefenderDefeated()) {
             cell.getEntities().remove(target);
         }
+        engine.recordHeroAttackPacing();
         engine.fireHeroAttack(result);
         if (result.isDefenderDefeated()) {
             engine.fireEnemyDefeated(target);
@@ -84,7 +91,7 @@ public class CombatController {
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         if (weapon != null && weapon.isRanged()) {
-            return attackNearestEnemyInRangedRange();
+            return attackNearestEnemyInRangedRange(Integer.MAX_VALUE);
         }
 
         DungeonMap map = engine.getDungeonMap();
@@ -107,7 +114,20 @@ public class CombatController {
         return null;
     }
 
-    private TargetedAttack attackNearestEnemyInRangedRange() {
+    /**
+     * Auto-aim ranged attack for the {@code P} shortcut: picks the nearest shootable
+     * enemy within {@link #RANGED_AUTO_AIM_TILES} tiles (Chebyshev).
+     */
+    public TargetedAttack autoAimRangedAttack() {
+        Hero hero = engine.getHero();
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon == null || !weapon.isRanged()) {
+            return null;
+        }
+        return attackNearestEnemyInRangedRange(RANGED_AUTO_AIM_TILES);
+    }
+
+    private TargetedAttack attackNearestEnemyInRangedRange(int maxChebyshevDistance) {
         Hero hero = engine.getHero();
         DungeonMap map = engine.getDungeonMap();
         int hx = hero.getX();
@@ -121,6 +141,9 @@ public class CombatController {
                     continue;
                 }
                 int dist = Math.max(Math.abs(x - hx), Math.abs(y - hy));
+                if (dist > maxChebyshevDistance) {
+                    continue;
+                }
                 if (dist < bestChebyshev) {
                     bestChebyshev = dist;
                     bestX = x;

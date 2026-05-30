@@ -2,10 +2,12 @@ package engine;
 
 import model.Armor;
 import model.Hero;
+import model.HeroProjectileStyle;
 import model.Knight;
 import model.Ring;
 import model.Sorcerer;
 import model.Weapon;
+import model.WeaponCatalog;
 import model.WeaponType;
 
 import org.junit.jupiter.api.Test;
@@ -102,13 +104,13 @@ class CombatManagerTest {
     }
 
     @Test
-    void heroRangedPrepRequiresManaAndRangedWeapon() {
+    void heroRangedWandRequiresMana() {
         Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
         hero.setMana(4);
         Knight knight = new Knight(3, 0, "Knight", 20, 0, 0, 5);
-        Weapon spellBook = new Weapon(new WeaponType("TEST_STAFF", "Spell Book", "staves", null, 5, true));
-        hero.getInventory().tryAdd(spellBook);
-        hero.equipWeapon(spellBook);
+        Weapon wand = new Weapon(WeaponCatalog.get().byId("B23_WAND"));
+        hero.getInventory().tryAdd(wand);
+        hero.equipWeapon(wand);
 
         assertNull(combatManager.prepareHeroRangedProjectile(hero, knight));
 
@@ -116,6 +118,26 @@ class CombatManagerTest {
         CombatManager.HeroProjectilePrep prep = combatManager.prepareHeroRangedProjectile(hero, knight);
         assertTrue(prep.damageReceived > 0);
         assertEquals(0, hero.getMana());
+        assertEquals(100, hero.getEnergy());
+    }
+
+    @Test
+    void heroRangedBowSpendsEnergyNotMana() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        hero.setEnergy(2);
+        Knight knight = new Knight(3, 0, "Knight", 20, 0, 0, 5);
+        Weapon bow = new Weapon(WeaponCatalog.get().byId("B23_BOW"));
+        hero.getInventory().tryAdd(bow);
+        hero.equipWeapon(bow);
+
+        assertNull(combatManager.prepareHeroRangedProjectile(hero, knight));
+
+        hero.setEnergy(3);
+        CombatManager.HeroProjectilePrep prep = combatManager.prepareHeroRangedProjectile(hero, knight);
+        assertTrue(prep.damageReceived > 0);
+        assertEquals(0, hero.getEnergy());
+        assertEquals(80, hero.getMana());
+        assertEquals(HeroProjectileStyle.ARROW, prep.projectileStyle);
     }
 
     @Test

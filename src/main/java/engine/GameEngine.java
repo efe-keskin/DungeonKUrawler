@@ -39,6 +39,7 @@ import javax.swing.Timer;
 
 import model.AIState;
 import model.Gargoyle;
+import model.HeroProjectileStyle;
 import model.Knight;
 import model.MissingBrick;
 import model.Pool;
@@ -90,12 +91,8 @@ public class GameEngine {
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
-    private static final int KNIGHT_ACTION_TICK_MS = 800;
-    private static final int SORCERER_ATTACK_TICK_MS = 5000;
-    private static final int BOSS_ATTACK_TICK_MS = 7500;
     private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int BOSS_SHOOT_RANGE = 8;
-    private static final int HERO_RANGED_RANGE = 6;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
     private static final int MIN_GROUND_COINS = 3;
@@ -1039,18 +1036,18 @@ public class GameEngine {
         detectionTimer.setRepeats(true);
         detectionTimer.start();
 
-        knightActionTimer = new Timer(KNIGHT_ACTION_TICK_MS, e -> {
+        knightActionTimer = new Timer(GameConstants.GLOBAL_ACTION_TICK_MS, e -> {
             updateKnightMeleeActions();
             updateEnemyMovement();
         });
         knightActionTimer.setRepeats(true);
         knightActionTimer.start();
 
-        sorcererAttackTimer = new Timer(SORCERER_ATTACK_TICK_MS, e -> updateSorcererAttacks());
+        sorcererAttackTimer = new Timer(GameConstants.GLOBAL_ACTION_TICK_MS, e -> updateSorcererAttacks());
         sorcererAttackTimer.setRepeats(true);
         sorcererAttackTimer.start();
 
-        bossAttackTimer = new Timer(BOSS_ATTACK_TICK_MS, e -> updateBossAttacks());
+        bossAttackTimer = new Timer(GameConstants.GLOBAL_ACTION_TICK_MS, e -> updateBossAttacks());
         bossAttackTimer.setRepeats(true);
         bossAttackTimer.start();
 
@@ -1286,6 +1283,9 @@ public class GameEngine {
         if (isPaused || isGameOver) {
             return null;
         }
+        if (isHeroAttackOnCooldown()) {
+            return null;
+        }
         GridCell cell = dungeonMap.getCell(targetX, targetY);
         if (cell == null) {
             return null;
@@ -1304,6 +1304,7 @@ public class GameEngine {
         int hy = hero.getY();
         if (hx == targetX && hy == targetY) {
             CombatManager.AttackResult result = combatManager.applyHeroProjectileHit(target, prep);
+            recordHeroAttackPacing();
             fireHeroAttack(result);
             if (result.isDefenderDefeated()) {
                 cell.getEntities().remove(target);
@@ -1313,10 +1314,27 @@ public class GameEngine {
             return result;
         }
 
-        spawnProjectile(hx, hy, targetX, targetY, prep.damageGenerated, prep.damageReceived, true);
+        spawnProjectile(hx, hy, targetX, targetY, prep.damageGenerated, prep.damageReceived, true,
+                prep.projectileStyle);
+        recordHeroAttackPacing();
         notifyListeners();
         return new CombatManager.AttackResult(
                 prep.damageGenerated, prep.damageReceived, getHostileHp(target), false);
+    }
+
+    /** @return true when the hero must wait before the next attack input is accepted */
+    public boolean isHeroAttackOnCooldown() {
+        if (hero == null) {
+            return true;
+        }
+        return System.currentTimeMillis() - hero.getLastAttackTimeMs() < GameConstants.GLOBAL_ACTION_TICK_MS;
+    }
+
+    /** Marks the start of a hero attack for global pacing parity with enemies. */
+    public void recordHeroAttackPacing() {
+        if (hero != null) {
+            hero.setLastAttackTimeMs(System.currentTimeMillis());
+        }
     }
 
     private static int getHostileHp(Entity target) {
@@ -1353,7 +1371,7 @@ public class GameEngine {
         if (!heroOnStraightRayFrom(hx, hy, targetX, targetY)) {
             return false;
         }
-        return hasClearProjectilePath(hx, hy, targetX, targetY, HERO_RANGED_RANGE);
+        return hasClearProjectilePath(hx, hy, targetX, targetY, weapon.getMaxRange());
     }
 
     private boolean hasClearProjectilePath(int sx, int sy, int hx, int hy, int maxRange) {
@@ -1381,18 +1399,30 @@ public class GameEngine {
 
     private void spawnProjectile(int startX, int startY, int targetX, int targetY,
             int damageGenerated, int damageReceived, boolean heroOwned) {
-        spawnProjectile(startX, startY, targetX, targetY, damageGenerated, damageReceived, heroOwned, false);
+        spawnProjectile(startX, startY, targetX, targetY, damageGenerated, damageReceived, heroOwned, false, null);
+    }
+
+    private void spawnProjectile(int startX, int startY, int targetX, int targetY,
+            int damageGenerated, int damageReceived, boolean heroOwned, HeroProjectileStyle heroStyle) {
+        spawnProjectile(startX, startY, targetX, targetY, damageGenerated, damageReceived, heroOwned, false,
+                heroStyle);
     }
 
     private void spawnProjectile(int startX, int startY, int targetX, int targetY,
             int damageGenerated, int damageReceived, boolean heroOwned, boolean bossOwned) {
+        spawnProjectile(startX, startY, targetX, targetY, damageGenerated, damageReceived, heroOwned, bossOwned, null);
+    }
+
+    private void spawnProjectile(int startX, int startY, int targetX, int targetY,
+            int damageGenerated, int damageReceived, boolean heroOwned, boolean bossOwned,
+            HeroProjectileStyle heroStyle) {
         if (startX == targetX && startY == targetY) {
             if (heroOwned) {
                 GridCell cell = dungeonMap.getCell(targetX, targetY);
                 Entity target = cell == null ? null : firstHostileInCell(cell);
                 if (target != null) {
                     CombatManager.HeroProjectilePrep prep = new CombatManager.HeroProjectilePrep(
-                            damageGenerated, damageReceived);
+                            damageGenerated, damageReceived, heroStyle);
                     resolveHeroProjectileHit(target, prep, cell);
                 }
             } else {
@@ -1406,7 +1436,7 @@ public class GameEngine {
             return;
         }
         activeProjectiles.add(new Projectile(startX, startY, dx, dy,
-                damageGenerated, damageReceived, heroOwned, bossOwned));
+                damageGenerated, damageReceived, heroOwned, bossOwned, heroStyle));
     }
 
     private void updateProjectiles() {
@@ -1464,7 +1494,7 @@ public class GameEngine {
         Entity target = firstHostileInCell(cell);
         if (target != null) {
             CombatManager.HeroProjectilePrep prep = new CombatManager.HeroProjectilePrep(
-                    projectile.getDamageGenerated(), projectile.getDamageReceived());
+                    projectile.getDamageGenerated(), projectile.getDamageReceived(), projectile.getHeroStyle());
             resolveHeroProjectileHit(target, prep, cell);
             projectile.setActive(false);
             return true;

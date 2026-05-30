@@ -20,6 +20,7 @@ public class Hero extends Entity {
     private Armor equippedArmor;
     private Weapon equippedWeapon;
     private Ring equippedRing;
+    private long lastAttackTimeMs;
 
     public Hero(int x, int y, String name, int hp, int str, int mana, int def, int energy) {
         super(x, y, name);
@@ -136,6 +137,9 @@ public class Hero extends Entity {
         if (weapon == null || !inventory.getItems().contains(weapon)) {
             return false;
         }
+        if (equippedWeapon != null && equippedWeapon != weapon) {
+            equippedWeapon = null;
+        }
         equippedWeapon = weapon;
         return true;
     }
@@ -224,6 +228,22 @@ public class Hero extends Entity {
         }
         this.mana -= amount;
         return true;
+    }
+
+    public boolean spendEnergy(int amount) {
+        if (amount <= 0 || this.energy < amount) {
+            return false;
+        }
+        this.energy -= amount;
+        return true;
+    }
+
+    public long getLastAttackTimeMs() {
+        return lastAttackTimeMs;
+    }
+
+    public void setLastAttackTimeMs(long lastAttackTimeMs) {
+        this.lastAttackTimeMs = lastAttackTimeMs;
     }
     
 }
