@@ -53,6 +53,7 @@ final class TeamMatchTeamPlacer {
 
         GridCell heroCell = rightCells.remove(0);
         Hero hero = characterFactory.createHero(heroCell.getX(), heroCell.getY(), random);
+        place(hero, map);
         GridCell teamBSorcererCell = rightCells.remove(0);
         place(characterFactory.createSorcerer(Team.TEAM_B,
                 teamBSorcererCell.getX(), teamBSorcererCell.getY()), map);

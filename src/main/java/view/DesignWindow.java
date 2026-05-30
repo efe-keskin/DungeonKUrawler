@@ -56,6 +56,7 @@ import model.DecorativeObject;
 import model.DungeonMap;
 import model.GridCell;
 import model.Item;
+import model.Weapon;
 import view.assets.SpriteRegistry;
 
 /**
@@ -92,6 +93,8 @@ public class DesignWindow extends JFrame {
             Map.entry("MANA", new Color(124, 86, 188)),
             Map.entry("KEY", new Color(202, 185, 113)),
             Map.entry("WEAPON", new Color(157, 157, 178)),
+            Map.entry("B23_BOW", new Color(101, 67, 33)),
+            Map.entry("B23_WAND", new Color(70, 140, 220)),
             Map.entry("ARMOR", new Color(92, 124, 160)),
             Map.entry("RING", new Color(179, 70, 98)),
             Map.entry("VALUABLE", new Color(210, 210, 235)));
@@ -531,8 +534,13 @@ public class DesignWindow extends JFrame {
 
             if (!cell.getItemsView().isEmpty()) {
                 Item item = cell.getItemsView().get(0);
-                BufferedImage sprite = SpriteRegistry.spriteFor(item);
-                if (sprite != null) {
+                BufferedImage sprite = isMagicWand(item) || isWoodenBow(item)
+                        ? null : SpriteRegistry.spriteFor(item);
+                if (isMagicWand(item)) {
+                    paintWandPixelArt(g2, px, py, tile);
+                } else if (isWoodenBow(item)) {
+                    paintBowPixelArt(g2, px, py, tile);
+                } else if (sprite != null) {
                     int inset = item instanceof DecorativeObject ? 1 : Math.max(2, tile / 6);
                     g2.drawImage(sprite, px + inset, py + inset,
                             tile - inset * 2, tile - inset * 2, null);
@@ -681,7 +689,7 @@ public class DesignWindow extends JFrame {
     private static Map<String, List<BuildTool>> groupTools(List<BuildTool> tools) {
         Map<String, List<BuildTool>> groups = new LinkedHashMap<>();
         for (String category : List.of("Floors", "Walls & Doors", "Rugs", "Decor", "Searchable",
-                "Breakable", "Chests", "Containers", "Keys & Rings", "Valuables", "Loot")) {
+                "Breakable", "Chests", "Containers", "Weapons", "Keys & Rings", "Valuables", "Loot")) {
             groups.put(category, new ArrayList<>());
         }
         for (BuildTool tool : tools) {
@@ -721,6 +729,9 @@ public class DesignWindow extends JFrame {
         }
         if (id.startsWith("BAG_")) {
             return "Containers";
+        }
+        if (id.equals("WEAPON") || id.equals("ARMOR") || id.startsWith("B23_")) {
+            return "Weapons";
         }
         if (id.equals("KEY") || id.startsWith("KEY_") || id.equals("RING") || id.startsWith("RING_")) {
             return "Keys & Rings";
@@ -770,6 +781,14 @@ public class DesignWindow extends JFrame {
                 }
                 if (tool.isWallBrush()) {
                     paintWall(g2, x, y);
+                    return;
+                }
+                if (isMagicWand(tool.previewItem())) {
+                    paintWandPixelArt(g2, x, y, size);
+                    return;
+                }
+                if (isWoodenBow(tool.previewItem())) {
+                    paintBowPixelArt(g2, x, y, size);
                     return;
                 }
                 if (sprite != null) {
@@ -966,6 +985,107 @@ public class DesignWindow extends JFrame {
             setFocusable(false);
             setBorderPainted(false);
             setContentAreaFilled(false);
+        }
+    }
+
+    private static boolean isMagicWand(Item item) {
+        if (!(item instanceof Weapon weapon)) {
+            return false;
+        }
+        return "B23_WAND".equals(weapon.getType().id())
+                || "staves".equals(weapon.getType().category())
+                || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("wand");
+    }
+
+    private static boolean isWoodenBow(Item item) {
+        if (!(item instanceof Weapon weapon)) {
+            return false;
+        }
+        return "B23_BOW".equals(weapon.getType().id())
+                || "bows".equals(weapon.getType().category())
+                || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("bow");
+    }
+
+    private static void paintWandPixelArt(Graphics2D g2, int x, int y, int size) {
+        int pixel = Math.max(2, size / 14);
+        int baseX = x + size / 2 - pixel;
+        int baseY = y + size - pixel * 4;
+        int tipX = x + size / 2 + pixel * 3;
+        int tipY = y + pixel * 3;
+
+        g2.setColor(new Color(45, 27, 18));
+        drawPixelLine(g2, baseX - pixel, baseY + pixel, tipX - pixel, tipY + pixel, pixel);
+        g2.setColor(new Color(118, 73, 43));
+        drawPixelLine(g2, baseX, baseY, tipX, tipY, pixel);
+        g2.setColor(new Color(195, 151, 90));
+        g2.fillRect(baseX - pixel, baseY + pixel * 2, pixel * 4, pixel);
+
+        g2.setColor(new Color(170, 230, 255));
+        g2.fillRect(tipX + pixel, tipY - pixel, pixel, pixel);
+        g2.fillRect(tipX + pixel * 3, tipY - pixel * 2, pixel, pixel);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(tipX + pixel * 2, tipY - pixel, pixel, pixel);
+        g2.fillRect(tipX + pixel, tipY - pixel * 3, pixel, pixel);
+    }
+
+    private static void paintBowPixelArt(Graphics2D g2, int x, int y, int size) {
+        int pixel = Math.max(2, size / 14);
+        int centerY = y + size / 2;
+        int arrowLeft = x + pixel * 4;
+        int arrowRight = x + size - pixel * 3;
+        int bowTopX = x + size - pixel * 8;
+        int bowMidX = x + size - pixel * 5;
+        int bowBotX = x + size - pixel * 8;
+        int topY = y + pixel * 4;
+        int bottomY = y + size - pixel * 4;
+
+        g2.setColor(new Color(222, 216, 196));
+        drawPixelLine(g2, arrowLeft, centerY, bowTopX, topY, pixel);
+        drawPixelLine(g2, arrowLeft, centerY, bowBotX, bottomY, pixel);
+
+        g2.setColor(new Color(74, 38, 18));
+        drawPixelLine(g2, bowTopX + pixel, topY, bowMidX + pixel, centerY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + pixel, centerY - pixel * 2, bowMidX + pixel, centerY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + pixel, centerY + pixel * 2, bowBotX + pixel, bottomY, pixel);
+        g2.setColor(new Color(205, 132, 62));
+        drawPixelLine(g2, bowTopX, topY, bowMidX, centerY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, centerY - pixel * 2, bowMidX, centerY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, centerY + pixel * 2, bowBotX, bottomY, pixel);
+
+        g2.setColor(new Color(92, 52, 24));
+        g2.fillRect(arrowLeft, centerY - pixel, arrowRight - arrowLeft - pixel * 3, pixel * 2);
+        g2.setColor(new Color(201, 130, 62));
+        g2.fillRect(arrowLeft, centerY - pixel / 2, arrowRight - arrowLeft - pixel * 3, pixel);
+
+        g2.setColor(new Color(220, 220, 220));
+        g2.fillRect(arrowRight - pixel * 3, centerY - pixel * 2, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel * 2, centerY - pixel, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel, centerY, pixel, pixel);
+        g2.fillRect(arrowRight - pixel * 2, centerY + pixel, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel * 3, centerY + pixel * 2, pixel * 2, pixel);
+
+        g2.setColor(new Color(236, 214, 152));
+        g2.fillRect(arrowLeft - pixel * 2, centerY - pixel * 2, pixel * 2, pixel);
+        g2.fillRect(arrowLeft - pixel * 2, centerY + pixel, pixel * 2, pixel);
+    }
+
+    private static void paintArmorPixelArt(Graphics2D g2, int x, int y, int size) {
+        if (HeroArmorPixelArt.armorImage == null) {
+            return;
+        }
+        int bodyH = size;
+        int bodyW = Math.max(1, Math.round(size * 16f / 32f));
+        int originX = x + (size - bodyW) / 2;
+        g2.drawImage(HeroArmorPixelArt.armorImage, originX, y, bodyW, bodyH, null);
+    }
+
+    private static void drawPixelLine(Graphics2D g2, int x1, int y1, int x2, int y2, int pixel) {
+        int steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) / Math.max(1, pixel);
+        steps = Math.max(1, steps);
+        for (int i = 0; i <= steps; i++) {
+            int x = x1 + Math.round((x2 - x1) * (i / (float) steps));
+            int y = y1 + Math.round((y2 - y1) * (i / (float) steps));
+            g2.fillRect(x, y, pixel, pixel);
         }
     }
 }

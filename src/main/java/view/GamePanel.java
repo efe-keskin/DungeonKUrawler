@@ -273,7 +273,6 @@ public class GamePanel extends JPanel implements GameStateListener {
                 if (!isContentVisible(map, gridX, gridY)) {
                     return;
                 }
-                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
                 if (attackResult != null) {
@@ -290,6 +289,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
                 for (int i = 0; i < interactions.size(); i++) {
                     InteractionController.ItemInteraction interaction = interactions.get(i);
                     boolean handled = presentItemInteraction(parent, interaction, i, interactions.size());
@@ -354,9 +354,9 @@ public class GamePanel extends JPanel implements GameStateListener {
             }
         } else if (picked.getInventoryAction() == model.ItemAction.SEARCH
                 && interaction.getItem() instanceof SearchableObject searchableObject) {
-            showSearchResult(parent, interactionController.search(searchableObject));
+            showSearchResult(interactionController.search(searchableObject));
         } else if (picked.getInventoryAction() == model.ItemAction.BREAK) {
-            showBreakResult(parent, interactionController.breakObjectAt(interaction.getItem(),
+            showBreakResult(interactionController.breakObjectAt(interaction.getItem(),
                     interaction.getX(), interaction.getY()));
         } else if (!interactionController.applyGroundAction(interaction.getItem(),
                 interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
@@ -415,16 +415,18 @@ public class GamePanel extends JPanel implements GameStateListener {
         SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
     }
 
-    private void showSearchResult(Window parent, GameEngine.SearchResult result) {
+    private void showSearchResult(GameEngine.SearchResult result) {
         switch (result.getOutcome()) {
-            case FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Found",
-                    "You have found a " + result.getFoundItem().getName() + ".");
-            case NOTHING_FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Nothing Found",
-                    "you couldn't found anything");
-            case INVENTORY_FULL -> ItemActionMenuDialog.showNotice(parent, "Search", "Inventory Full",
-                    "You have found a " + result.getFoundItem().getName()
+            case FOUND -> {
+                // Successful search already gives visual feedback by revealing the
+                // item on the ground, so no blocking popup is needed here.
+            }
+            case NOTHING_FOUND -> showTransientWarning("Nothing Found",
+                    "You couldn't find anything.");
+            case INVENTORY_FULL -> showTransientWarning("Inventory Full",
+                    "You found a " + result.getFoundItem().getName()
                             + ", but your inventory is full.");
-            case NOT_SEARCHABLE -> ItemActionMenuDialog.showNotice(parent, "Search", "Cannot Search",
+            case NOT_SEARCHABLE -> showTransientWarning("Cannot Search",
                     "This location cannot be searched.");
         }
     }
@@ -459,7 +461,10 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         Container container = engine.findContainerNearHero();
         if (container == null) {
-            // No container in reach; stay silent rather than nagging.
+            SearchableObject searchableObject = engine.findSearchableNearHero();
+            if (searchableObject != null) {
+                showSearchResult(interactionController.search(searchableObject));
+            }
             requestFocusInWindow();
             return;
         }
@@ -513,24 +518,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         // No enemy in reach; try to break a nearby breakable object instead.
         InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
         // Nothing breakable in reach (breakResult == null): stay silent.
-        showBreakResult(SwingUtilities.getWindowAncestor(this), breakResult);
+        showBreakResult(breakResult);
         requestFocusInWindow();
     }
 
-    private void showBreakResult(Window parent, InteractionController.BreakResult result) {
+    private void showBreakResult(InteractionController.BreakResult result) {
         if (result == null || result.broken()) {
+            // Successful break removes the object and drops loot directly on the
+            // tile, so the map itself is the feedback.
             return;
         }
         if (result.outcome() == InteractionController.BreakOutcome.NOT_ENOUGH_ENERGY) {
-            ItemActionMenuDialog.showNotice(parent, "Break", "Not Enough Energy",
+            showTransientWarning("Not Enough Energy",
                     "Breaking the " + result.objectName() + " requires "
                             + result.energyCost() + " energy.");
             return;
         }
         int chancePercent = Math.round((float) (result.successChance() * 100));
-        ItemActionMenuDialog.showNotice(parent, "Break", "Break Failed",
-                "You failed to break the " + result.objectName()
-                        + ". Success chance was " + chancePercent + "%.");
+        showTransientWarning("Break Failed",
+                "Not strong enough this time. Success chance was " + chancePercent + "%.");
     }
 
     private void handleTakeKeyPress() {
@@ -686,12 +692,18 @@ private void handleInventoryKeyPress() {
 
                     if (contentVisible && !cell.getItemsView().isEmpty()) {
                         Item first = cell.getItemsView().get(0);
-                        BufferedImage sprite = spriteFor(first);
-                        if (sprite != null) {
-                            drawItemSprite(g2, first, sprite, px, py, cellW, cellH, y == map.getHeight() - 1);
+                        if (first instanceof Weapon weapon && isWoodenBow(weapon)) {
+                            drawGroundBowPixelArt(g2, px, py, cellW, cellH);
+                        } else if (first instanceof Weapon weapon && isMagicWand(weapon)) {
+                            drawGroundWandPixelArt(g2, px, py, cellW, cellH);
                         } else {
-                            Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
-                            drawItemMarker(g2, px, py, cellW, cellH, itemColor);
+                            BufferedImage sprite = spriteFor(first);
+                            if (sprite != null) {
+                                drawItemSprite(g2, first, sprite, px, py, cellW, cellH, y == map.getHeight() - 1);
+                            } else {
+                                Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
+                                drawItemMarker(g2, px, py, cellW, cellH, itemColor);
+                            }
                         }
                     }
 
@@ -948,6 +960,74 @@ private void handleInventoryKeyPress() {
         g2.setComposite(originalComposite);
     }
 
+    private void drawGroundBowPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        int size = Math.min(cellW, cellH);
+        int pixel = Math.max(2, size / 14);
+        int x = px + (cellW - size) / 2;
+        int y = py + (cellH - size) / 2;
+        int centerY = y + size / 2;
+        int arrowLeft = x + pixel * 4;
+        int arrowRight = x + size - pixel * 3;
+        int bowTopX = x + size - pixel * 8;
+        int bowMidX = x + size - pixel * 5;
+        int bowBotX = x + size - pixel * 8;
+        int topY = y + pixel * 4;
+        int bottomY = y + size - pixel * 4;
+
+        g2.setColor(new Color(222, 216, 196));
+        drawPixelLine(g2, arrowLeft, centerY, bowTopX, topY, pixel);
+        drawPixelLine(g2, arrowLeft, centerY, bowBotX, bottomY, pixel);
+        g2.setColor(new Color(74, 38, 18));
+        drawPixelLine(g2, bowTopX + pixel, topY, bowMidX + pixel, centerY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + pixel, centerY - pixel * 2, bowMidX + pixel, centerY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + pixel, centerY + pixel * 2, bowBotX + pixel, bottomY, pixel);
+        g2.setColor(new Color(205, 132, 62));
+        drawPixelLine(g2, bowTopX, topY, bowMidX, centerY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, centerY - pixel * 2, bowMidX, centerY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, centerY + pixel * 2, bowBotX, bottomY, pixel);
+        g2.setColor(new Color(92, 52, 24));
+        g2.fillRect(arrowLeft, centerY - pixel, arrowRight - arrowLeft - pixel * 3, pixel * 2);
+        g2.setColor(new Color(201, 130, 62));
+        g2.fillRect(arrowLeft, centerY - pixel / 2, arrowRight - arrowLeft - pixel * 3, pixel);
+        g2.setColor(new Color(220, 220, 220));
+        g2.fillRect(arrowRight - pixel * 3, centerY - pixel * 2, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel * 2, centerY - pixel, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel, centerY, pixel, pixel);
+        g2.fillRect(arrowRight - pixel * 2, centerY + pixel, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel * 3, centerY + pixel * 2, pixel * 2, pixel);
+    }
+
+    private void drawGroundWandPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        int size = Math.min(cellW, cellH);
+        int pixel = Math.max(2, size / 14);
+        int x = px + (cellW - size) / 2;
+        int y = py + (cellH - size) / 2;
+        int baseX = x + size / 2 - pixel;
+        int baseY = y + size - pixel * 4;
+        int tipX = x + size / 2 + pixel * 3;
+        int tipY = y + pixel * 3;
+
+        g2.setColor(new Color(45, 27, 18));
+        drawPixelLine(g2, baseX - pixel, baseY + pixel, tipX - pixel, tipY + pixel, pixel);
+        g2.setColor(new Color(118, 73, 43));
+        drawPixelLine(g2, baseX, baseY, tipX, tipY, pixel);
+        g2.setColor(new Color(170, 230, 255));
+        g2.fillRect(tipX + pixel, tipY - pixel, pixel, pixel);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(tipX + pixel * 2, tipY - pixel, pixel, pixel);
+    }
+
+    private void drawGroundArmorPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        if (HeroArmorPixelArt.armorImage == null) {
+            return;
+        }
+        int bodyW = Math.round(16 * HERO_SPRITE_SCALE);
+        int bodyH = Math.round(32 * HERO_SPRITE_SCALE);
+        int x = px + (cellW - bodyW) / 2;
+        int y = py + (cellH - bodyH) / 2;
+        g2.drawImage(HeroArmorPixelArt.armorImage, x, y, bodyW, bodyH, null);
+    }
+
     private boolean isWallDripSearchable(Item item) {
         String resource = item == null ? null : item.spriteResource();
         return resource != null
@@ -1153,6 +1233,21 @@ private void handleInventoryKeyPress() {
         g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
     }
 
+    /** Fills a rectangle with non-negative width and height (Graphics2D ignores negative sizes). */
+    private static void fillRectPositive(Graphics2D g2, int x, int y, int width, int height) {
+        if (width < 0) {
+            x += width;
+            width = -width;
+        }
+        if (height < 0) {
+            y += height;
+            height = -height;
+        }
+        if (width > 0 && height > 0) {
+            g2.fillRect(x, y, width, height);
+        }
+    }
+
     /** Brown 8-bit arrow oriented along travel direction. */
     private void drawHeroArrowPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, int dx, int dy) {
         int pixel = Math.max(2, tileSize / 7);
@@ -1163,28 +1258,38 @@ private void handleInventoryKeyPress() {
         Color fletch = new Color(139, 90, 43);
 
         if (dx != 0 && dy == 0) {
-            int dir = dx > 0 ? 1 : -1;
             g2.setColor(shaft);
-            g2.fillRect(cx - pixel * 2 * dir, cy - pixel / 2, pixel * 4 * dir, pixel);
+            fillRectPositive(g2, cx - pixel * 2, cy - pixel / 2, pixel * 4, pixel);
             g2.setColor(head);
-            g2.fillRect(cx + pixel * dir, cy - pixel, pixel * dir, pixel * 2);
-            g2.setColor(fletch);
-            g2.fillRect(cx - pixel * 2 * dir, cy - pixel, pixel, pixel * 2);
+            if (dx > 0) {
+                fillRectPositive(g2, cx + pixel * 2, cy - pixel, pixel, pixel * 2);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx - pixel * 3, cy - pixel, pixel, pixel * 2);
+            } else {
+                fillRectPositive(g2, cx - pixel * 3, cy - pixel, pixel, pixel * 2);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx + pixel * 2, cy - pixel, pixel, pixel * 2);
+            }
         } else if (dy != 0 && dx == 0) {
-            int dir = dy > 0 ? 1 : -1;
             g2.setColor(shaft);
-            g2.fillRect(cx - pixel / 2, cy - pixel * 2 * dir, pixel, pixel * 4 * dir);
+            fillRectPositive(g2, cx - pixel / 2, cy - pixel * 2, pixel, pixel * 4);
             g2.setColor(head);
-            g2.fillRect(cx - pixel, cy + pixel * dir, pixel * 2, pixel * dir);
-            g2.setColor(fletch);
-            g2.fillRect(cx - pixel, cy - pixel * 2 * dir, pixel * 2, pixel);
+            if (dy > 0) {
+                fillRectPositive(g2, cx - pixel, cy + pixel * 2, pixel * 2, pixel);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx - pixel, cy - pixel * 3, pixel * 2, pixel);
+            } else {
+                fillRectPositive(g2, cx - pixel, cy - pixel * 3, pixel * 2, pixel);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx - pixel, cy + pixel * 2, pixel * 2, pixel);
+            }
         } else {
             g2.setColor(shaft);
-            g2.fillRect(cx - pixel, cy - pixel, pixel * 2, pixel * 2);
+            fillRectPositive(g2, cx - pixel, cy - pixel, pixel * 2, pixel * 2);
             g2.setColor(head);
-            g2.fillRect(cx + dx * pixel, cy + dy * pixel, pixel, pixel);
+            fillRectPositive(g2, cx + dx * pixel, cy + dy * pixel, pixel, pixel);
             g2.setColor(fletch);
-            g2.fillRect(cx - dx * pixel, cy - dy * pixel, pixel, pixel);
+            fillRectPositive(g2, cx - dx * pixel, cy - dy * pixel, pixel, pixel);
         }
     }
 
@@ -1225,7 +1330,16 @@ private void handleInventoryKeyPress() {
         } else {
             g2.drawImage(heroSprite, drawX, drawY, spriteW, spriteH, null);
         }
+        drawEquippedArmorOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
         drawEquippedWeaponOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
+    }
+
+    private void drawEquippedArmorOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
+            int spriteH) {
+        if (hero.getEquippedArmor() == null) {
+            return;
+        }
+        HeroArmorPixelArt.paintEquipped(g2, drawX, drawY, spriteW, spriteH, heroFacingLeft);
     }
 
     private void drawEquippedWeaponOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
@@ -1238,16 +1352,15 @@ private void handleInventoryKeyPress() {
         int handY = drawY + spriteH / 2;
         int pixel = Math.max(2, spriteW / 12);
         HeroProjectileStyle style = weapon.getProjectileStyle();
-        if (style == HeroProjectileStyle.ARROW) {
-            g2.setColor(new Color(101, 67, 33));
-            g2.fillRect(handX, handY - pixel / 2, pixel * 4, pixel);
-            g2.setColor(new Color(139, 90, 43));
-            g2.fillRect(handX - pixel, handY - pixel, pixel, pixel * 2);
+        if (isWoodenBow(weapon)) {
+            drawEquippedBowPixelArt(g2, handX, handY, pixel);
         } else if (style == HeroProjectileStyle.FIRE_BALL) {
             g2.setColor(new Color(220, 80, 40));
             g2.fillRect(handX, handY - pixel, pixel * 2, pixel * 2);
             g2.setColor(new Color(255, 180, 60));
             g2.fillRect(handX + pixel / 2, handY - pixel / 2, pixel, pixel);
+        } else if (isMagicWand(weapon)) {
+            drawEquippedWandPixelArt(g2, handX, handY, pixel);
         } else if (weapon.isRanged()) {
             g2.setColor(new Color(70, 140, 220));
             g2.fillRect(handX, handY - pixel, pixel * 2, pixel * 3);
@@ -1256,6 +1369,89 @@ private void handleInventoryKeyPress() {
         } else {
             g2.setColor(new Color(190, 190, 200));
             g2.fillRect(handX, handY - pixel * 2, pixel, pixel * 4);
+        }
+    }
+
+    private static boolean isMagicWand(Weapon weapon) {
+        if (weapon == null) {
+            return false;
+        }
+        return "B23_WAND".equals(weapon.getType().id())
+                || "staves".equals(weapon.getType().category())
+                || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("wand");
+    }
+
+    private static boolean isWoodenBow(Weapon weapon) {
+        if (weapon == null) {
+            return false;
+        }
+        return "B23_BOW".equals(weapon.getType().id())
+                || "bows".equals(weapon.getType().category())
+                || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("bow");
+    }
+
+    private void drawEquippedBowPixelArt(Graphics2D g2, int handX, int handY, int pixel) {
+        int dir = heroFacingLeft ? -1 : 1;
+        int shaftStartX = handX - dir * pixel * 2;
+        int shaftEndX = handX + dir * pixel * 6;
+        int bowTopX = handX + dir * pixel * 3;
+        int bowMidX = handX + dir * pixel * 5;
+        int bowBotX = handX + dir * pixel * 3;
+        int topY = handY - pixel * 4;
+        int bottomY = handY + pixel * 4;
+
+        g2.setColor(new Color(222, 216, 196));
+        drawPixelLine(g2, shaftStartX, handY, bowTopX, topY, pixel);
+        drawPixelLine(g2, shaftStartX, handY, bowBotX, bottomY, pixel);
+
+        g2.setColor(new Color(74, 38, 18));
+        drawPixelLine(g2, bowTopX + dir * pixel, topY, bowMidX + dir * pixel, handY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + dir * pixel, handY - pixel * 2,
+                bowMidX + dir * pixel, handY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + dir * pixel, handY + pixel * 2,
+                bowBotX + dir * pixel, bottomY, pixel);
+        g2.setColor(new Color(205, 132, 62));
+        drawPixelLine(g2, bowTopX, topY, bowMidX, handY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, handY - pixel * 2, bowMidX, handY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, handY + pixel * 2, bowBotX, bottomY, pixel);
+
+        g2.setColor(new Color(92, 52, 24));
+        fillRectPositive(g2, shaftStartX, handY - pixel, shaftEndX - shaftStartX, pixel * 2);
+        g2.setColor(new Color(201, 130, 62));
+        fillRectPositive(g2, shaftStartX, handY - pixel / 2, shaftEndX - shaftStartX, pixel);
+        g2.setColor(new Color(220, 220, 220));
+        fillRectPositive(g2, shaftEndX - dir * pixel * 2, handY - pixel * 2, dir * pixel * 2, pixel);
+        fillRectPositive(g2, shaftEndX - dir * pixel, handY - pixel, dir * pixel * 2, pixel);
+        fillRectPositive(g2, shaftEndX, handY, dir * pixel, pixel);
+        fillRectPositive(g2, shaftEndX - dir * pixel, handY + pixel, dir * pixel * 2, pixel);
+        fillRectPositive(g2, shaftEndX - dir * pixel * 2, handY + pixel * 2, dir * pixel * 2, pixel);
+        g2.setColor(new Color(244, 205, 103));
+        g2.fillRect(handX - pixel, handY - pixel, pixel * 3, pixel * 2);
+    }
+
+    private void drawEquippedWandPixelArt(Graphics2D g2, int handX, int handY, int pixel) {
+        int dir = heroFacingLeft ? -1 : 1;
+        int baseX = handX - dir * pixel;
+        int baseY = handY + pixel * 2;
+        int tipX = handX + dir * pixel * 4;
+        int tipY = handY - pixel * 3;
+        g2.setColor(new Color(45, 27, 18));
+        drawPixelLine(g2, baseX - dir * pixel, baseY + pixel, tipX - dir * pixel, tipY + pixel, pixel);
+        g2.setColor(new Color(118, 73, 43));
+        drawPixelLine(g2, baseX, baseY, tipX, tipY, pixel);
+        g2.setColor(new Color(170, 230, 255));
+        g2.fillRect(tipX, tipY - pixel, pixel, pixel);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(tipX + dir * pixel, tipY - pixel * 2, pixel, pixel);
+    }
+
+    private static void drawPixelLine(Graphics2D g2, int x1, int y1, int x2, int y2, int pixel) {
+        int steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) / Math.max(1, pixel);
+        steps = Math.max(1, steps);
+        for (int i = 0; i <= steps; i++) {
+            int x = x1 + Math.round((x2 - x1) * (i / (float) steps));
+            int y = y1 + Math.round((y2 - y1) * (i / (float) steps));
+            g2.fillRect(x, y, pixel, pixel);
         }
     }
 

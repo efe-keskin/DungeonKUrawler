@@ -14,8 +14,6 @@ import model.Weapon;
  */
 public class CombatController {
 
-    private static final int RANGED_AUTO_AIM_TILES = 2;
-
     private final GameEngine engine;
     private final CombatManager combatManager;
 
@@ -124,7 +122,7 @@ public class CombatController {
 
     /**
      * Auto-aim ranged attack for the {@code P} shortcut: picks the nearest shootable
-     * enemy within {@link #RANGED_AUTO_AIM_TILES} tiles (Chebyshev).
+     * enemy within the equipped weapon's max range (Chebyshev).
      */
     public TargetedAttack autoAimRangedAttack() {
         Hero hero = engine.getHero();
@@ -132,7 +130,8 @@ public class CombatController {
         if (weapon == null || !weapon.isRanged()) {
             return null;
         }
-        return attackNearestEnemyInRangedRange(RANGED_AUTO_AIM_TILES);
+        // Test mode: let auto-aim use the same temporary unlimited range as GameEngine.
+        return attackNearestEnemyInRangedRange(Integer.MAX_VALUE);
     }
 
     private TargetedAttack attackNearestEnemyInRangedRange(int maxChebyshevDistance) {

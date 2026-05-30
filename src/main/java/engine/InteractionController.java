@@ -161,7 +161,7 @@ public class InteractionController {
     }
 
     /**
-     * Breaks the first breakable object found in the hero's 3x3 interaction
+     * Breaks the nearest breakable object found in the hero's 3x3 interaction
      * range. The attempt spends energy first, then uses the hero's STR against
      * the object's difficulty to decide whether the break succeeds.
      *
@@ -172,11 +172,16 @@ public class InteractionController {
         DungeonMap map = engine.getDungeonMap();
         int hx = hero.getX();
         int hy = hero.getY();
+        GridCell nearestCell = null;
+        Item nearestItem = null;
+        int bestDistance = Integer.MAX_VALUE;
         // P key reaches the same 3x3 interaction area as attack/search/open.
-        // We scan nearby tiles and let BreakController do the energy + STR roll.
+        // We pick the nearest breakable first, then let BreakController roll.
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
-                GridCell cell = map.getCell(hx + dx, hy + dy);
+                int x = hx + dx;
+                int y = hy + dy;
+                GridCell cell = map.getCell(x, y);
                 if (cell == null) {
                     continue;
                 }
@@ -184,13 +189,24 @@ public class InteractionController {
                     if (!breakController.isBreakable(item)) {
                         continue;
                     }
-                    BreakResult result = breakController.attemptBreak(hero, cell, item);
-                    notifyAfterBreak(result);
-                    return result;
+                    int distance = squaredDistance(hx, hy, x, y);
+                    if (distance < bestDistance) {
+                        nearestCell = cell;
+                        nearestItem = item;
+                        bestDistance = distance;
+                    }
                 }
             }
         }
-        return null;
+        BreakResult result = breakController.attemptBreak(hero, nearestCell, nearestItem);
+        notifyAfterBreak(result);
+        return result;
+    }
+
+    private static int squaredDistance(int ax, int ay, int bx, int by) {
+        int dx = ax - bx;
+        int dy = ay - by;
+        return dx * dx + dy * dy;
     }
 
     public BreakResult breakObjectAt(Item item, int x, int y) {

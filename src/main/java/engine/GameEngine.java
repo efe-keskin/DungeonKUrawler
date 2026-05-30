@@ -732,6 +732,43 @@ public class GameEngine {
     }
 
     /**
+     * Returns the nearest searchable fixture in the hero's 3x3 interaction range.
+     * Used by the O key after openable arches/containers have had priority.
+     */
+    public SearchableObject findSearchableNearHero() {
+        int hx = hero.getX();
+        int hy = hero.getY();
+        SearchableObject nearest = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int x = hx + dx;
+                int y = hy + dy;
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItems()) {
+                    if (item instanceof SearchableObject searchableObject) {
+                        int distance = squaredDistance(hx, hy, x, y);
+                        if (distance < bestDistance) {
+                            nearest = searchableObject;
+                            bestDistance = distance;
+                        }
+                    }
+                }
+            }
+        }
+        return nearest;
+    }
+
+    private static int squaredDistance(int ax, int ay, int bx, int by) {
+        int dx = ax - bx;
+        int dy = ay - by;
+        return dx * dx + dy * dy;
+    }
+
+    /**
      * Collects {@code item} from a container. Coin rewards are credited directly
      * to the hero; other items move into the inventory.
      *
@@ -785,33 +822,56 @@ public class GameEngine {
         if (object == null) {
             return SearchResult.notSearchable();
         }
+        GridCell cell = findCellContainingItem(object);
+        if (cell == null) {
+            return SearchResult.notSearchable();
+        }
+
         Item hidden = object.getHiddenItem();
-        if (hidden == null) {
+        if (hidden == null && object.isSearched()) {
             return SearchResult.nothingFound();
         }
-        if (hidden instanceof ValuableItem) {
-            Item found = object.takeHiddenItem();
-            acceptValuable(found);
-            return SearchResult.found(found);
-        }
-        if (!hero.getInventory().hasFreeSlot()) {
-            return SearchResult.inventoryFull(hidden);
-        }
+
+        // Search only reveals loot now. If there was no prepared hidden item, we
+        // do one student-designed 75% loot roll, then mark the fixture searched
+        // so the player cannot farm the same object forever.
         Item found = object.takeHiddenItem();
-        if (!hero.getInventory().tryAdd(found)) {
-            object.setHiddenItem(found);
-            return SearchResult.inventoryFull(found);
+        if (found == null && ObjectLootTable.shouldDropRandomLoot(random)) {
+            found = ObjectLootTable.randomLoot(random);
         }
-        checkTargetMissionPickup(found);
-        fireItemPickedUp(found);
+        object.markSearched();
+        if (found == null) {
+            fogEngine.revealAround(dungeonMap, hero);
+            notifyListeners();
+            return SearchResult.nothingFound();
+        }
+        // Put the revealed loot before the searchable fixture because the view
+        // draws the first item in a tile. This makes the item visibly appear at
+        // the exact place that was searched.
+        cell.getItems().add(0, found);
         fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return SearchResult.found(found);
     }
 
+    private GridCell findCellContainingItem(Item target) {
+        if (target == null) {
+            return null;
+        }
+        for (int y = 0; y < dungeonMap.getHeight(); y++) {
+            for (int x = 0; x < dungeonMap.getWidth(); x++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell != null && cell.getItemsView().contains(target)) {
+                    return cell;
+                }
+            }
+        }
+        return null;
+    }
+
     private void placeHeroOnMap() {
         GridCell cell = dungeonMap.getCell(hero.getX(), hero.getY());
-        if (cell != null) {
+        if (cell != null && !cell.getEntitiesView().contains(hero)) {
             cell.getEntities().add(hero);
         }
     }
@@ -1768,7 +1828,8 @@ public class GameEngine {
         if (!heroOnStraightRayFrom(hx, hy, targetX, targetY)) {
             return false;
         }
-        return hasClearProjectilePath(hx, hy, targetX, targetY, weapon.getMaxRange());
+        // Test mode: keep straight-line and obstacle checks, but ignore weapon range.
+        return hasClearProjectilePath(hx, hy, targetX, targetY, Integer.MAX_VALUE);
     }
 
     private boolean hasClearProjectilePath(int sx, int sy, int hx, int hy, int maxRange) {
@@ -1874,6 +1935,16 @@ public class GameEngine {
 
     /** @return true when the projectile moved or hit something */
     private boolean advanceHeroProjectile(Projectile projectile) {
+        GridCell currentCell = dungeonMap.getCell(projectile.getX(), projectile.getY());
+        Entity currentTarget = firstHostileInCell(currentCell);
+        if (currentTarget != null) {
+            CombatManager.HeroProjectilePrep prep = new CombatManager.HeroProjectilePrep(
+                    projectile.getDamageGenerated(), projectile.getDamageReceived(), projectile.getHeroStyle());
+            resolveHeroProjectileHit(currentTarget, prep, currentCell);
+            projectile.setActive(false);
+            return true;
+        }
+
         int nextX = projectile.getX() + projectile.getDx();
         int nextY = projectile.getY() + projectile.getDy();
 
