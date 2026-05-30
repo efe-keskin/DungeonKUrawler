@@ -92,6 +92,8 @@ public final class SaveDtos {
         public String keyId;
         public String keyColor;
         public boolean singleUse;
+        public String ringEffectType;
+        public int ringBonus;
         public int defBonus;
         public int defModifier;
         public String weaponId;

@@ -192,12 +192,12 @@ public final class GameStateMapper {
         dto.name = hero.getName();
         dto.hp = hero.getHp();
         dto.maxHp = hero.getMaxHp();
-        dto.str = hero.getStr();
+        dto.str = hero.getBaseStr();
         dto.mana = hero.getMana();
-        dto.maxMana = hero.getMaxMana();
+        dto.maxMana = hero.getBaseMaxMana();
         dto.baseDef = hero.getBaseDef();
         dto.energy = hero.getEnergy();
-        dto.maxEnergy = hero.getMaxEnergy();
+        dto.maxEnergy = hero.getBaseMaxEnergy();
         dto.coinBalance = hero.getCoinBalance();
 
         int index = 0;

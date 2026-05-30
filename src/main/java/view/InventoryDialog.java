@@ -395,7 +395,11 @@ public class InventoryDialog extends JDialog {
 
         if (action == ItemAction.WEAR || action == ItemAction.EQUIP || action == ItemAction.REMOVE) {
             ItemActionMenuDialog.showNotice(this, "Equipment", "Equipment Updated",
-                    "STR: " + engine.getHero().getStr() + "    DEF: " + engine.getHero().getDef());
+                    "STR: " + engine.getHero().getStr()
+                            + "    DEF: " + engine.getHero().getDef()
+                            + "\nMANA: " + engine.getHero().getMana() + "/" + engine.getHero().getMaxMana()
+                            + "    ENERGY: " + engine.getHero().getEnergy() + "/"
+                            + engine.getHero().getMaxEnergy());
         }
         rebuildUi();
     }
@@ -494,7 +498,7 @@ public class InventoryDialog extends JDialog {
     private String itemDescription(Item item) {
         String equipped = engine.getHero().isEquipped(item) ? "Equipped\n" : "";
         if (item instanceof Ring ring) {
-            return equipped + "Protective ring: +" + ring.getDefBonus() + " DEF";
+            return equipped + ring.effectDescription();
         }
         if (item instanceof Armor armor) {
             return equipped + "Armor: +" + armor.getDefModifier() + " DEF";
