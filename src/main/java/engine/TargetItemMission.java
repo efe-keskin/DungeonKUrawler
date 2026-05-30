@@ -103,16 +103,19 @@ public final class TargetItemMission {
      * Called by the engine after every successful pickup (ground or container).
      * Identity comparison: the win fires only on the exact instance hidden at
      * start — a lookalike with the same name would not satisfy it.
+     *
+     * @return true only when this pickup wins the mission.
      */
-    public void checkPickup(Item picked) {
+    public boolean checkPickup(Item picked) {
         if (won || !started || target == null || picked != target) {
-            return;
+            return false;
         }
         won = true;
         System.out.println("[mission] target collected — victory");
         for (MissionListener listener : listeners) {
             listener.onMissionWon(target);
         }
+        return true;
     }
 
     public String hidingPlaceDescription() {

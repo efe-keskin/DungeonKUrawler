@@ -16,6 +16,9 @@ import model.DungeonMap;
 import model.GridCell;
 import model.HealPotion;
 import model.Item;
+import model.Chest;
+import model.Key;
+import model.MissingBrick;
 import model.SearchableObject;
 
 import org.junit.jupiter.api.Test;
@@ -96,6 +99,77 @@ class BuildModeControllerTest {
     }
 
     @Test
+    void wallToolsCanBePlacedOnEverySideAndInsideTheMap() {
+        BuildModeController controller = controller();
+        DungeonMap map = controller.getDesignMap();
+
+        for (BuildTool tool : controller.getTools()) {
+            if (tool.isWallBrush() || tool.isWallObject()) {
+                assertWallPlacement(controller, tool, 0, 3);
+                assertWallPlacement(controller, tool, map.getWidth() - 1, 3);
+                assertWallPlacement(controller, tool, 3, 0);
+                assertWallPlacement(controller, tool, 3, map.getHeight() - 1);
+                assertWallPlacement(controller, tool, 3, 3);
+            }
+        }
+    }
+
+    @Test
+    void doorToolsCanBePlacedOnEverySideAndInsideTheMap() {
+        BuildModeController controller = controller();
+        DungeonMap map = controller.getDesignMap();
+
+        for (BuildTool tool : controller.getTools()) {
+            if (tool.isDoorObject()) {
+                assertDoorPlacement(controller, tool, 0, 3);
+                assertDoorPlacement(controller, tool, map.getWidth() - 1, 3);
+                assertDoorPlacement(controller, tool, 3, 0);
+                assertDoorPlacement(controller, tool, 3, map.getHeight() - 1);
+                assertDoorPlacement(controller, tool, 3, 3);
+            }
+        }
+    }
+
+    @Test
+    void openChestVariantsCanBePlacedFromTheCatalog() {
+        BuildModeController controller = controller();
+
+        assertChestVariant(controller, "CHEST_OPEN_EMPTY_BLUE", 2, 2, true);
+        assertChestVariant(controller, "CHEST_OPEN_LOOT_BLUE", 3, 2, false);
+        assertChestVariant(controller, "CHEST_ORANGE_OPEN_EMPTY_1", 4, 2, true);
+        assertChestVariant(controller, "CHEST_ORANGE_OPEN_LOOT_1", 5, 2, false);
+    }
+
+    @Test
+    void lockedChestAssignsKeyToEmptySearchableAndReportsPlacement() {
+        BuildModeController controller = controller();
+        MissingBrick searchable = new MissingBrick();
+        controller.getDesignMap().getCell(3, 0).getItems().add(searchable);
+
+        assertTrue(controller.placeToolAt(3, 3, controller.findTool("CHEST")));
+
+        Chest chest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(3, 3).getItemsView().get(0));
+        Key key = assertInstanceOf(Key.class, searchable.getHiddenItem());
+        assertTrue(key.matches(chest.getRequiredKeyId()));
+        assertTrue(controller.getLastPlacementMessage().contains(chest.getName()));
+        assertTrue(controller.getLastPlacementMessage().contains(key.getName()));
+        assertTrue(controller.getLastPlacementMessage().contains("hidden in Missing Brick"));
+    }
+
+    @Test
+    void lockedChestAssignsKeyToFloorWhenNoEmptySearchableExists() {
+        BuildModeController controller = controller();
+
+        assertTrue(controller.placeToolAt(3, 3, controller.findTool("CHEST")));
+
+        Chest chest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(3, 3).getItemsView().get(0));
+        assertTrue(hasGroundKeyMatching(controller.getDesignMap(), chest.getRequiredKeyId()));
+        assertTrue(controller.getLastPlacementMessage().contains("placed on floor"));
+    }
+
+    @Test
     void saveLoadRoundTripRestoresWallsObjectsAndHiddenItems() throws IOException {
         BuildModeController controller = controller();
         controller.placeToolAt(2, 2, controller.findTool("HEAL"));
@@ -154,6 +228,48 @@ class BuildModeControllerTest {
         assertInstanceOf(SearchableObject.class,
                 map.getCell(3, map.getHeight() - 1).getItemsView().get(0), tool.id());
         controller.eraseAt(3, map.getHeight() - 1);
+    }
+
+    private void assertWallPlacement(BuildModeController controller, BuildTool tool, int x, int y) {
+        GridCell cell = controller.getDesignMap().getCell(x, y);
+        assertTrue(controller.placeToolAt(x, y, tool), tool.id());
+        assertFalse(cell.isPassable(), tool.id());
+        if (tool.isWallObject()) {
+            assertFalse(cell.getItemsView().isEmpty(), tool.id());
+        } else {
+            assertTrue(cell.getItemsView().isEmpty(), tool.id());
+        }
+        controller.eraseAt(x, y);
+    }
+
+    private void assertDoorPlacement(BuildModeController controller, BuildTool tool, int x, int y) {
+        GridCell cell = controller.getDesignMap().getCell(x, y);
+        assertTrue(controller.placeToolAt(x, y, tool), tool.id());
+        assertFalse(cell.getItemsView().isEmpty(), tool.id());
+        assertEquals(tool.id().equals("DOOR_OPEN"), cell.isPassable(), tool.id());
+        controller.eraseAt(x, y);
+    }
+
+    private void assertChestVariant(BuildModeController controller, String toolId, int x, int y,
+            boolean expectEmpty) {
+        assertTrue(controller.placeToolAt(x, y, controller.findTool(toolId)), toolId);
+        model.Chest chest = assertInstanceOf(model.Chest.class,
+                controller.getDesignMap().getCell(x, y).getItemsView().get(0), toolId);
+        assertEquals(expectEmpty, chest.getContents().isEmpty(), toolId);
+        assertFalse(chest.isLocked(), toolId);
+    }
+
+    private boolean hasGroundKeyMatching(DungeonMap map, String requiredKeyId) {
+        for (int x = 0; x < map.getWidth(); x++) {
+            for (int y = 0; y < map.getHeight(); y++) {
+                for (Item item : map.getCell(x, y).getItemsView()) {
+                    if (item instanceof Key key && key.matches(requiredKeyId)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private int countSearchablesWithHiddenItems(DungeonMap map) {

@@ -2,9 +2,8 @@ package model;
 
 /**
  * Strategy role for "somewhere the mission system can stash a target item."
- * Today only chests/containers implement this; once searchable scenery
- * (vases, pedestals, missing bricks, ...) gains the ability to conceal loot,
- * those classes adopt the same interface and become drop targets automatically.
+ * Containers and searchable scenery participate through small adapters, so
+ * each implementation owns the details of receiving a hidden item.
  *
  * <p>Information Expert: each implementation knows whether it has room and
  * how to absorb the item — the mission code never touches container internals.

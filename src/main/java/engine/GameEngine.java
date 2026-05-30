@@ -71,6 +71,7 @@ public class GameEngine {
     private final DungeonMap dungeonMap;
     private final Hero hero;
     private final GameMode gameMode;
+    private final boolean standaloneMissionVictoryEnabled;
     private final Random random;
     private final EnemyFactory enemyFactory;
     private final EnemySpawnPolicy spawnPolicy;
@@ -84,6 +85,7 @@ public class GameEngine {
     private long lastMoveNanos = System.nanoTime();
     private boolean isPaused = false;
     private boolean isGameOver = false;
+    private boolean missionVictory = false;
     private TeamMatchOutcome teamMatchOutcome = TeamMatchOutcome.ONGOING;
 
     // Tower-mode context: set by DungeonLevelFactory when a floor is started.
@@ -190,6 +192,7 @@ public class GameEngine {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = GameMode.PLAY;
+        this.standaloneMissionVictoryEnabled = designedMap != null;
         this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 - Build Mode") : designedMap;
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
@@ -199,6 +202,9 @@ public class GameEngine {
         this.hero = new Hero(heroStart[0], heroStart[1], "Hero", 17, startingStr, 80, 2, 100);
         placeHeroOnMap();
         fogEngine.revealAround(dungeonMap, hero);
+        if (designedMap != null) {
+            new LockedChestKeyPlacer(random).ensureKeysForLockedChests(dungeonMap);
+        }
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
@@ -215,6 +221,7 @@ public class GameEngine {
         this.random = random;
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = gameMode == null ? GameMode.PLAY : gameMode;
+        this.standaloneMissionVictoryEnabled = false;
         this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = dungeonMap;
         this.hero = hero;
@@ -257,6 +264,7 @@ public class GameEngine {
         this.random = ThreadLocalRandom.current();
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = GameMode.PLAY;
+        this.standaloneMissionVictoryEnabled = false;
         if (dungeonMap == null || hero == null) {
             throw new IllegalArgumentException("Loaded game requires a map and hero.");
         }
@@ -281,6 +289,7 @@ public class GameEngine {
         this.random = ThreadLocalRandom.current();
         this.enemyFactory = new EnemyFactory(random);
         this.gameMode = GameMode.PLAY;
+        this.standaloneMissionVictoryEnabled = false;
         this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = map;
         this.hero = hero;
@@ -292,17 +301,35 @@ public class GameEngine {
     }
 
     /**
-     * Picks a random valuable, hides it in a random hiding place (today: any
-     * {@link Container}; tomorrow: searchable scenery via additional
-     * {@link HidingPlaceProvider}s), and arms the win condition.
+     * Picks a random valuable, hides it in a random container or searchable
+     * fixture, and arms the win condition. Designed maps without either receive
+     * a mission chest on an open floor cell so play mode always has an objective.
      */
     private void startTargetMission() {
         HidingPlaceProvider provider = new CompositeHidingPlaceProvider(List.of(
-                new ContainerHidingPlaceProvider()));
+                new ContainerHidingPlaceProvider(),
+                new SearchableObjectHidingPlaceProvider()));
         ValuableItem target = ValuableItemCatalog.randomValuable(random);
-        if (!targetMission.start(provider, dungeonMap, random, target)) {
+        if (!targetMission.start(provider, dungeonMap, random, target)
+                && (!seedMissionChest() || !targetMission.start(provider, dungeonMap, random, target))) {
             System.out.println("[mission] no hiding place available - mission inactive");
         }
+    }
+
+    private boolean seedMissionChest() {
+        for (int y = 1; y < dungeonMap.getHeight() - 1; y++) {
+            for (int x = 1; x < dungeonMap.getWidth() - 1; x++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell != null && cell.isWalkable()
+                        && cell.getItemsView().isEmpty()
+                        && cell.getEntitiesView().isEmpty()) {
+                    cell.getItems().add(new Chest("Mission Chest", 16,
+                            "/items/chests/01_chest_closed_blue_trim.png"));
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public TargetItemMission getTargetMission() {
@@ -318,10 +345,16 @@ public class GameEngine {
     }
 
     public String getGameOverTitle() {
+        if (missionVictory) {
+            return "VICTORY";
+        }
         return gameMode == GameMode.TEAM_MATCH ? "MATCH OVER" : "DEFEAT";
     }
 
     public String getGameOverMessage() {
+        if (missionVictory) {
+            return "You recovered the hidden valuable.";
+        }
         if (gameMode != GameMode.TEAM_MATCH) {
             return "Your HP reached 0.";
         }
@@ -424,6 +457,10 @@ public class GameEngine {
         return isGameOver;
     }
 
+    public boolean isMissionVictory() {
+        return missionVictory;
+    }
+
     boolean canHeroAct() {
         return !isPaused
                 && !isGameOver
@@ -448,6 +485,23 @@ public class GameEngine {
             return;
         }
         fireHeroDefeated();
+        isGameOver = true;
+        isPaused = true;
+        pauseAllTimers();
+        notifyListeners();
+    }
+
+    private void checkTargetMissionPickup(Item item) {
+        if (targetMission.checkPickup(item) && standaloneMissionVictoryEnabled) {
+            finishStandaloneMission();
+        }
+    }
+
+    private void finishStandaloneMission() {
+        if (isGameOver) {
+            return;
+        }
+        missionVictory = true;
         isGameOver = true;
         isPaused = true;
         pauseAllTimers();
@@ -700,7 +754,7 @@ public class GameEngine {
             return false;
         }
         container.removeItem(item);
-        targetMission.checkPickup(item);
+        checkTargetMissionPickup(item);
         fireItemPickedUp(item);
         fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
@@ -714,7 +768,7 @@ public class GameEngine {
      */
     private void acceptValuable(Item valuable) {
         hero.getFullInventory().add(valuable);
-        targetMission.checkPickup(valuable);
+        checkTargetMissionPickup(valuable);
         fireItemPickedUp(valuable);
         notifyListeners();
     }
@@ -740,7 +794,7 @@ public class GameEngine {
             object.setHiddenItem(found);
             return SearchResult.inventoryFull(found);
         }
-        targetMission.checkPickup(found);
+        checkTargetMissionPickup(found);
         fireItemPickedUp(found);
         fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();
@@ -1011,7 +1065,7 @@ public class GameEngine {
             return false;
         }
         dungeonMap.removeItemFromCell(item, x, y);
-        targetMission.checkPickup(item);
+        checkTargetMissionPickup(item);
         fireItemPickedUp(item);
         fogEngine.revealAround(dungeonMap, hero);
         notifyListeners();

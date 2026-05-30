@@ -354,6 +354,10 @@ public class DesignWindow extends JFrame {
         }
         int[] cell = cellAtPoint(point);
         if (cell != null && controller.placeToolAt(cell[0], cell[1], tool)) {
+            String placementMessage = controller.getLastPlacementMessage();
+            if (placementMessage != null) {
+                refreshSelectedLabel(placementMessage);
+            }
             canvas.repaint();
         }
     }
@@ -636,7 +640,7 @@ public class DesignWindow extends JFrame {
     private static Map<String, List<BuildTool>> groupTools(List<BuildTool> tools) {
         Map<String, List<BuildTool>> groups = new LinkedHashMap<>();
         for (String category : List.of("Floors", "Walls & Doors", "Rugs", "Decor", "Searchable",
-                "Containers", "Keys & Rings", "Valuables", "Loot")) {
+                "Chests", "Containers", "Keys & Rings", "Valuables", "Loot")) {
             groups.put(category, new ArrayList<>());
         }
         for (BuildTool tool : tools) {
@@ -667,7 +671,10 @@ public class DesignWindow extends JFrame {
                 || id.startsWith("HOLE") || id.equals("PEDESTAL") || id.equals("VASE")) {
             return "Searchable";
         }
-        if (id.contains("CHEST") || id.startsWith("CRATE") || id.startsWith("BAG_")) {
+        if (id.contains("CHEST")) {
+            return "Chests";
+        }
+        if (id.startsWith("CRATE") || id.startsWith("BAG_")) {
             return "Containers";
         }
         if (id.equals("KEY") || id.startsWith("KEY_") || id.equals("RING") || id.startsWith("RING_")) {
