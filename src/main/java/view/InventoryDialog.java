@@ -172,7 +172,7 @@ public class InventoryDialog extends JDialog {
 
         List<Pet> pets = ownedPets();
         if (pets.isEmpty()) {
-            JLabel none = new JLabel("No pets owned — buy one at the shop.");
+            JLabel none = new JLabel("No pets owned - buy one at the shop.");
             none.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 10f));
             none.setForeground(new Color(140, 130, 110));
             none.setBounds(32, PET_SLOT_Y + 22, CANVAS_W - 64, 18);

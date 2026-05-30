@@ -1260,7 +1260,7 @@ private void handleInventoryKeyPress() {
 
         Weapon equipped = hero.getEquippedWeapon();
         String weaponLabel = equipped == null ? "Unarmed" : equipped.getName();
-        drawHudStat(g2, x, y + 163, HUD_GOLD, "WEAPON", weaponLabel);
+        drawHudCombinedStat(g2, x, y + 163, HUD_GOLD, "WEAPON: " + weaponLabel);
 
         long elapsedSeconds = (System.currentTimeMillis() - playStartTime) / 1000;
         long minutes = elapsedSeconds / 60;
@@ -1271,15 +1271,26 @@ private void handleInventoryKeyPress() {
     }
 
     private void drawHudStat(Graphics2D g2, int panelX, int rowY, Color marker, String label, String value) {
-        g2.setColor(HUD_STONE_OUTLINE);
-        g2.fillRect(panelX + 25, rowY + 2, 11, 11);
-        g2.setColor(marker);
-        g2.fillRect(panelX + 27, rowY + 4, 7, 7);
+        drawHudMarker(g2, panelX, rowY, marker);
         g2.setColor(HUD_TEXT);
         g2.drawString(label, panelX + 44, rowY + 12);
         g2.setColor(HUD_TITLE);
         int valueX = panelX + 145 - g2.getFontMetrics().stringWidth(value);
         g2.drawString(value, valueX, rowY + 12);
+    }
+
+    /** Single-line HUD row (e.g. {@code WEAPON: Bow}) so label and value do not overlap. */
+    private void drawHudCombinedStat(Graphics2D g2, int panelX, int rowY, Color marker, String text) {
+        drawHudMarker(g2, panelX, rowY, marker);
+        g2.setColor(HUD_TITLE);
+        g2.drawString(text, panelX + 44, rowY + 12);
+    }
+
+    private void drawHudMarker(Graphics2D g2, int panelX, int rowY, Color marker) {
+        g2.setColor(HUD_STONE_OUTLINE);
+        g2.fillRect(panelX + 25, rowY + 2, 11, 11);
+        g2.setColor(marker);
+        g2.fillRect(panelX + 27, rowY + 4, 7, 7);
     }
 
     private java.awt.Font retroHudFont(float size) {

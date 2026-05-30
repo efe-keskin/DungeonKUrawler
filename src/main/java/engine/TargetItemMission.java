@@ -111,7 +111,7 @@ public final class TargetItemMission {
             return false;
         }
         won = true;
-        System.out.println("[mission] target collected — victory");
+        System.out.println("[mission] target collected - victory");
         for (MissionListener listener : listeners) {
             listener.onMissionWon(target);
         }
