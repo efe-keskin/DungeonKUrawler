@@ -36,18 +36,25 @@ public class Container extends Item implements Lockable {
     /** Portable containers (pouches, small bags) can be picked up; chests/crates cannot. */
     private final boolean portable;
     private final int capacity;
+    private final String spriteResource;
     private final List<Item> contents = new ArrayList<>();
 
     public Container(String name, boolean isLocked, boolean requiresKey, int capacity) {
-        this(name, isLocked, requiresKey, capacity, false);
+        this(name, isLocked, requiresKey, capacity, false, null);
     }
 
     public Container(String name, boolean isLocked, boolean requiresKey, int capacity, boolean portable) {
+        this(name, isLocked, requiresKey, capacity, portable, null);
+    }
+
+    public Container(String name, boolean isLocked, boolean requiresKey, int capacity,
+            boolean portable, String spriteResource) {
         super(name);
         this.isLocked = isLocked;
         this.requiresKey = requiresKey;
         this.capacity = capacity;
         this.portable = portable;
+        this.spriteResource = spriteResource;
     }
 
     public boolean isLocked() {
@@ -170,5 +177,10 @@ public class Container extends Item implements Lockable {
     @Override
     public boolean isBlocking() {
         return !portable;
+    }
+
+    @Override
+    public String spriteResource() {
+        return spriteResource;
     }
 }

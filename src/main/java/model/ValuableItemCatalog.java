@@ -11,7 +11,7 @@ import java.util.Random;
 public final class ValuableItemCatalog {
 
     /** Classpath folder holding the 64x64 valuable sprites. */
-    private static final String SPRITE_DIR = "/items_objects/valuable_items/";
+    private static final String SPRITE_DIR = "/items/valuable_items/";
 
     /** One catalog entry: display name paired with its sprite file. */
     private record Entry(String name, String spriteFile) {

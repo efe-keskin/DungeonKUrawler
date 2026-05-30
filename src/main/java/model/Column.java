@@ -3,33 +3,29 @@ package model;
 import java.util.List;
 
 
-public class Column extends StaticObject {
+public class Column extends SearchableObject {
 
     public static final String PURPLE_SPRITE =
-            "/background_floor/assets/searchable assets/39_pillar_purple.png";
+            "/background_floor/assets/searchable assets/column1.png";
     public static final String GRAY_SPRITE =
-            "/background_floor/assets/searchable assets/40_pillar_gray.png";
+            "/background_floor/assets/searchable assets/column2.png";
     public static final String WALL_TOP_SPRITE =
-            "/background_floor/assets/searchable assets/10_wall_column_round_top.png";
+            "/background_floor/assets/searchable assets/column3.png";
 
     public Column() {
         this(GRAY_SPRITE);
     }
 
     public Column(String spriteResource) {
-        super("Stone Column", true);
-        this.spriteResource = spriteResource;
+        this(spriteResource, null);
     }
 
-    private final String spriteResource;
+    public Column(String spriteResource, Item hiddenItem) {
+        super("Stone Column", true, spriteResource, hiddenItem);
+    }
 
     @Override
     public List<ItemAction> getInventoryActions() {
-        return List.of(ItemAction.BREAK);
-    }
-
-    @Override
-    public String spriteResource() {
-        return spriteResource;
+        return List.of(ItemAction.SEARCH, ItemAction.BREAK);
     }
 }

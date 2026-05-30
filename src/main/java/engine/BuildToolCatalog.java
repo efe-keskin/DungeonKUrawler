@@ -13,12 +13,18 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import model.Armor;
+import model.Book;
 import model.Chest;
+import model.Coin;
 import model.Column;
+import model.Container;
 import model.Crate;
+import model.DecorativeObject;
 import model.EnergyPotion;
 import model.Gargoyle;
+import model.Grill;
 import model.HealPotion;
+import model.Hole;
 import model.Item;
 import model.Key;
 import model.KeyColor;
@@ -41,41 +47,177 @@ import model.WeaponCatalog;
  */
 public final class BuildToolCatalog {
 
-    private static final String VALUABLE_SPRITE_DIR = "/items_objects/valuable_items/";
+    private static final String VALUABLE_SPRITE_DIR = "/items/valuable_items/";
+    private static final String ITEM_DIR = "/items/";
+    private static final String BACKGROUND_DIR = "/background_floor/assets/";
 
     private final List<BuildTool> tools;
     private final Map<String, BuildTool> byId;
 
     public BuildToolCatalog() {
         tools = List.of(
-                brush("FLOOR", "Floor", FLOOR_BRUSH),
-                brush("WALL", "Wall", WALL_BRUSH),
-                object("CHEST", "Chest", () -> {
-                    Chest chest = new Chest("Wooden Chest", 16);
-                    chest.addItem(new HealPotion());
-                    return chest;
-                }),
-                object("LOCKED_CHEST", "Locked Chest", () -> {
-                    Chest chest = Chest.locked("Silver Chest", 16, "silver");
-                    chest.addItem(new ManaPotion());
-                    return chest;
-                }),
-                object("CRATE", "Crate", () -> new Crate(new EnergyPotion())),
-                object("COLUMN", "Column", Column::new),
+                brush("FLOOR", "Floor Brush", FLOOR_BRUSH),
+                brush("WALL", "Wall Brush", WALL_BRUSH),
+                decor("FLOOR_LARGE_LEFT", "Floor Large Left", false,
+                        BACKGROUND_DIR + "floors/03_floor_large_left.png"),
+                decor("FLOOR_WORN_PATCH", "Floor Worn Patch", false,
+                        BACKGROUND_DIR + "floors/04_floor_worn_patch_round.png"),
+                decor("FLOOR_STRIP_TOP", "Floor Strip Top", false,
+                        BACKGROUND_DIR + "floors/07_floor_strip_top_clean_long.png"),
+                decor("WALL_TOP_PLAIN", "Wall Top Plain", true,
+                        BACKGROUND_DIR + "walls/01_wall_section_top_plain_left.png"),
+                decor("WALL_FRAME_VERTICAL", "Wall Frame Vertical", true,
+                        BACKGROUND_DIR + "walls/11_wall_frame_vertical_open.png"),
+                decor("WALL_WINDOW", "Wall Window", true,
+                        BACKGROUND_DIR + "walls/12_wall_frame_window.png"),
+                decor("WALL_BLOCK_SMALL", "Wall Block Small", true,
+                        BACKGROUND_DIR + "walls/13_wall_block_small.png"),
+                decor("WALL_DOOR_LEFT", "Wall Door Left", true,
+                        BACKGROUND_DIR + "walls/14_wall_section_mid_door_left.png"),
+                decor("WALL_DOOR_RIGHT", "Wall Door Right", true,
+                        BACKGROUND_DIR + "walls/16_wall_section_mid_door_right.png"),
+                decor("WALL_ARCH_RIGHT", "Wall Arch Right", true,
+                        BACKGROUND_DIR + "walls/18_wall_section_mid_arch_right.png"),
+                decor("DOOR_CLOSED", "Door Closed", true,
+                        BACKGROUND_DIR + "doors/15_door_closed_wood.png"),
+                decor("DOOR_OPEN", "Door Open", false,
+                        BACKGROUND_DIR + "doors/17_door_open_wood.png"),
+                decor("RUG_ORANGE_LARGE_V", "Rug Orange Large V", false,
+                        BACKGROUND_DIR + "rugs/41_rug_orange_large_vertical.png"),
+                decor("RUG_ORANGE_LARGE_H", "Rug Orange Large H", false,
+                        BACKGROUND_DIR + "rugs/42_rug_orange_large_horizontal.png"),
+                decor("RUG_BEIGE_LARGE_V", "Rug Beige Large V", false,
+                        BACKGROUND_DIR + "rugs/43_rug_beige_large_vertical.png"),
+                decor("RUG_BEIGE_LARGE_H", "Rug Beige Large H", false,
+                        BACKGROUND_DIR + "rugs/44_rug_beige_large_horizontal.png"),
+                decor("RUG_ORANGE_SMALL_V", "Rug Orange Small V", false,
+                        BACKGROUND_DIR + "rugs/45_rug_orange_small_vertical.png"),
+                decor("RUG_ORANGE_SMALL_H", "Rug Orange Small H", false,
+                        BACKGROUND_DIR + "rugs/46_rug_orange_small_horizontal.png"),
+                decor("RUG_BEIGE_SMALL_V", "Rug Beige Small V", false,
+                        BACKGROUND_DIR + "rugs/47_rug_beige_small_vertical.png"),
+                decor("RUG_BEIGE_SMALL_H", "Rug Beige Small H", false,
+                        BACKGROUND_DIR + "rugs/48_rug_beige_small_horizontal.png"),
+                decor("BANNER_BROWN", "Banner Brown", false,
+                        BACKGROUND_DIR + "banners/35_banner_brown.png"),
+                decor("BANNER_GREEN", "Banner Green", false,
+                        BACKGROUND_DIR + "banners/36_banner_green.png"),
+                decor("BANNER_BLUE", "Banner Blue", false,
+                        BACKGROUND_DIR + "banners/37_banner_blue.png"),
+                decor("BANNER_YELLOW", "Banner Yellow", false,
+                        BACKGROUND_DIR + "banners/38_banner_yellow.png"),
+                decor("SIGN_ORANGE", "Sign Orange", false,
+                        BACKGROUND_DIR + "signs/66_sign_orange.png"),
+                decor("SIGN_GRAY", "Sign Gray", false,
+                        BACKGROUND_DIR + "signs/67_sign_gray.png"),
+                decor("TORCH_OFF", "Torch Off", false,
+                        BACKGROUND_DIR + "torches/49_torch_extinguished.png"),
+                decor("TORCH_LIT", "Torch Lit", false,
+                        BACKGROUND_DIR + "torches/50_torch_lit_01.png"),
+                decor("STAIRS_LEFT", "Stairs Left", false,
+                        BACKGROUND_DIR + "stairs/59_stairs_left.png"),
+                decor("STAIRS_UPPER_RIGHT", "Stairs Upper Right", false,
+                        BACKGROUND_DIR + "stairs/60_stairs_upper_right.png"),
+                decor("STAIRS_LOWER_RIGHT", "Stairs Lower Right", false,
+                        BACKGROUND_DIR + "stairs/63_stairs_lower_right.png"),
+                decor("TRAP_FLOOR", "Trap Floor", false,
+                        BACKGROUND_DIR + "trap_floors/58_trap_floor.png"),
+                decor("TRAP_HOLES", "Trap Holes", false,
+                        BACKGROUND_DIR + "trap_floors/61_trap_floor_holes.png"),
+                decor("TRAP_SPIKES", "Trap Spikes", false,
+                        BACKGROUND_DIR + "trap_floors/62_trap_floor_spikes.png"),
+                decor("SKULL_BEIGE", "Skull Beige", false,
+                        ITEM_DIR + "skulls/13_skull_beige.png"),
+                decor("SKULL_DARK", "Skull Dark", false,
+                        ITEM_DIR + "skulls/14_skull_dark.png"),
+                decor("TOMBSTONE_CRACK", "Tombstone Crack", false,
+                        ITEM_DIR + "tombstones/23_tombstone_crack.png"),
+                decor("TOMBSTONE_LINES", "Tombstone Lines", false,
+                        ITEM_DIR + "tombstones/24_tombstone_lines.png"),
+                decor("TOMBSTONE_CROSS", "Tombstone Cross", false,
+                        ITEM_DIR + "tombstones/25_tombstone_cross.png"),
+                decor("TOMBSTONE_SKULL", "Tombstone Skull", false,
+                        ITEM_DIR + "tombstones/26_tombstone_skull.png"),
+                chest("CHEST", "Chest Blue Trim", "01_chest_closed_blue_trim.png", false),
+                chest("LOCKED_CHEST", "Chest Gold Trim", "02_chest_closed_gold_trim.png", true),
+                chest("CHEST_ORNATE_TAN", "Ornate Chest Tan", "07_ornate_chest_gold_tan.png", false),
+                chest("CHEST_ORNATE_RED", "Ornate Chest Red", "08_ornate_chest_gold_red.png", false),
+                chest("CHEST_ORNATE_BLUE", "Ornate Chest Blue", "09_ornate_chest_gold_blue.png", false),
+                chest("CHEST_ORANGE_FRAME_1", "Orange Chest 1", "10_orange_chest_closed_frame1.png", false),
+                chest("CHEST_ORANGE_FRAME_2", "Orange Chest 2", "13_orange_chest_closed_frame2.png", false),
+                object("BAG_BROWN", "Bag Brown", () -> bag("Bag Brown", "19_bag_brown.png")),
+                object("BAG_BLUE", "Bag Blue", () -> bag("Bag Blue", "20_bag_blue.png")),
+                wallSearch("CRATE", "Crate", () -> new Crate(Crate.WOOD_TALL_SPRITE, new EnergyPotion())),
+                wallSearch("CRATE_WOOD_RIGHT", "Crate Wood Right",
+                        () -> new Crate(Crate.WOOD_RIGHT_SPRITE, new EnergyPotion())),
+                wallSearch("CRATE_ORANGE", "Crate Orange",
+                        () -> new Crate(Crate.ORANGE_TALL_SPRITE, new EnergyPotion())),
+                wallSearch("COLUMN", "Column Gray", () -> new Column(Column.GRAY_SPRITE, new EnergyPotion())),
+                wallSearch("COLUMN_PURPLE", "Column Purple",
+                        () -> new Column(Column.PURPLE_SPRITE, new EnergyPotion())),
+                wallSearch("COLUMN_TOP", "Column Top", () -> new Column(Column.WALL_TOP_SPRITE, new EnergyPotion())),
                 object("VASE", "Vase", Vase::new),
-                object("WATER_PIPE", "Water Pipe", WaterPipe::new),
-                object("PEDESTAL", "Pedestal", () -> new Pedestal(new EnergyPotion())),
-                wallSearch("POOL", "Pool", () -> new Pool(new ManaPotion())),
-                wallSearch("GARGOYLE", "Gargoyle", () -> new Gargoyle(new Key("silver", KeyColor.SILVER))),
-                wallSearch("MISSING_BRICK", "Missing Brick",
+                wallSearch("WATER_PIPE", "Water Pipe",
+                        () -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE, new EnergyPotion())),
+                wallSearch("PEDESTAL", "Pedestal", () -> new Pedestal(new EnergyPotion())),
+                wallSearch("HOLE", "Hole 1", () -> new Hole(Hole.SPRITE, new Key("silver", KeyColor.SILVER))),
+                wallSearch("HOLE_2", "Hole 2", () -> new Hole(Hole.SPRITE_2, new Key("silver", KeyColor.SILVER))),
+                wallSearch("HOLE_3", "Hole 3", () -> new Hole(Hole.SPRITE_3, new Key("silver", KeyColor.SILVER))),
+                wallSearch("GRILL", "Grill 1", () -> new Grill(Grill.HORIZONTAL_SPRITE, new EnergyPotion())),
+                wallSearch("GRILL_2", "Grill 2", () -> new Grill(Grill.VERTICAL_SPRITE, new EnergyPotion())),
+                wallSearch("GARGOYLE", "Gargoyle Red",
+                        () -> new Gargoyle(Gargoyle.RED_LEFT_SPRITE, new Key("silver", KeyColor.SILVER))),
+                wallSearch("GARGOYLE_GREEN", "Gargoyle Green",
+                        () -> new Gargoyle(Gargoyle.GREEN_LEFT_SPRITE, new Key("silver", KeyColor.SILVER))),
+                wallSearch("GARGOYLE_BLUE", "Gargoyle Blue",
+                        () -> new Gargoyle(Gargoyle.CYAN_LEFT_SPRITE, new Key("silver", KeyColor.SILVER))),
+                wallSearch("MISSING_BRICK", "Missing Brick 1",
                         () -> new MissingBrick(MissingBrick.SPRITE_1, new EnergyPotion())),
+                wallSearch("MISSING_BRICK_2", "Missing Brick 2",
+                        () -> new MissingBrick(MissingBrick.SPRITE_2, new EnergyPotion())),
                 object("HEAL", "Heal", HealPotion::new),
                 object("ENERGY", "Energy", EnergyPotion::new),
                 object("MANA", "Mana", ManaPotion::new),
-                object("KEY", "Key", () -> new Key("silver", KeyColor.SILVER)),
+                object("BOOK", "Red Book", () -> new Book("Red Book", "A dusty dungeon journal.")),
+                object("KEY", "Key Silver", () -> new Key("silver", KeyColor.SILVER)),
+                object("KEY_OLIVE", "Key Olive", () -> new Key("olive", KeyColor.OLIVE)),
+                object("KEY_GOLD", "Key Gold", () -> new Key("gold", KeyColor.GOLD)),
+                object("KEY_ORANGE", "Key Orange", () -> new Key("orange", KeyColor.ORANGE)),
+                object("KEY_BENT_SILVER", "Key Bent Silver",
+                        () -> new Key("bent-silver", KeyColor.BENT_SILVER)),
+                object("KEY_LONG_GOLD", "Key Long Gold", () -> new Key("long-gold", KeyColor.LONG_GOLD)),
                 object("WEAPON", "Weapon", () -> new Weapon(WeaponCatalog.get().byId("W002"))),
                 object("ARMOR", "Armor", () -> new Armor("Leather Armor", 3)),
-                object("RING", "Ring", () -> new Ring("Protective Ring", 2)),
+                object("RING", "Ring Red Gem",
+                        () -> ring("Red Gem Ring", "10_ring_red_gem.png")),
+                object("RING_GREEN", "Ring Green Gem",
+                        () -> ring("Green Gem Ring", "11_ring_green_gem.png")),
+                object("RING_BLUE", "Ring Blue Gem",
+                        () -> ring("Blue Gem Ring", "12_ring_blue_gem.png")),
+                object("COIN_SINGLE", "Gold Coin", () -> coin(1, "15_coin_gold_single.png")),
+                object("COIN_PILE", "Gold Coin Pile", () -> coin(10, "20_coin_pile_gold.png")),
+                object("TREASURE_GEM_WHITE", "White Gem",
+                        () -> treasure("White Gem", "16_gem_white.png")),
+                object("TREASURE_BAR_ORANGE", "Orange Bar",
+                        () -> treasure("Orange Bar", "17_bar_orange.png")),
+                object("TREASURE_BAR_GOLD", "Gold Bar",
+                        () -> treasure("Gold Bar", "18_bar_gold_orange.png")),
+                object("TREASURE_NUGGET_GOLD", "Gold Nugget",
+                        () -> treasure("Gold Nugget", "19_nugget_gold.png")),
+                object("VALUABLE_CRYSTAL", "Crystal Shard",
+                        () -> valuable("Crystal Shard", "crystal_shard_64x64.png")),
+                object("VALUABLE_IDOL", "Golden Idol",
+                        () -> valuable("Golden Idol", "golden_idol_64x64.png")),
+                object("VALUABLE_AMULET", "Ancient Amulet",
+                        () -> valuable("Ancient Amulet", "ancient_amulet_64x64.png")),
+                object("VALUABLE_CHALICE", "Ruby Chalice",
+                        () -> valuable("Ruby Chalice", "ruby_chalice_64x64.png")),
+                object("VALUABLE_TIARA", "Silver Tiara",
+                        () -> valuable("Silver Tiara", "silver_tiara_64x64.png")),
+                object("VALUABLE_PENDANT", "Emerald Pendant",
+                        () -> valuable("Emerald Pendant", "emerald_pendant_64x64.png")),
+                object("VALUABLE_DAGGER_HILT", "Obsidian Dagger Hilt",
+                        () -> valuable("Obsidian Dagger Hilt", "obsidian_dagger_hilt_64x64.png")),
                 new BuildTool("VALUABLE", "Random Valuable", FLOOR_OBJECT,
                         () -> ValuableItemCatalog.randomValuable(ThreadLocalRandom.current()),
                         () -> valuable("Random Valuable", "crystal_shard_64x64.png")));
@@ -84,6 +226,10 @@ public final class BuildToolCatalog {
         for (BuildTool tool : tools) {
             byId.put(tool.id(), tool);
         }
+        // Kept out of the visible palette: older build maps/tests still refer to
+        // POOL, but its sprite is now represented by the gargoyle variants.
+        byId.put("POOL", wallSearch("POOL", "Legacy Gargoyle Pool",
+                () -> new Pool(Pool.CYAN_DRIP_SPRITE, new ManaPotion())));
     }
 
     public List<BuildTool> tools() {
@@ -173,6 +319,36 @@ public final class BuildToolCatalog {
 
     private static BuildTool wallSearch(String id, String label, java.util.function.Supplier<Item> itemFactory) {
         return new BuildTool(id, label, HORIZONTAL_WALL_SEARCH, itemFactory);
+    }
+
+    private static BuildTool decor(String id, String label, boolean blocking, String spriteResource) {
+        return object(id, label, () -> new DecorativeObject(label, blocking, spriteResource));
+    }
+
+    private static BuildTool chest(String id, String label, String spriteFile, boolean locked) {
+        return object(id, label, () -> {
+            Chest chest = locked
+                    ? Chest.locked(label, 16, "silver", ITEM_DIR + "chests/" + spriteFile)
+                    : new Chest(label, 16, ITEM_DIR + "chests/" + spriteFile);
+            chest.addItem(locked ? new ManaPotion() : new HealPotion());
+            return chest;
+        });
+    }
+
+    private static Container bag(String name, String spriteFile) {
+        return new Container(name, false, false, 8, true, ITEM_DIR + "bags/" + spriteFile);
+    }
+
+    private static Ring ring(String name, String spriteFile) {
+        return new Ring(name, 2, ITEM_DIR + "rings/" + spriteFile);
+    }
+
+    private static Coin coin(int value, String spriteFile) {
+        return new Coin(value, ITEM_DIR + "golds_coins/" + spriteFile);
+    }
+
+    private static ValuableItem treasure(String name, String spriteFile) {
+        return new ValuableItem(name, ITEM_DIR + "golds_coins/" + spriteFile);
     }
 
     private static ValuableItem valuable(String name, String spriteFile) {

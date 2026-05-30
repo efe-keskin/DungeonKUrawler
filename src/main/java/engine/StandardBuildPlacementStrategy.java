@@ -21,6 +21,15 @@ public final class StandardBuildPlacementStrategy implements BuildPlacementStrat
             return false;
         }
 
+        if (tool.isHorizontalWallSearch()) {
+            if (isLeftOrRightBorder(map, x) || !isTopOrBottomBorder(map, y)) {
+                return false;
+            }
+            forceWall(cell);
+            placeSingleItem(cell, tool);
+            return true;
+        }
+
         if (isLeftOrRightBorder(map, x)) {
             forceWall(cell);
             return true;
@@ -28,16 +37,10 @@ public final class StandardBuildPlacementStrategy implements BuildPlacementStrat
 
         if (isTopOrBottomBorder(map, y)) {
             forceWall(cell);
-            if (tool.isHorizontalWallSearch()) {
-                placeSingleItem(cell, tool);
-            } else if (tool.isWallBrush()) {
+            if (tool.isWallBrush()) {
                 cell.getItems().clear();
             }
             return true;
-        }
-
-        if (tool.isHorizontalWallSearch()) {
-            return false;
         }
 
         cell.getItems().clear();

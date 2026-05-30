@@ -10,7 +10,7 @@ import java.util.List;
  */
 public final class ShopCatalog {
 
-    private static final String SPRITE_DIR = "/items_objects/valuable_items/";
+    private static final String SPRITE_DIR = "/items/valuable_items/";
     private static final String PET_DIR = "/pets/";
 
     private final List<ShopOffer> offers;

@@ -25,46 +25,46 @@ public enum AssetId {
     // Enemies.
     KNIGHT("/characters/knight1.png"),
     RED_KNIGHT("/characters/redknight1.png"),
-    SORCERER("/characters/sorcerer1.png"),
+    SORCERER("/characters/wizard1.png"),
     WIZARD("/characters/wizard1.png"),
     RED_WIZARD("/characters/redWizard1.png"),
 
     // Items.
-    HEAL_POTION("/items_objects/healpotion.png"),
-    ENERGY_POTION("/items_objects/energypotion.png"),
-    MANA_POTION("/items_objects/manapotion.png"),
-    COIN_PILE("/items_keys_extracted/assets/20_coin_pile_gold.png"),
-    RING_RED_GEM("/items_keys_extracted/assets/10_ring_red_gem.png"),
-    BOOK_RED("/items_keys_extracted/assets/22_book_red.png"),
-    GEM_WHITE("/items_keys_extracted/assets/16_gem_white.png"),
-    DEFEATED_ENEMY_MARKER("/items_keys_extracted/assets/26_tombstone_skull.png"),
+    HEAL_POTION("/items/potions/07_potion_red.png"),
+    ENERGY_POTION("/items/potions/09_potion_green.png"),
+    MANA_POTION("/items/potions/08_potion_blue.png"),
+    COIN_PILE("/items/golds_coins/20_coin_pile_gold.png"),
+    RING_RED_GEM("/items/rings/10_ring_red_gem.png"),
+    BOOK_RED("/items/books/22_book_red.png"),
+    GEM_WHITE("/items/golds_coins/16_gem_white.png"),
+    DEFEATED_ENEMY_MARKER("/items/tombstones/26_tombstone_skull.png"),
 
     // Torch animation frames (8 frames for inventory animation).
-    TORCH_FRAME_1("/background_floor/assets/50_torch_lit_01.png"),
-    TORCH_FRAME_2("/background_floor/assets/51_torch_lit_02.png"),
-    TORCH_FRAME_3("/background_floor/assets/52_torch_lit_03.png"),
-    TORCH_FRAME_4("/background_floor/assets/53_torch_lit_04.png"),
-    TORCH_FRAME_5("/background_floor/assets/54_torch_lit_05.png"),
-    TORCH_FRAME_6("/background_floor/assets/55_torch_lit_06.png"),
-    TORCH_FRAME_7("/background_floor/assets/56_torch_lit_07.png"),
-    TORCH_FRAME_8("/background_floor/assets/57_torch_lit_08.png"),
+    TORCH_FRAME_1("/background_floor/assets/torches/50_torch_lit_01.png"),
+    TORCH_FRAME_2("/background_floor/assets/torches/51_torch_lit_02.png"),
+    TORCH_FRAME_3("/background_floor/assets/torches/52_torch_lit_03.png"),
+    TORCH_FRAME_4("/background_floor/assets/torches/53_torch_lit_04.png"),
+    TORCH_FRAME_5("/background_floor/assets/torches/54_torch_lit_05.png"),
+    TORCH_FRAME_6("/background_floor/assets/torches/55_torch_lit_06.png"),
+    TORCH_FRAME_7("/background_floor/assets/torches/56_torch_lit_07.png"),
+    TORCH_FRAME_8("/background_floor/assets/torches/57_torch_lit_08.png"),
 
     // Containers.
-    CHEST_CLOSED("/chest_models_plus_crates_sacks_v6/assets/01_chest_closed_blue_trim.png"),
-    CHEST_OPEN("/chest_models_plus_crates_sacks_v6/assets/05_chest_open_loot_blue_trim.png"),
+    CHEST_CLOSED("/items/chests/01_chest_closed_blue_trim.png"),
+    CHEST_OPEN("/items/chests/05_chest_open_loot_blue_trim.png"),
 
     // Keys.
-    KEY_OLIVE("/items_keys_extracted/assets/01_key_olive.png"),
-    KEY_SILVER("/items_keys_extracted/assets/02_key_silver.png"),
-    KEY_GOLD("/items_keys_extracted/assets/03_key_gold.png"),
-    KEY_ORANGE("/items_keys_extracted/assets/04_key_orange.png"),
-    KEY_BENT_SILVER("/items_keys_extracted/assets/05_key_bent_silver.png"),
-    KEY_LONG_GOLD("/items_keys_extracted/assets/06_key_long_gold.png"),
+    KEY_OLIVE("/items/keys/01_key_olive.png"),
+    KEY_SILVER("/items/keys/02_key_silver.png"),
+    KEY_GOLD("/items/keys/03_key_gold.png"),
+    KEY_ORANGE("/items/keys/04_key_orange.png"),
+    KEY_BENT_SILVER("/items/keys/05_key_bent_silver.png"),
+    KEY_LONG_GOLD("/items/keys/06_key_long_gold.png"),
 
     // UI surfaces.
-    INVENTORY_BACKGROUND("/Inventory x4.png"),
+    INVENTORY_BACKGROUND("/inventorychest.png"),
     INVENTORY_CHEST_ICON("/inventorychest.png"),
-    CHEST_BACKGROUND("/chest_models_plus_crates_sacks_v6/bag - empty.png"),
+    CHEST_BACKGROUND("/inventorychest.png"),
     MAIN_MENU_BACKGROUND("/mainmenu_background.jpg"),
     HELP_QUESTION_MARK("/questionmark_minecraft.png");
 

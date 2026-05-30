@@ -12,6 +12,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
@@ -22,6 +23,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,16 +35,22 @@ import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JToggleButton;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.border.EmptyBorder;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 
 import engine.BuildModeController;
 import engine.BuildRandomItemPlacer;
 import engine.BuildTool;
 import engine.GameEngine;
 import engine.TeamMatchController;
+import model.DecorativeObject;
 import model.DungeonMap;
 import model.GridCell;
 import model.Item;
@@ -90,7 +98,10 @@ public class DesignWindow extends JFrame {
     private final TeamMatchController teamMatchController = new TeamMatchController();
     private final DesignCanvas canvas;
     private final List<ToolButton> toolButtons = new ArrayList<>();
+    private Map<String, List<BuildTool>> paletteGroups = Map.of();
+    private JTabbedPane paletteTabs;
     private JLabel selectedLabel;
+    private JButton randomItemsButton;
     private JCheckBox fogToggle;
     private Path lastMapPath;
 
@@ -102,10 +113,11 @@ public class DesignWindow extends JFrame {
 
         canvas = new DesignCanvas();
         List<BuildTool> paletteTools = controller.getTools();
+        paletteGroups = groupTools(paletteTools);
 
         JPanel wrap = new JPanel(new BorderLayout());
         RetroTheme.stylePanelDark(wrap);
-        wrap.add(createPalettePanel("CARPET", paletteTools), BorderLayout.NORTH);
+        wrap.add(createPalettePanel("PALETTE"), BorderLayout.NORTH);
         wrap.add(canvas, BorderLayout.CENTER);
         wrap.add(createCommandPanel(), BorderLayout.SOUTH);
         setContentPane(wrap);
@@ -114,13 +126,13 @@ public class DesignWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
-    private JPanel createPalettePanel(String title, List<BuildTool> toolsToShow) {
+    private JPanel createPalettePanel(String title) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(CONTROL_BACKGROUND);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, CONTROL_BORDER),
                 new EmptyBorder(8, 12, 8, 12)));
-        panel.setPreferredSize(new Dimension(WINDOW_W, 122));
+        panel.setPreferredSize(new Dimension(WINDOW_W, 140));
 
         JLabel titleLabel = new JLabel(title, JLabel.LEFT);
         titleLabel.setForeground(GOLD);
@@ -138,45 +150,50 @@ public class DesignWindow extends JFrame {
         header.add(titleLabel, BorderLayout.WEST);
         header.add(selectedLabel, BorderLayout.EAST);
 
-        JPanel tools = new JPanel(new GridLayout(2, 1, 0, 6));
-        tools.setOpaque(false);
+        paletteTabs = new JTabbedPane();
+        paletteTabs.setFont(controlFont(11f));
+        paletteTabs.setForeground(TEXT);
+        paletteTabs.setBackground(CONTROL_BACKGROUND);
+        paletteTabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
-        int split = (toolsToShow.size() + 1) / 2;
-        for (int rowIndex = 0; rowIndex < 2; rowIndex++) {
-            JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 0));
-            row.setOpaque(false);
-            int start = rowIndex == 0 ? 0 : split;
-            int end = rowIndex == 0 ? split : toolsToShow.size();
-            for (BuildTool tool : toolsToShow.subList(start, end)) {
-                ToolButton button = new ToolButton(tool);
-                button.setSelected(tool.equals(controller.getSelectedTool()));
-                button.addActionListener(e -> selectTool(tool));
-                button.setTransferHandler(new ToolTransferHandler(tool));
-                button.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mousePressed(MouseEvent e) {
-                        selectTool(tool);
-                        JComponent component = (JComponent) e.getSource();
-                        component.getTransferHandler().exportAsDrag(component, e, TransferHandler.COPY);
-                    }
-                });
-                toolButtons.add(button);
-                row.add(button);
+        for (Map.Entry<String, List<BuildTool>> entry : paletteGroups.entrySet()) {
+            JPanel carpet = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 4));
+            carpet.setBackground(new Color(28, 26, 32));
+            for (BuildTool tool : entry.getValue()) {
+                carpet.add(createToolButton(tool));
             }
-            tools.add(row);
+            JScrollPane scroll = new JScrollPane(carpet,
+                    JScrollPane.VERTICAL_SCROLLBAR_NEVER,
+                    JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            scroll.setBorder(BorderFactory.createLineBorder(CONTROL_BORDER, 1));
+            scroll.getViewport().setBackground(new Color(28, 26, 32));
+            scroll.setPreferredSize(new Dimension(WINDOW_W - 24, 72));
+            styleCarpetScrollBar(scroll.getHorizontalScrollBar());
+            paletteTabs.addTab(entry.getKey(), scroll);
         }
+        selectPaletteTab(controller.getSelectedTool());
 
         panel.add(header, BorderLayout.NORTH);
-        panel.add(tools, BorderLayout.CENTER);
+        panel.add(paletteTabs, BorderLayout.CENTER);
         return panel;
     }
 
+    private void styleCarpetScrollBar(JScrollBar scrollBar) {
+        scrollBar.setUI(new CarpetScrollBarUI());
+        scrollBar.setPreferredSize(new Dimension(0, 17));
+        scrollBar.setUnitIncrement(52);
+        scrollBar.setBlockIncrement(208);
+        scrollBar.setBackground(CONTROL_BACKGROUND);
+    }
+
     private JPanel createCommandPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        JPanel panel = new JPanel(new GridLayout(2, 1, 0, 6));
         panel.setBackground(CONTROL_BACKGROUND);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, CONTROL_BORDER),
                 new EmptyBorder(9, 10, 9, 10)));
+        JPanel editRow = commandRow();
+        JPanel runRow = commandRow();
 
         JButton save = new CommandButton("SAVE");
         save.addActionListener(e -> saveMap());
@@ -187,17 +204,21 @@ public class DesignWindow extends JFrame {
         JButton clear = new CommandButton("CLEAR");
         clear.addActionListener(e -> {
             controller.clearMap();
+            refreshRandomItemsButton();
+            refreshFogToggle();
             refreshSelectedLabel();
             canvas.repaint();
         });
 
-        JButton random = new CommandButton("ADD 5 RANDOM ITEMS");
-        random.addActionListener(e -> {
+        randomItemsButton = new CommandButton("ADD 5 RANDOM ITEMS");
+        randomItemsButton.addActionListener(e -> {
             BuildRandomItemPlacer.Result result = controller.addFiveRandomItems();
+            refreshRandomItemsButton();
             refreshSelectedLabel("Added " + result.visibleItemsPlaced()
                     + " items" + (result.hiddenItemPlaced() ? " + hidden item" : ""));
             canvas.repaint();
         });
+        refreshRandomItemsButton();
 
         JButton run = new CommandButton("RUN IN PLAY MODE");
         run.addActionListener(e -> {
@@ -231,15 +252,40 @@ public class DesignWindow extends JFrame {
             }
         });
 
-        panel.add(save);
-        panel.add(load);
-        panel.add(clear);
-        panel.add(fogToggle);
-        panel.add(random);
-        panel.add(run);
-        panel.add(teamMatch);
-        panel.add(menu);
+        editRow.add(save);
+        editRow.add(load);
+        editRow.add(clear);
+        editRow.add(randomItemsButton);
+        runRow.add(fogToggle);
+        runRow.add(run);
+        runRow.add(teamMatch);
+        runRow.add(menu);
+        panel.add(editRow);
+        panel.add(runRow);
         return panel;
+    }
+
+    private JPanel commandRow() {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        row.setOpaque(false);
+        return row;
+    }
+
+    private void refreshRandomItemsButton() {
+        if (randomItemsButton == null) {
+            return;
+        }
+        int remaining = controller.getRemainingRandomItemAdds();
+        randomItemsButton.setEnabled(remaining > 0);
+        randomItemsButton.setText(remaining > 0
+                ? "ADD 5 RANDOM ITEMS (" + remaining + " LEFT)"
+                : "RANDOM ITEMS LIMIT REACHED");
+    }
+
+    private void refreshFogToggle() {
+        if (fogToggle != null) {
+            fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
+        }
     }
 
     private void runTeamMatch() {
@@ -270,10 +316,9 @@ public class DesignWindow extends JFrame {
             try {
                 controller.loadMap(path);
                 lastMapPath = path;
+                refreshRandomItemsButton();
                 refreshSelectedLabel("Loaded " + path.getFileName());
-                if (fogToggle != null) {
-                    fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
-                }
+                refreshFogToggle();
                 canvas.repaint();
             } catch (IOException ex) {
                 ItemActionMenuDialog.showNotice(this, "Build", "Load Failed", ex.getMessage());
@@ -282,7 +327,11 @@ public class DesignWindow extends JFrame {
     }
 
     private void selectTool(BuildTool tool) {
+        if (tool == null) {
+            return;
+        }
         controller.selectTool(tool);
+        selectPaletteTab(tool);
         refreshSelectedLabel();
         for (ToolButton button : toolButtons) {
             button.setSelected(button.tool.equals(controller.getSelectedTool()));
@@ -447,7 +496,7 @@ public class DesignWindow extends JFrame {
 
                 g2.setFont(controlFont(12f));
                 g2.setColor(new Color(190, 180, 160));
-                g2.drawString("Drag a palette object here, or select a tool and paint with the mouse.",
+                g2.drawString("Select an asset above and paint with the mouse.",
                         offsetX, offsetY + map.getHeight() * tile + 24);
             } finally {
                 g2.dispose();
@@ -469,7 +518,7 @@ public class DesignWindow extends JFrame {
                 Item item = cell.getItemsView().get(0);
                 BufferedImage sprite = SpriteRegistry.spriteFor(item);
                 if (sprite != null) {
-                    int inset = Math.max(2, tile / 6);
+                    int inset = item instanceof DecorativeObject ? 1 : Math.max(2, tile / 6);
                     g2.drawImage(sprite, px + inset, py + inset,
                             tile - inset * 2, tile - inset * 2, null);
                 } else {
@@ -555,6 +604,80 @@ public class DesignWindow extends JFrame {
             setFocusPainted(false);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         }
+    }
+
+    private ToolButton createToolButton(BuildTool tool) {
+        ToolButton button = new ToolButton(tool);
+        button.setSelected(tool.equals(controller.getSelectedTool()));
+        button.addActionListener(e -> selectTool(tool));
+        button.setTransferHandler(new ToolTransferHandler(tool));
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                selectTool(tool);
+                JComponent component = (JComponent) e.getSource();
+                component.getTransferHandler().exportAsDrag(component, e, TransferHandler.COPY);
+            }
+        });
+        toolButtons.add(button);
+        return button;
+    }
+
+    private void selectPaletteTab(BuildTool tool) {
+        if (tool == null || paletteTabs == null) {
+            return;
+        }
+        int index = new ArrayList<>(paletteGroups.keySet()).indexOf(categoryFor(tool));
+        if (index >= 0 && index < paletteTabs.getTabCount()) {
+            paletteTabs.setSelectedIndex(index);
+        }
+    }
+
+    private static Map<String, List<BuildTool>> groupTools(List<BuildTool> tools) {
+        Map<String, List<BuildTool>> groups = new LinkedHashMap<>();
+        for (String category : List.of("Floors", "Walls & Doors", "Rugs", "Decor", "Searchable",
+                "Containers", "Keys & Rings", "Valuables", "Loot")) {
+            groups.put(category, new ArrayList<>());
+        }
+        for (BuildTool tool : tools) {
+            groups.computeIfAbsent(categoryFor(tool), key -> new ArrayList<>()).add(tool);
+        }
+        groups.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        return groups;
+    }
+
+    private static String categoryFor(BuildTool tool) {
+        String id = tool == null ? "" : tool.id();
+        if (id.equals("FLOOR") || id.startsWith("FLOOR_")) {
+            return "Floors";
+        }
+        if (id.equals("WALL") || id.startsWith("WALL_") || id.startsWith("DOOR_")) {
+            return "Walls & Doors";
+        }
+        if (id.startsWith("RUG_")) {
+            return "Rugs";
+        }
+        if (id.startsWith("BANNER_") || id.startsWith("SIGN_") || id.startsWith("TORCH_")
+                || id.startsWith("STAIRS_") || id.startsWith("TRAP_")
+                || id.startsWith("SKULL_") || id.startsWith("TOMBSTONE_")) {
+            return "Decor";
+        }
+        if (id.startsWith("MISSING_BRICK") || id.startsWith("GARGOYLE") || id.startsWith("POOL")
+                || id.startsWith("WATER_PIPE") || id.startsWith("GRILL") || id.startsWith("COLUMN")
+                || id.startsWith("HOLE") || id.equals("PEDESTAL") || id.equals("VASE")) {
+            return "Searchable";
+        }
+        if (id.contains("CHEST") || id.startsWith("CRATE") || id.startsWith("BAG_")) {
+            return "Containers";
+        }
+        if (id.equals("KEY") || id.startsWith("KEY_") || id.equals("RING") || id.startsWith("RING_")) {
+            return "Keys & Rings";
+        }
+        if (id.equals("VALUABLE") || id.startsWith("VALUABLE_")
+                || id.startsWith("TREASURE_") || id.startsWith("COIN_")) {
+            return "Valuables";
+        }
+        return "Loot";
     }
 
     private static final class ToolIcon implements Icon {
@@ -643,6 +766,111 @@ public class DesignWindow extends JFrame {
             RetroTheme.styleRetroButton(this, new Color(92, 61, 28));
             setFont(controlFont(13f));
             setFocusable(false);
+        }
+    }
+
+    private static final class CarpetScrollBarUI extends BasicScrollBarUI {
+        @Override
+        protected JButton createDecreaseButton(int orientation) {
+            return new ScrollArrowButton(orientation);
+        }
+
+        @Override
+        protected JButton createIncreaseButton(int orientation) {
+            return new ScrollArrowButton(orientation);
+        }
+
+        @Override
+        protected Dimension getMinimumThumbSize() {
+            return new Dimension(42, 13);
+        }
+
+        @Override
+        protected void paintTrack(Graphics graphics, JComponent component, Rectangle bounds) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setColor(new Color(5, 5, 9));
+                g2.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                g2.setColor(new Color(43, 38, 37));
+                g2.fillRect(bounds.x + 2, bounds.y + 2,
+                        Math.max(0, bounds.width - 4), Math.max(0, bounds.height - 4));
+                g2.setColor(CONTROL_BORDER);
+                g2.drawLine(bounds.x + 2, bounds.y + 2, bounds.x + bounds.width - 3, bounds.y + 2);
+            } finally {
+                g2.dispose();
+            }
+        }
+
+        @Override
+        protected void paintThumb(Graphics graphics, JComponent component, Rectangle bounds) {
+            if (bounds.isEmpty() || !scrollbar.isEnabled()) {
+                return;
+            }
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                int x = bounds.x + 2;
+                int y = bounds.y + 2;
+                int w = Math.max(1, bounds.width - 4);
+                int h = Math.max(1, bounds.height - 4);
+                g2.setColor(new Color(5, 5, 9));
+                g2.fillRect(x, y, w, h);
+                g2.setColor(isDragging ? new Color(126, 84, 31) : new Color(92, 61, 28));
+                g2.fillRect(x + 2, y + 2, Math.max(0, w - 4), Math.max(0, h - 4));
+                g2.setColor(isDragging ? new Color(244, 205, 103) : GOLD);
+                g2.drawRect(x + 1, y + 1, Math.max(0, w - 3), Math.max(0, h - 3));
+                if (w >= 42) {
+                    int gripX = x + w / 2 - 4;
+                    g2.setColor(new Color(244, 205, 103, 190));
+                    g2.drawLine(gripX, y + 4, gripX, y + h - 5);
+                    g2.drawLine(gripX + 4, y + 4, gripX + 4, y + h - 5);
+                    g2.drawLine(gripX + 8, y + 4, gripX + 8, y + h - 5);
+                }
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
+    private static final class ScrollArrowButton extends JButton {
+        private final int orientation;
+
+        private ScrollArrowButton(int orientation) {
+            this.orientation = orientation;
+            setPreferredSize(new Dimension(17, 17));
+            setMinimumSize(new Dimension(17, 17));
+            setMaximumSize(new Dimension(17, 17));
+            setBorder(BorderFactory.createEmptyBorder());
+            setContentAreaFilled(false);
+            setFocusable(false);
+            setRolloverEnabled(true);
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setColor(new Color(5, 5, 9));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(getModel().isPressed() ? new Color(126, 84, 31) : new Color(43, 38, 37));
+                g2.fillRect(2, 2, getWidth() - 4, getHeight() - 4);
+                g2.setColor(getModel().isRollover() ? new Color(244, 205, 103) : GOLD);
+                g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+
+                int cx = getWidth() / 2;
+                int cy = getHeight() / 2;
+                int[] xs;
+                int[] ys;
+                if (orientation == SwingConstants.WEST) {
+                    xs = new int[] { cx + 3, cx - 3, cx + 3 };
+                    ys = new int[] { cy - 4, cy, cy + 4 };
+                } else {
+                    xs = new int[] { cx - 3, cx + 3, cx - 3 };
+                    ys = new int[] { cy - 4, cy, cy + 4 };
+                }
+                g2.fillPolygon(xs, ys, 3);
+            } finally {
+                g2.dispose();
+            }
         }
     }
 }

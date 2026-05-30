@@ -9,16 +9,27 @@ package model;
 public class Coin extends Item {
 
     private final int value;
+    private final String spriteResource;
 
     public Coin(int value) {
+        this(value, null);
+    }
+
+    public Coin(int value, String spriteResource) {
         super("Coin Pile");
         if (value <= 0) {
             throw new IllegalArgumentException("coin value must be positive");
         }
         this.value = value;
+        this.spriteResource = spriteResource;
     }
 
     public int getValue() {
         return value;
+    }
+
+    @Override
+    public String spriteResource() {
+        return spriteResource;
     }
 }

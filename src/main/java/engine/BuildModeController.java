@@ -15,6 +15,7 @@ public final class BuildModeController {
 
     public static final int DEFAULT_MAP_WIDTH = 16;
     public static final int DEFAULT_MAP_HEIGHT = 12;
+    public static final int MAX_RANDOM_ITEM_ADDS = 3;
 
     private static final String DEFAULT_LEVEL_NAME = "Designed Map";
 
@@ -25,6 +26,7 @@ public final class BuildModeController {
     private final BuildRandomItemPlacer randomItemPlacer;
     private DungeonMap designMap;
     private BuildTool selectedTool;
+    private int randomItemAddCount;
 
     public BuildModeController() {
         this(new BuildToolCatalog(), new BuildMapFactory(), new StandardBuildPlacementStrategy(), new Random());
@@ -68,6 +70,7 @@ public final class BuildModeController {
 
     public void clearMap() {
         designMap = mapFactory.createEmptyMap(DEFAULT_LEVEL_NAME, DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT);
+        randomItemAddCount = 0;
     }
 
     public void saveMap(Path path) throws IOException {
@@ -76,10 +79,23 @@ public final class BuildModeController {
 
     public void loadMap(Path path) throws IOException {
         designMap = mapPersistence.load(path);
+        randomItemAddCount = 0;
     }
 
     public BuildRandomItemPlacer.Result addFiveRandomItems() {
+        if (!canAddFiveRandomItems()) {
+            return new BuildRandomItemPlacer.Result(0, false);
+        }
+        randomItemAddCount++;
         return randomItemPlacer.addFiveRandomItemsAndHiddenSearchable(designMap);
+    }
+
+    public boolean canAddFiveRandomItems() {
+        return randomItemAddCount < MAX_RANDOM_ITEM_ADDS;
+    }
+
+    public int getRemainingRandomItemAdds() {
+        return Math.max(0, MAX_RANDOM_ITEM_ADDS - randomItemAddCount);
     }
 
     public boolean placeSelectedToolAt(int x, int y) {

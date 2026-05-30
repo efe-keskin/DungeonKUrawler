@@ -21,6 +21,7 @@ import model.Coin;
 import model.Column;
 import model.Container;
 import model.Crate;
+import model.DecorativeObject;
 import model.DefeatedEnemyMarker;
 import model.DungeonMap;
 import model.EnergyPotion;
@@ -175,16 +176,21 @@ public final class BuildMapPersistence {
         } else if (item instanceof Grill grill) {
             dto.type = "grill";
             addSearchableState(dto, grill);
+        } else if (item instanceof DecorativeObject decorativeObject) {
+            dto.type = "decorativeObject";
+            dto.blocking = decorativeObject.isBlocking();
+        } else if (item instanceof Column column) {
+            dto.type = "column";
+            addSearchableState(dto, column);
+        } else if (item instanceof WaterPipe waterPipe) {
+            dto.type = "waterPipe";
+            addSearchableState(dto, waterPipe);
         } else if (item instanceof SearchableObject searchableObject) {
             dto.type = "searchableObject";
             dto.blocking = searchableObject.isBlocking();
             addSearchableState(dto, searchableObject);
-        } else if (item instanceof Column) {
-            dto.type = "column";
         } else if (item instanceof Vase) {
             dto.type = "vase";
-        } else if (item instanceof WaterPipe) {
-            dto.type = "waterPipe";
         } else if (item instanceof HealPotion) {
             dto.type = "healPotion";
         } else if (item instanceof EnergyPotion) {
@@ -253,10 +259,14 @@ public final class BuildMapPersistence {
         }
 
         return switch (dto.type) {
-            case "chest" -> restoreContainer(new Chest(name(dto, "Wooden Chest"), positive(dto.capacity, 16)), dto);
+            case "chest" -> restoreContainer(
+                    new Chest(name(dto, "Wooden Chest"), positive(dto.capacity, 16), dto.spriteResource), dto);
             case "container" -> restoreContainer(new Container(name(dto, "Container"),
-                    bool(dto.locked), bool(dto.requiresKey), positive(dto.capacity, 8), bool(dto.portable)), dto);
-            case "crate" -> new Crate(fromNullableDto(dto.hiddenItem));
+                    bool(dto.locked), bool(dto.requiresKey), positive(dto.capacity, 8),
+                    bool(dto.portable), dto.spriteResource), dto);
+            case "crate" -> dto.spriteResource == null
+                    ? new Crate(fromNullableDto(dto.hiddenItem))
+                    : new Crate(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "pedestal" -> new Pedestal(fromNullableDto(dto.hiddenItem));
             case "pool" -> dto.spriteResource == null
                     ? new Pool(fromNullableDto(dto.hiddenItem))
@@ -267,15 +277,23 @@ public final class BuildMapPersistence {
             case "missingBrick" -> dto.spriteResource == null
                     ? new MissingBrick(fromNullableDto(dto.hiddenItem))
                     : new MissingBrick(dto.spriteResource, fromNullableDto(dto.hiddenItem));
-            case "hole" -> new Hole(fromNullableDto(dto.hiddenItem));
+            case "hole" -> dto.spriteResource == null
+                    ? new Hole(fromNullableDto(dto.hiddenItem))
+                    : new Hole(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "grill" -> dto.spriteResource == null
                     ? new Grill(fromNullableDto(dto.hiddenItem))
                     : new Grill(dto.spriteResource, fromNullableDto(dto.hiddenItem));
+            case "decorativeObject" -> new DecorativeObject(name(dto, "Decorative Object"),
+                    bool(dto.blocking), dto.spriteResource);
             case "searchableObject" -> new SearchableObject(name(dto, "Searchable Object"),
                     bool(dto.blocking), dto.spriteResource, fromNullableDto(dto.hiddenItem));
-            case "column" -> dto.spriteResource == null ? new Column() : new Column(dto.spriteResource);
+            case "column" -> dto.spriteResource == null
+                    ? new Column()
+                    : new Column(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "vase" -> new Vase();
-            case "waterPipe" -> dto.spriteResource == null ? new WaterPipe() : new WaterPipe(dto.spriteResource);
+            case "waterPipe" -> dto.spriteResource == null
+                    ? new WaterPipe()
+                    : new WaterPipe(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "healPotion" -> new HealPotion();
             case "energyPotion" -> new EnergyPotion();
             case "manaPotion" -> new ManaPotion();
@@ -283,9 +301,9 @@ public final class BuildMapPersistence {
             case "key" -> new Key(valueOr(dto.keyId, "silver"), keyColor(dto.keyColor), bool(dto.singleUse));
             case "weapon" -> new Weapon(weaponType(dto));
             case "armor" -> new Armor(name(dto, "Armor"), intOr(dto.defModifier, 0));
-            case "ring" -> new Ring(name(dto, "Ring"), intOr(dto.defBonus, 0));
+            case "ring" -> new Ring(name(dto, "Ring"), intOr(dto.defBonus, 0), dto.spriteResource);
             case "valuable" -> new ValuableItem(name(dto, "Valuable"), dto.spriteResource);
-            case "coin" -> new Coin(positive(dto.value, 1));
+            case "coin" -> new Coin(positive(dto.value, 1), dto.spriteResource);
             case "book" -> new Book(name(dto, "Book"), valueOr(dto.text, ""));
             case "defeatedEnemy" -> new DefeatedEnemyMarker();
             case "item" -> new ValuableItem(name(dto, "Item"), dto.spriteResource);

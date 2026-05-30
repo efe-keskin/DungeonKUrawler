@@ -123,7 +123,10 @@ public class InteractionController {
 
         List<ItemInteraction> interactions = new ArrayList<>(cell.getItemsView().size());
         for (Item item : cell.getItemsView()) {
-            interactions.add(buildInteraction(item, targetX, targetY));
+            ItemInteraction interaction = buildInteraction(item, targetX, targetY);
+            if (!interaction.getActions().isEmpty()) {
+                interactions.add(interaction);
+            }
         }
         return interactions;
     }
