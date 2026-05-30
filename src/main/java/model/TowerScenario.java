@@ -23,8 +23,11 @@ public final class TowerScenario {
 
     /**
      * Builds the canonical 10-floor tower from the design specification.
-     * Levels 7-10 carry {@code fogHidden == true} so the UI can render them
-     * as unknown once Fog of War is enabled.
+     * Levels 5-10 carry {@code fogHidden == true} so the UI can render them
+     * as unknown, and the in-floor map enables Fear-of-the-Dark fog when
+     * the floor is entered. Level 5 (the boss floor) is the first
+     * appearance of the fog mechanic - see TowerSessionController for
+     * the introduction dialog.
      */
     public static TowerScenario defaultScenario() {
         List<DungeonLevel> levels = new ArrayList<>(LEVEL_COUNT);
@@ -32,8 +35,8 @@ public final class TowerScenario {
         levels.add(new DungeonLevel(2, "Dusty Halls", LevelType.REGULAR, Difficulty.EASY, false, false, 75));
         levels.add(new DungeonLevel(3, "Forgotten Vault", LevelType.REGULAR, Difficulty.MEDIUM, false, true, 100));
         levels.add(new DungeonLevel(4, "Sunken Gallery", LevelType.REGULAR, Difficulty.MEDIUM, false, false, 125));
-        levels.add(new DungeonLevel(5, "Warden's Lair", LevelType.BOSS, Difficulty.BOSS, false, false, 250));
-        levels.add(new DungeonLevel(6, "Ashen Catacombs", LevelType.REGULAR, Difficulty.HARD, false, true, 175));
+        levels.add(new DungeonLevel(5, "Warden's Lair", LevelType.BOSS, Difficulty.BOSS, true, false, 250));
+        levels.add(new DungeonLevel(6, "Ashen Catacombs", LevelType.REGULAR, Difficulty.HARD, true, true, 175));
         levels.add(new DungeonLevel(7, "Veiled Passage", LevelType.REGULAR, Difficulty.HARD, true, false, 200));
         levels.add(new DungeonLevel(8, "Shrouded Depths", LevelType.REGULAR, Difficulty.VERY_HARD, true, true, 225));
         levels.add(new DungeonLevel(9, "Abyssal Threshold", LevelType.REGULAR, Difficulty.VERY_HARD, true, false, 250));

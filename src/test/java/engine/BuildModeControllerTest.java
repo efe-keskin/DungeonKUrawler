@@ -61,11 +61,47 @@ class BuildModeControllerTest {
     }
 
     @Test
+    void randomItemsCanOnlyBeAddedThreeTimesPerDesignMap() {
+        BuildModeController controller = controller();
+
+        assertEquals(BuildModeController.MAX_RANDOM_ITEM_ADDS, controller.getRemainingRandomItemAdds());
+        for (int i = 0; i < BuildModeController.MAX_RANDOM_ITEM_ADDS; i++) {
+            controller.addFiveRandomItems();
+        }
+
+        assertFalse(controller.canAddFiveRandomItems());
+        assertEquals(0, controller.getRemainingRandomItemAdds());
+        int itemCount = countCellItems(controller.getDesignMap());
+
+        BuildRandomItemPlacer.Result rejected = controller.addFiveRandomItems();
+        assertEquals(0, rejected.visibleItemsPlaced());
+        assertFalse(rejected.hiddenItemPlaced());
+        assertEquals(itemCount, countCellItems(controller.getDesignMap()));
+
+        controller.clearMap();
+        assertTrue(controller.canAddFiveRandomItems());
+        assertEquals(BuildModeController.MAX_RANDOM_ITEM_ADDS, controller.getRemainingRandomItemAdds());
+    }
+
+    @Test
+    void searchableToolsCanOnlyBePlacedOnTopAndBottomWalls() {
+        BuildModeController controller = controller();
+
+        for (BuildTool tool : controller.getTools()) {
+            if (tool.previewItem() instanceof SearchableObject) {
+                assertHorizontalWallOnly(controller, tool);
+            }
+        }
+        assertHorizontalWallOnly(controller, controller.findTool("POOL"));
+    }
+
+    @Test
     void saveLoadRoundTripRestoresWallsObjectsAndHiddenItems() throws IOException {
         BuildModeController controller = controller();
         controller.placeToolAt(2, 2, controller.findTool("HEAL"));
         controller.placeToolAt(3, 3, controller.findTool("WALL"));
         controller.placeToolAt(4, 0, controller.findTool("POOL"));
+        controller.placeToolAt(5, 5, controller.findTool("LOCKED_CHEST"));
 
         Path path = tempDir.resolve("roundtrip.dkmap");
         controller.saveMap(path);
@@ -100,6 +136,24 @@ class BuildModeControllerTest {
             }
         }
         return count;
+    }
+
+    private void assertHorizontalWallOnly(BuildModeController controller, BuildTool tool) {
+        DungeonMap map = controller.getDesignMap();
+        assertFalse(controller.placeToolAt(3, 3, tool), tool.id());
+        assertTrue(map.getCell(3, 3).getItemsView().isEmpty(), tool.id());
+
+        assertFalse(controller.placeToolAt(0, 3, tool), tool.id());
+        assertTrue(map.getCell(0, 3).getItemsView().isEmpty(), tool.id());
+
+        assertTrue(controller.placeToolAt(3, 0, tool), tool.id());
+        assertInstanceOf(SearchableObject.class, map.getCell(3, 0).getItemsView().get(0), tool.id());
+        controller.eraseAt(3, 0);
+
+        assertTrue(controller.placeToolAt(3, map.getHeight() - 1, tool), tool.id());
+        assertInstanceOf(SearchableObject.class,
+                map.getCell(3, map.getHeight() - 1).getItemsView().get(0), tool.id());
+        controller.eraseAt(3, map.getHeight() - 1);
     }
 
     private int countSearchablesWithHiddenItems(DungeonMap map) {

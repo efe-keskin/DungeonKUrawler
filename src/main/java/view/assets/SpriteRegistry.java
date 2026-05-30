@@ -17,10 +17,15 @@ import model.Item;
 import model.Key;
 import model.KeyColor;
 import model.Knight;
+import model.DragonPet;
 import model.EnergyPotion;
 import model.ManaPotion;
+import model.PenguinPet;
+import model.PetEntity;
 import model.Ring;
 import model.Sorcerer;
+import model.Team;
+import model.Torch;
 import model.ValuableItem;
 
 /**
@@ -50,6 +55,16 @@ public final class SpriteRegistry {
             AssetId.HERO_FRAME_8,
             AssetId.HERO_FRAME_9);
 
+    private static final List<AssetId> TORCH_ANIMATION_FRAMES = List.of(
+            AssetId.TORCH_FRAME_1,
+            AssetId.TORCH_FRAME_2,
+            AssetId.TORCH_FRAME_3,
+            AssetId.TORCH_FRAME_4,
+            AssetId.TORCH_FRAME_5,
+            AssetId.TORCH_FRAME_6,
+            AssetId.TORCH_FRAME_7,
+            AssetId.TORCH_FRAME_8);
+
     static {
         registerEntity(Knight.class, AssetId.KNIGHT);
         registerEntity(Sorcerer.class, AssetId.SORCERER);
@@ -63,6 +78,7 @@ public final class SpriteRegistry {
         registerItem(ValuableItem.class, AssetId.GEM_WHITE);
         registerItem(DefeatedEnemyMarker.class, AssetId.DEFEATED_ENEMY_MARKER);
         registerItem(Chest.class, AssetId.CHEST_CLOSED);
+        registerItem(Torch.class, AssetId.TORCH_FRAME_1);
 
         registerKey(KeyColor.OLIVE, AssetId.KEY_OLIVE);
         registerKey(KeyColor.SILVER, AssetId.KEY_SILVER);
@@ -106,9 +122,24 @@ public final class SpriteRegistry {
      * a sibling asset (used so a missing Sorcerer falls back to Wizard).
      */
     public static BufferedImage spriteFor(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        String override = entity.spriteResource();
+        if (override != null) {
+            return AssetManager.get().image(override);
+        }
         AssetId primary = assetFor(entity);
         if (primary == null) {
             return null;
+        }
+        // Team color decision: Team A is the red team. Team B keeps the default
+        // blue-ish sprites, and the player-controlled hero keeps the hero art.
+        if (entity instanceof Knight && entity.getTeam() == Team.TEAM_A) {
+            return AssetManager.get().imageOrFallback(AssetId.RED_KNIGHT, AssetId.KNIGHT);
+        }
+        if (entity instanceof Sorcerer && entity.getTeam() == Team.TEAM_A) {
+            return AssetManager.get().imageOrFallback(AssetId.RED_WIZARD, AssetId.SORCERER, AssetId.WIZARD);
         }
         if (primary == AssetId.SORCERER) {
             return AssetManager.get().imageOrFallback(AssetId.SORCERER, AssetId.WIZARD);
@@ -120,6 +151,9 @@ public final class SpriteRegistry {
         if (entity == null) {
             return null;
         }
+        if ((entity instanceof Knight || entity instanceof Sorcerer) && entity.getTeam() == Team.TEAM_A) {
+            return spriteFor(entity);
+        }
         String prefix;
         if (entity instanceof Knight) {
             prefix = "/characters/bot";
@@ -129,6 +163,21 @@ public final class SpriteRegistry {
             int safe = Math.floorMod(index, 6) + 1;
             String suffix = safe < 10 ? "0" + safe : Integer.toString(safe);
             BufferedImage frame = AssetManager.get().image("/characters/boss1_move_" + suffix + ".png");
+            return frame != null ? frame : spriteFor(entity);
+        } else if (entity instanceof PetEntity petEntity) {
+            String petPrefix;
+            int frameCount;
+            if (petEntity.getPet() instanceof PenguinPet) {
+                petPrefix = "/pets/penguin";
+                frameCount = 3;
+            } else if (petEntity.getPet() instanceof DragonPet) {
+                petPrefix = "/pets/dragon";
+                frameCount = 7;
+            } else {
+                return spriteFor(entity);
+            }
+            int safe = Math.floorMod(index, frameCount) + 1;
+            BufferedImage frame = AssetManager.get().image(petPrefix + safe + ".png");
             return frame != null ? frame : spriteFor(entity);
         } else {
             return spriteFor(entity);
@@ -164,5 +213,17 @@ public final class SpriteRegistry {
 
     public static int heroFrameCount() {
         return HERO_ANIMATION_FRAMES.size();
+    }
+
+    public static int torchFrameCount() {
+        return TORCH_ANIMATION_FRAMES.size();
+    }
+
+    public static BufferedImage torchFrame(int index) {
+        if (TORCH_ANIMATION_FRAMES.isEmpty()) {
+            return null;
+        }
+        int safe = Math.floorMod(index, TORCH_ANIMATION_FRAMES.size());
+        return AssetManager.get().image(TORCH_ANIMATION_FRAMES.get(safe));
     }
 }

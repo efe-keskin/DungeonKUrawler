@@ -12,6 +12,8 @@ public abstract class Entity {
     protected int y;
     /** Display / debug name. */
     protected String name;
+    /** Team affiliation; normal play entities default to no team. */
+    private Team team = Team.NONE;
 
     public Entity(int x, int y, String name) {
         this.x = x;
@@ -41,5 +43,22 @@ public abstract class Entity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Team getTeam() {
+        return team;
+    }
+
+    public void setTeam(Team team) {
+        this.team = team == null ? Team.NONE : team;
+    }
+    /**
+     * Optional per-instance sprite override (classpath resource path). Returning
+     * {@code null} — the default — lets the view fall back to its class&rarr;AssetId
+     * registry. Entities whose art is data-driven (e.g. a {@link PetEntity}
+     * carrying a specific pet sprite) override this.
+     */
+    public String spriteResource() {
+        return null;
     }
 }

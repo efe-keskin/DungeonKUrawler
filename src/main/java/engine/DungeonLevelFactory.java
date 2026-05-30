@@ -17,6 +17,7 @@ import model.Hero;
 import model.Key;
 import model.KeyColor;
 import model.LevelType;
+import model.Torch;
 
 /**
  * Simple Factory (GoF / Pure Fabrication): builds a configured {@link GameEngine}
@@ -88,6 +89,7 @@ public final class DungeonLevelFactory {
         int w = size[0];
         int h = size[1];
         DungeonMap map = new DungeonMap(level.levelName(), w, h);
+        map.setFogEnabled(level.fogHidden());
 
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
@@ -129,7 +131,62 @@ public final class DungeonLevelFactory {
             keyCell.getItems().add(new Key("arch-gold", KeyColor.GOLD));
         }
 
+        // Fog-enabled floors guarantee one Torch near the hero's
+        // starting cell so the player can always engage with the
+        // Fear of the Dark mechanic. Without this, the lottery-based
+        // spawn in randomHiddenSearchItem can fail to produce a torch
+        // for an entire floor (especially the level-5 introduction).
+        if (level.fogHidden()) {
+            seedStarterTorch(map);
+        }
+
         return map;
+    }
+
+    /**
+     * Places a single Torch on a walkable cell within a few tiles
+     * of the hero start. Tries (3,1) first, then (1,3), then a
+     * small scan; gives up silently if no free cell is available
+     * (extremely cramped maps). Never places on the start cell
+     * itself - the torch must be a step the player consciously
+     * takes, not an auto-pickup.
+     */
+    private void seedStarterTorch(DungeonMap map) {
+        int[][] preferred = { {3, 1}, {1, 3}, {2, 2}, {4, 1}, {1, 4} };
+        for (int[] coord : preferred) {
+            GridCell cell = map.getCell(coord[0], coord[1]);
+            if (cell != null
+                    && !(coord[0] == HERO_START_X && coord[1] == HERO_START_Y)
+                    && cell.isWalkable()
+                    && cell.getItemsView().isEmpty()
+                    && cell.getEntitiesView().isEmpty()) {
+                cell.getItems().add(new Torch());
+                return;
+            }
+        }
+        // Fallback scan: any free interior cell that's at most ~5 tiles
+        // from the start in Chebyshev distance.
+        for (int y = 1; y < map.getHeight() - 1; y++) {
+            for (int x = 1; x < map.getWidth() - 1; x++) {
+                if (x == HERO_START_X && y == HERO_START_Y) {
+                    continue;
+                }
+                int dist = Math.max(Math.abs(x - HERO_START_X),
+                                    Math.abs(y - HERO_START_Y));
+                if (dist > 5) {
+                    continue;
+                }
+                GridCell cell = map.getCell(x, y);
+                if (cell != null && cell.isWalkable()
+                        && cell.getItemsView().isEmpty()
+                        && cell.getEntitiesView().isEmpty()) {
+                    cell.getItems().add(new Torch());
+                    return;
+                }
+            }
+        }
+        // If nothing free was found, the random spawn elsewhere can
+        // still provide a torch eventually. Don't crash.
     }
 
     /**
@@ -231,6 +288,8 @@ public final class DungeonLevelFactory {
                 source.getMaxHp(), source.getStr(), source.getMaxMana(),
                 source.getBaseDef(), source.getMaxEnergy());
         hero.getFullInventory().copyFrom(source.getFullInventory());
+        // copyFrom keeps the same item instances, so the equipped pet is still present.
+        hero.setEquippedPet(source.getEquippedPet());
         return hero;
     }
 }

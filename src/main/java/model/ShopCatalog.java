@@ -10,12 +10,15 @@ import java.util.List;
  */
 public final class ShopCatalog {
 
-    private static final String SPRITE_DIR = "/items_objects/valuable_items/";
+    private static final String SPRITE_DIR = "/items/valuable_items/";
+    private static final String PET_DIR = "/pets/";
 
     private final List<ShopOffer> offers;
 
     public ShopCatalog() {
         this(List.of(
+                new ShopOffer("Penguin Pet", 60, PET_DIR + "penguin1.png", PenguinPet::new),
+                new ShopOffer("Dragon Pet", 150, PET_DIR + "dragon1.png", DragonPet::new),
                 new ShopOffer("Crystal Shard", 40, SPRITE_DIR + "crystal_shard_64x64.png"),
                 new ShopOffer("Golden Idol", 75, SPRITE_DIR + "golden_idol_64x64.png"),
                 new ShopOffer("Ruby Chalice", 120, SPRITE_DIR + "ruby_chalice_64x64.png")));

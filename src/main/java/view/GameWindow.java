@@ -163,7 +163,8 @@ public class GameWindow extends JFrame implements GameStateListener {
         if (engine.isGameOver() && !gameOverDialogShown) {
             gameOverDialogShown = true;
             SwingUtilities.invokeLater(() -> {
-                GameOverDialog.show(GameWindow.this);
+                GameOverDialog.show(GameWindow.this,
+                        engine.getGameOverTitle(), engine.getGameOverMessage());
                 dispose();
                 SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
             });

@@ -31,10 +31,12 @@ public class CombatController {
      * @return attack result when an enemy was hit; {@code null} when no valid target exists.
      */
     public CombatManager.AttackResult attackAt(int x, int y) {
+        if (!engine.canHeroAct()) {
+            return null;
+        }
         if (engine.isHeroAttackOnCooldown()) {
             return null;
         }
-
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         if (weapon != null && weapon.isRanged()) {
@@ -51,7 +53,7 @@ public class CombatController {
             return null;
         }
 
-        Entity target = firstEnemy(cell);
+        Entity target = engine.firstHostileInCell(cell);
         if (target == null) {
             return null;
         }
@@ -75,6 +77,9 @@ public class CombatController {
         if (result.isDefenderDefeated()) {
             engine.fireEnemyDefeated(target);
         }
+        if (engine.resolveTeamMatchOutcome()) {
+            return result;
+        }
         engine.notifyGameStateChanged();
         return result;
     }
@@ -88,6 +93,9 @@ public class CombatController {
      *         when no enemy is within reach.
      */
     public TargetedAttack attackNearestEnemy() {
+        if (!engine.canHeroAct()) {
+            return null;
+        }
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         if (weapon != null && weapon.isRanged()) {
@@ -102,7 +110,7 @@ public class CombatController {
                 int tx = hx + dx;
                 int ty = hy + dy;
                 GridCell cell = map.getCell(tx, ty);
-                if (cell == null || firstEnemy(cell) == null) {
+                if (cell == null || engine.firstHostileInCell(cell) == null) {
                     continue;
                 }
                 CombatManager.AttackResult result = attackAt(tx, ty);
@@ -163,15 +171,6 @@ public class CombatController {
 
     /** Pairs an attack result with the tile that was hit. */
     public record TargetedAttack(CombatManager.AttackResult result, int x, int y) {
-    }
-
-    private Entity firstEnemy(GridCell cell) {
-        for (Entity entity : cell.getEntities()) {
-            if (entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy) {
-                return entity;
-            }
-        }
-        return null;
     }
 
 }

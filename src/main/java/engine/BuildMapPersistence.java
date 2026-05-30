@@ -21,6 +21,7 @@ import model.Coin;
 import model.Column;
 import model.Container;
 import model.Crate;
+import model.DecorativeObject;
 import model.DefeatedEnemyMarker;
 import model.DungeonMap;
 import model.EnergyPotion;
@@ -38,6 +39,7 @@ import model.Pedestal;
 import model.Pool;
 import model.Ring;
 import model.SearchableObject;
+import model.Torch;
 import model.ValuableItem;
 import model.Vase;
 import model.WaterPipe;
@@ -57,7 +59,7 @@ import model.WeaponType;
 public final class BuildMapPersistence {
 
     private static final String SCHEMA = "DungeonKUrawler.DungeonMap";
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final BuildMapFactory mapFactory;
@@ -97,6 +99,7 @@ public final class BuildMapPersistence {
 
         validate(dto);
         DungeonMap map = mapFactory.createEmptyMap(dto.levelName, dto.width, dto.height);
+        map.setFogEnabled(dto.fogEnabled != null && dto.fogEnabled);
         for (CellDto cellDto : dto.cells) {
             GridCell cell = map.getCell(cellDto.x, cellDto.y);
             if (cell == null) {
@@ -121,6 +124,7 @@ public final class BuildMapPersistence {
         dto.levelName = map.getLevelName();
         dto.width = map.getWidth();
         dto.height = map.getHeight();
+        dto.fogEnabled = map.isFogEnabled();
         dto.cells = new ArrayList<>();
 
         for (int y = 0; y < map.getHeight(); y++) {
@@ -172,22 +176,29 @@ public final class BuildMapPersistence {
         } else if (item instanceof Grill grill) {
             dto.type = "grill";
             addSearchableState(dto, grill);
+        } else if (item instanceof DecorativeObject decorativeObject) {
+            dto.type = "decorativeObject";
+            dto.blocking = decorativeObject.isBlocking();
+        } else if (item instanceof Column column) {
+            dto.type = "column";
+            addSearchableState(dto, column);
+        } else if (item instanceof WaterPipe waterPipe) {
+            dto.type = "waterPipe";
+            addSearchableState(dto, waterPipe);
         } else if (item instanceof SearchableObject searchableObject) {
             dto.type = "searchableObject";
             dto.blocking = searchableObject.isBlocking();
             addSearchableState(dto, searchableObject);
-        } else if (item instanceof Column) {
-            dto.type = "column";
         } else if (item instanceof Vase) {
             dto.type = "vase";
-        } else if (item instanceof WaterPipe) {
-            dto.type = "waterPipe";
         } else if (item instanceof HealPotion) {
             dto.type = "healPotion";
         } else if (item instanceof EnergyPotion) {
             dto.type = "energyPotion";
         } else if (item instanceof ManaPotion) {
             dto.type = "manaPotion";
+        } else if (item instanceof Torch) {
+            dto.type = "torch";
         } else if (item instanceof Key key) {
             dto.type = "key";
             dto.keyId = key.getKeyId();
@@ -248,10 +259,14 @@ public final class BuildMapPersistence {
         }
 
         return switch (dto.type) {
-            case "chest" -> restoreContainer(new Chest(name(dto, "Wooden Chest"), positive(dto.capacity, 16)), dto);
+            case "chest" -> restoreContainer(
+                    new Chest(name(dto, "Wooden Chest"), positive(dto.capacity, 16), dto.spriteResource), dto);
             case "container" -> restoreContainer(new Container(name(dto, "Container"),
-                    bool(dto.locked), bool(dto.requiresKey), positive(dto.capacity, 8), bool(dto.portable)), dto);
-            case "crate" -> new Crate(fromNullableDto(dto.hiddenItem));
+                    bool(dto.locked), bool(dto.requiresKey), positive(dto.capacity, 8),
+                    bool(dto.portable), dto.spriteResource), dto);
+            case "crate" -> dto.spriteResource == null
+                    ? new Crate(fromNullableDto(dto.hiddenItem))
+                    : new Crate(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "pedestal" -> new Pedestal(fromNullableDto(dto.hiddenItem));
             case "pool" -> dto.spriteResource == null
                     ? new Pool(fromNullableDto(dto.hiddenItem))
@@ -262,24 +277,33 @@ public final class BuildMapPersistence {
             case "missingBrick" -> dto.spriteResource == null
                     ? new MissingBrick(fromNullableDto(dto.hiddenItem))
                     : new MissingBrick(dto.spriteResource, fromNullableDto(dto.hiddenItem));
-            case "hole" -> new Hole(fromNullableDto(dto.hiddenItem));
+            case "hole" -> dto.spriteResource == null
+                    ? new Hole(fromNullableDto(dto.hiddenItem))
+                    : new Hole(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "grill" -> dto.spriteResource == null
                     ? new Grill(fromNullableDto(dto.hiddenItem))
                     : new Grill(dto.spriteResource, fromNullableDto(dto.hiddenItem));
+            case "decorativeObject" -> new DecorativeObject(name(dto, "Decorative Object"),
+                    bool(dto.blocking), dto.spriteResource);
             case "searchableObject" -> new SearchableObject(name(dto, "Searchable Object"),
                     bool(dto.blocking), dto.spriteResource, fromNullableDto(dto.hiddenItem));
-            case "column" -> dto.spriteResource == null ? new Column() : new Column(dto.spriteResource);
+            case "column" -> dto.spriteResource == null
+                    ? new Column()
+                    : new Column(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "vase" -> new Vase();
-            case "waterPipe" -> dto.spriteResource == null ? new WaterPipe() : new WaterPipe(dto.spriteResource);
+            case "waterPipe" -> dto.spriteResource == null
+                    ? new WaterPipe()
+                    : new WaterPipe(dto.spriteResource, fromNullableDto(dto.hiddenItem));
             case "healPotion" -> new HealPotion();
             case "energyPotion" -> new EnergyPotion();
             case "manaPotion" -> new ManaPotion();
+            case "torch" -> new Torch();
             case "key" -> new Key(valueOr(dto.keyId, "silver"), keyColor(dto.keyColor), bool(dto.singleUse));
             case "weapon" -> new Weapon(weaponType(dto));
             case "armor" -> new Armor(name(dto, "Armor"), intOr(dto.defModifier, 0));
-            case "ring" -> new Ring(name(dto, "Ring"), intOr(dto.defBonus, 0));
+            case "ring" -> new Ring(name(dto, "Ring"), intOr(dto.defBonus, 0), dto.spriteResource);
             case "valuable" -> new ValuableItem(name(dto, "Valuable"), dto.spriteResource);
-            case "coin" -> new Coin(positive(dto.value, 1));
+            case "coin" -> new Coin(positive(dto.value, 1), dto.spriteResource);
             case "book" -> new Book(name(dto, "Book"), valueOr(dto.text, ""));
             case "defeatedEnemy" -> new DefeatedEnemyMarker();
             case "item" -> new ValuableItem(name(dto, "Item"), dto.spriteResource);
@@ -328,7 +352,9 @@ public final class BuildMapPersistence {
         if (!SCHEMA.equals(dto.schema)) {
             throw new IOException("Unsupported map schema.");
         }
-        if (dto.version != VERSION) {
+        // v1: pre-fog maps load as fog-disabled
+        // v2: adds fogEnabled flag on the map root
+        if (dto.version < 1 || dto.version > VERSION) {
             throw new IOException("Unsupported map version: " + dto.version);
         }
         if (dto.width <= 0 || dto.height <= 0) {
@@ -376,6 +402,7 @@ public final class BuildMapPersistence {
         String levelName;
         int width;
         int height;
+        Boolean fogEnabled;
         List<CellDto> cells;
     }
 

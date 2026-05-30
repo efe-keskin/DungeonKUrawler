@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -18,48 +20,36 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
 
 import engine.GameEngine;
 import model.Coin;
 import model.Container;
 import model.Item;
-import view.assets.AssetId;
-import view.assets.AssetManager;
 import view.assets.SpriteRegistry;
 
 /**
- * Image-backed 4x4 grid view for a {@link Container}. Click a slot to move
- * the item into the hero's inventory. ESC or the EXIT button closes.
+ * Drawn 4x4 grid view for a {@link Container}. Click a slot to move the item
+ * into the hero's inventory. ESC or the EXIT button closes.
  *
  * <p>High Cohesion: this dialog only renders the container UI and forwards
  * take requests to {@link GameEngine}; access rules live in the model/engine.
  */
 public class ChestDialog extends JDialog {
 
-    /** Background image is 590x648; everything is scaled by this to fit a typical window. */
-    private static final double SCALE = 0.7d;
-
-    private static final int RAW_SLOT_W = 90;
-    private static final int RAW_SLOT_H = 90;
-    private static final int RAW_SLOT_START_X = 95;
-    private static final int RAW_SLOT_START_Y = 75;
-    private static final int RAW_SLOT_GAP_X = 13;
-    private static final int RAW_SLOT_GAP_Y = 13;
-
-    private static final int SLOT_W = scale(RAW_SLOT_W);
-    private static final int SLOT_H = scale(RAW_SLOT_H);
-    private static final int SLOT_START_X = scale(RAW_SLOT_START_X);
-    private static final int SLOT_START_Y = scale(RAW_SLOT_START_Y);
-    private static final int SLOT_GAP_X = scale(RAW_SLOT_GAP_X);
-    private static final int SLOT_GAP_Y = scale(RAW_SLOT_GAP_Y);
-
+    private static final int SLOT_W = 64;
+    private static final int SLOT_H = 64;
+    private static final int SLOT_START_X = 42;
+    private static final int SLOT_START_Y = 86;
+    private static final int SLOT_GAP_X = 12;
+    private static final int SLOT_GAP_Y = 12;
     private static final int GRID_COLS = 4;
     private static final int GRID_ROWS = 4;
     private static final int GRID_CAPACITY = GRID_COLS * GRID_ROWS;
+    private static final int CANVAS_W = SLOT_START_X * 2 + GRID_COLS * SLOT_W + (GRID_COLS - 1) * SLOT_GAP_X;
+    private static final int CANVAS_H = SLOT_START_Y + GRID_ROWS * SLOT_H + (GRID_ROWS - 1) * SLOT_GAP_Y + 70;
 
-    private static final Color FILLED_SLOT_BG = new Color(10, 12, 18, 130);
-    private static final Color FILLED_SLOT_BORDER = new Color(220, 225, 245, 120);
+    private static final Color FILLED_SLOT_BG = new Color(10, 12, 18, 190);
+    private static final Color FILLED_SLOT_BORDER = new Color(220, 225, 245, 150);
 
     private final GameEngine engine;
     private final Container container;
@@ -71,10 +61,6 @@ public class ChestDialog extends JDialog {
         buildUi();
     }
 
-    private static int scale(int v) {
-        return (int) Math.round(v * SCALE);
-    }
-
     private void rebuildUi() {
         getContentPane().removeAll();
         buildUi();
@@ -83,21 +69,18 @@ public class ChestDialog extends JDialog {
     }
 
     private void buildUi() {
-        BufferedImage background = AssetManager.get().image(AssetId.CHEST_BACKGROUND);
-        if (background == null) {
-            buildFallbackUi();
-            return;
-        }
-
-        int bgW = scale(background.getWidth());
-        int bgH = scale(background.getHeight());
-
         if (!isDisplayable()) {
             setUndecorated(true);
         }
 
-        ChestCanvas canvas = new ChestCanvas(background, bgW, bgH);
+        ChestCanvas canvas = new ChestCanvas();
         canvas.setLayout(null);
+
+        JLabel title = new JLabel(container.getName(), SwingConstants.CENTER);
+        title.setForeground(new Color(255, 226, 142));
+        title.setFont(RetroTheme.UI_MONO);
+        title.setBounds(48, 28, CANVAS_W - 96, 28);
+        canvas.add(title);
 
         List<Item> items = container.getContents();
         for (int i = 0; i < GRID_CAPACITY; i++) {
@@ -110,7 +93,7 @@ public class ChestDialog extends JDialog {
         JLabel hint = new JLabel("ESC", SwingConstants.CENTER);
         hint.setForeground(new Color(230, 230, 240, 170));
         hint.setFont(RetroTheme.UI_MONO_SMALL);
-        hint.setBounds(bgW / 2 - 24, bgH - 36, 48, 20);
+        hint.setBounds(CANVAS_W / 2 - 24, CANVAS_H - 38, 48, 20);
         canvas.add(hint);
 
         JButton exitButton = new JButton("X");
@@ -122,33 +105,19 @@ public class ChestDialog extends JDialog {
         exitButton.setBorderPainted(true);
         exitButton.setFocusPainted(false);
         exitButton.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 120), 1));
-        exitButton.setBounds(bgW - 40, 10, 28, 28);
+        exitButton.setBounds(CANVAS_W - 40, 10, 28, 28);
         exitButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         exitButton.addActionListener(e -> dispose());
         canvas.add(exitButton);
 
         setContentPane(canvas);
         setResizable(false);
-        setPreferredSize(new Dimension(bgW, bgH));
+        setPreferredSize(new Dimension(CANVAS_W, CANVAS_H));
         pack();
 
         getRootPane().registerKeyboardAction(e -> dispose(),
                 KeyStroke.getKeyStroke("ESCAPE"),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
-        setLocationRelativeTo(getOwner());
-    }
-
-    private void buildFallbackUi() {
-        JPanel fallback = new JPanel();
-        fallback.setBackground(RetroTheme.BG_DUNGEON);
-        fallback.setBorder(new EmptyBorder(18, 22, 18, 22));
-        JLabel message = new JLabel("Chest background missing", SwingConstants.CENTER);
-        message.setForeground(Color.WHITE);
-        message.setFont(RetroTheme.UI_MONO);
-        fallback.add(message);
-        setContentPane(fallback);
-        setSize(320, 160);
-        setResizable(false);
         setLocationRelativeTo(getOwner());
     }
 
@@ -193,19 +162,7 @@ public class ChestDialog extends JDialog {
         MouseAdapter takeOnClick = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                String detail = item instanceof Coin
-                        ? "Add this reward to your coin balance?"
-                        : "Move this object into your inventory?";
-                int choice = ItemActionMenuDialog.show(
-                        ChestDialog.this,
-                        "Chest Item",
-                        item.getName(),
-                        detail,
-                        item instanceof Coin ? "Collect" : "Take",
-                        "Leave");
-                if (choice != 0) {
-                    return;
-                }
+                // Taking is a single click — no confirmation prompt (redundant).
                 boolean taken = engine.takeFromContainer(container, item);
                 if (!taken) {
                     ItemActionMenuDialog.showNotice(
@@ -235,17 +192,48 @@ public class ChestDialog extends JDialog {
     }
 
     private static final class ChestCanvas extends JPanel {
-        private final BufferedImage background;
 
-        ChestCanvas(BufferedImage background, int width, int height) {
-            this.background = background;
-            setPreferredSize(new Dimension(width, height));
+        ChestCanvas() {
+            setPreferredSize(new Dimension(CANVAS_W, CANVAS_H));
+            setBackground(new Color(9, 8, 12));
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
-            g.drawImage(background, 0, 0, getWidth(), getHeight(), null);
+            Graphics2D g2 = (Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+                g2.setColor(new Color(9, 8, 12));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+
+                g2.setColor(new Color(70, 39, 22));
+                g2.fillRect(18, 42, CANVAS_W - 36, CANVAS_H - 72);
+                g2.setColor(new Color(125, 75, 34));
+                g2.fillRect(24, 48, CANVAS_W - 48, 42);
+                g2.setColor(new Color(44, 24, 18));
+                g2.fillRect(24, 90, CANVAS_W - 48, CANVAS_H - 124);
+
+                g2.setColor(new Color(211, 156, 57));
+                g2.drawRect(18, 42, CANVAS_W - 37, CANVAS_H - 73);
+                g2.drawRect(28, 96, CANVAS_W - 57, CANVAS_H - 137);
+                g2.fillRect(CANVAS_W / 2 - 16, 78, 32, 20);
+                g2.setColor(new Color(85, 53, 26));
+                g2.drawRect(CANVAS_W / 2 - 12, 82, 24, 12);
+
+                for (int i = 0; i < GRID_CAPACITY; i++) {
+                    int sx = SLOT_START_X + (i % GRID_COLS) * (SLOT_W + SLOT_GAP_X);
+                    int sy = SLOT_START_Y + (i / GRID_COLS) * (SLOT_H + SLOT_GAP_Y);
+                    g2.setColor(new Color(15, 15, 22));
+                    g2.fillRect(sx, sy, SLOT_W, SLOT_H);
+                    g2.setColor(new Color(158, 111, 49));
+                    g2.drawRect(sx, sy, SLOT_W, SLOT_H);
+                    g2.setColor(new Color(0, 0, 0, 95));
+                    g2.drawRect(sx + 3, sy + 3, SLOT_W - 6, SLOT_H - 6);
+                }
+            } finally {
+                g2.dispose();
+            }
         }
     }
 }

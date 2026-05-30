@@ -23,7 +23,9 @@ import javax.swing.Timer;
 import engine.CombatController;
 import engine.CombatManager;
 import engine.Direction;
+import engine.FogOfWarEngine;
 import engine.GameEngine;
+import engine.GameMode;
 import engine.InventoryController;
 import engine.LockController;
 import engine.PlayerModeController;
@@ -39,6 +41,7 @@ import model.Hero;
 import model.HeroProjectileStyle;
 import model.Item;
 import model.Knight;
+import model.PetEntity;
 import model.Potion;
 import model.Projectile;
 import model.SearchableObject;
@@ -93,6 +96,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     private static final int HERO_ANIM_INTERVAL_MS = 100;
     private static final int ENERGY_REFILL_INTERVAL_MS = 300;
+    private static final int FOG_SHIMMER_INTERVAL_MS = 100;
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float ENEMY_ANIM_STEP = 0.25f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
@@ -107,6 +111,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
+    private final Timer fogShimmerTimer;
     private final long playStartTime = System.currentTimeMillis();
     private Timer continuousMoveTimer;
     private Timer transientWarningTimer;
@@ -169,6 +174,14 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         energyRefillTimer = new Timer(ENERGY_REFILL_INTERVAL_MS, e -> engine.tickEnergyRefill());
         energyRefillTimer.start();
+
+        fogShimmerTimer = new Timer(FOG_SHIMMER_INTERVAL_MS, e -> {
+            DungeonMap map = engine.getDungeonMap();
+            if (map != null && map.isFogEnabled()) {
+                repaint();
+            }
+        });
+        fogShimmerTimer.start();
 
         addKeyListener(new KeyAdapter() {
             @Override
@@ -254,6 +267,9 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                 int gridX = (e.getX() - offsetX) / tileSize;
                 int gridY = (e.getY() - offsetY) / tileSize;
+                if (!isContentVisible(map, gridX, gridY)) {
+                    return;
+                }
                 Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
@@ -533,6 +549,7 @@ private void handleInventoryKeyPress() {
     public void removeNotify() {
         heroAnimTimer.stop();
         energyRefillTimer.stop();
+        fogShimmerTimer.stop();
         engine.removeGameStateListener(this);
         super.removeNotify();
     }
@@ -647,8 +664,9 @@ private void handleInventoryKeyPress() {
                     int py = offsetY + y * tileSize;
                     int cellW = tileSize;
                     int cellH = tileSize;
+                    boolean contentVisible = isContentVisible(map, x, y);
 
-                    if (!cell.getItemsView().isEmpty()) {
+                    if (contentVisible && !cell.getItemsView().isEmpty()) {
                         Item first = cell.getItemsView().get(0);
                         BufferedImage sprite = spriteFor(first);
                         if (sprite != null) {
@@ -659,6 +677,9 @@ private void handleInventoryKeyPress() {
                         }
                     }
 
+                    if (!contentVisible) {
+                        continue;
+                    }
                     for (Entity ent : cell.getEntitiesView()) {
                         if (ent instanceof Hero) {
                             continue;
@@ -690,6 +711,7 @@ private void handleInventoryKeyPress() {
             drawHero(g2, map, tileSize, offsetX, offsetY);
             drawHud(g2);
             drawTransientWarning(g2);
+            drawFogOverlay(g2, tileSize, offsetX, offsetY);
         } finally {
             g2.dispose();
         }
@@ -878,12 +900,17 @@ private void handleInventoryKeyPress() {
             g2.drawImage(sprite, px, py, cellW, cellH, null);
             return;
         }
+        if (item instanceof model.DecorativeObject) {
+            g2.drawImage(sprite, px, py, cellW, cellH, null);
+            return;
+        }
         g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
     }
 
     private boolean isWallDripSearchable(Item item) {
         String resource = item == null ? null : item.spriteResource();
-        return resource != null && resource.contains("wall_detail_drip_");
+        return resource != null
+                && (resource.contains("wall_detail_drip_") || resource.contains("gargoyle_"));
     }
 
     private void drawItemMarker(Graphics2D g2, int px, int py, int cellW, int cellH, Color color) {
@@ -894,6 +921,48 @@ private void handleInventoryKeyPress() {
         g2.fillRect(px + inset, py + inset, itemW, itemH);
         g2.setColor(GRID_LINE);
         g2.drawRect(px + inset, py + inset, itemW, itemH);
+    }
+
+    private void drawFogOverlay(Graphics2D g2, int tileSize,
+                                int offsetX, int offsetY) {
+        DungeonMap map = engine.getDungeonMap();
+        if (map == null || !map.isFogEnabled()) {
+            return;
+        }
+        FogOfWarEngine fog = engine.getFogEngine();
+        Hero hero = engine.getHero();
+        if (hero == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        int shimmer = (int) (10 * Math.sin(now / 500.0));
+        Color dimOverlay = new Color(0, 0, 0, 140 + shimmer);
+        Color hiddenOverlay = new Color(0, 0, 0, 225 + shimmer);
+
+        for (int x = 0; x < map.getWidth(); x++) {
+            for (int y = 0; y < map.getHeight(); y++) {
+                if (fog.isVisible(map, hero, x, y)) {
+                    continue;
+                }
+                GridCell cell = map.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                int px = offsetX + x * tileSize;
+                int py = offsetY + y * tileSize;
+                g2.setColor(cell.isDiscovered() ? dimOverlay : hiddenOverlay);
+                g2.fillRect(px, py, tileSize, tileSize);
+            }
+        }
+    }
+
+    private boolean isContentVisible(DungeonMap map, int x, int y) {
+        if (map == null || !map.isFogEnabled()) {
+            return true;
+        }
+        Hero hero = engine.getHero();
+        return hero != null && engine.getFogEngine().isVisible(map, hero, x, y);
     }
 
     private boolean advanceEnemyAnimations() {
@@ -923,7 +992,8 @@ private void handleInventoryKeyPress() {
                     continue;
                 }
                 for (Entity entity : cell.getEntitiesView()) {
-                    if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy)) {
+                    if (!(entity instanceof Knight || entity instanceof Sorcerer || entity instanceof BossEnemy
+                            || entity instanceof PetEntity)) {
                         continue;
                     }
                     seen.add(entity);
@@ -971,6 +1041,9 @@ private void handleInventoryKeyPress() {
     private void drawProjectiles(Graphics2D g2, int tileSize, int offsetX, int offsetY) {
         for (Projectile projectile : engine.getActiveProjectilesView()) {
             if (!projectile.isActive()) {
+                continue;
+            }
+            if (!isContentVisible(engine.getDungeonMap(), projectile.getX(), projectile.getY())) {
                 continue;
             }
             int px = offsetX + projectile.getX() * tileSize;
@@ -1076,10 +1149,12 @@ private void handleInventoryKeyPress() {
 
     private void drawHero(Graphics2D g2, DungeonMap map, int tileSize, int offsetX, int offsetY) {
         Hero hero = engine.getHero();
-        if (hero == null) {
+        if (hero == null || (engine.getGameMode() == GameMode.TEAM_MATCH && hero.getHp() <= 0)) {
             return;
         }
 
+        // In Team Match the hero is controlled by the player and remains visually
+        // the hero character, even though he belongs to Team B's knight-side group.
         BufferedImage heroSprite = SpriteRegistry.heroFrame(heroFrame);
         if (heroSprite == null) {
             GridCell cell = map.getCell(hero.getX(), hero.getY());
@@ -1227,6 +1302,9 @@ private void handleInventoryKeyPress() {
         } else if (ent instanceof BossEnemy boss) {
             currentHp = boss.getHp();
             maxHp = boss.getMaxHp();
+        } else if (ent instanceof PetEntity petEntity) {
+            currentHp = petEntity.getPet().getHp();
+            maxHp = petEntity.getPet().getMaxHp();
         } else {
             return;
         }
@@ -1253,7 +1331,10 @@ private void handleInventoryKeyPress() {
     private void drawAiStateLabel(Graphics2D g2, Entity ent, int px, int py, int cellW) {
         String label;
         Color color;
-        if (ent instanceof Knight k) {
+        if (engine.isEnemyFrozen(ent)) {
+            label = "FROZEN";
+            color = new Color(110, 220, 255);
+        } else if (ent instanceof Knight k) {
             label = k.getAiState().name();
             color = k.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
         } else if (ent instanceof Sorcerer s) {

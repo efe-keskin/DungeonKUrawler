@@ -3,9 +3,9 @@ package model;
 public class Grill extends SearchableObject {
 
     public static final String HORIZONTAL_SPRITE =
-            "/background_floor/assets/searchable assets/grill.png";
+            "/background_floor/assets/searchable assets/grill1.png";
     public static final String VERTICAL_SPRITE =
-            "/background_floor/assets/searchable assets/22_wall_detail_grate_vertical_blue.png";
+            "/background_floor/assets/searchable assets/grill2.png";
 
     public Grill() {
         this(null);
