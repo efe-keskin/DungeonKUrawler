@@ -205,6 +205,8 @@ public final class BuildToolCatalog {
                         () -> new Key("bent-silver", KeyColor.BENT_SILVER)),
                 object("KEY_LONG_GOLD", "Key Long Gold", () -> new Key("long-gold", KeyColor.LONG_GOLD)),
                 object("WEAPON", "Weapon", () -> new Weapon(WeaponCatalog.get().byId("W002"))),
+                b23Weapon("B23_BOW", "Wooden Bow"),
+                b23Weapon("B23_WAND", "Magic Wand"),
                 object("ARMOR", "Armor", () -> new Armor("Leather Armor", 3)),
                 object("RING", "Ring Red Gem",
                         () -> ring("Red Gem Ring", "10_ring_red_gem.png")),
@@ -311,7 +313,11 @@ public final class BuildToolCatalog {
         if (item instanceof Key) {
             return Optional.of("KEY");
         }
-        if (item instanceof Weapon) {
+        if (item instanceof Weapon weapon) {
+            String catalogId = weapon.getType().id();
+            if (byId.containsKey(catalogId)) {
+                return Optional.of(catalogId);
+            }
             return Optional.of("WEAPON");
         }
         if (item instanceof Armor) {
@@ -387,5 +393,9 @@ public final class BuildToolCatalog {
 
     private static ValuableItem valuable(String name, String spriteFile) {
         return new ValuableItem(name, VALUABLE_SPRITE_DIR + spriteFile);
+    }
+
+    private static BuildTool b23Weapon(String catalogId, String label) {
+        return object(catalogId, label, () -> new Weapon(WeaponCatalog.get().byId(catalogId)));
     }
 }

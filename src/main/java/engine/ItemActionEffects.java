@@ -82,7 +82,13 @@ public final class ItemActionEffects {
     static final class EquipEffect implements Effect {
         @Override
         public boolean apply(Hero hero, Item item) {
-            return item instanceof Weapon weapon && hero.equipWeapon(weapon);
+            if (item instanceof Weapon weapon) {
+                return hero.equipWeapon(weapon);
+            }
+            if (item instanceof Armor armor) {
+                return hero.wearArmor(armor);
+            }
+            return false;
         }
     }
 
