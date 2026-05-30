@@ -73,7 +73,11 @@ final class BreakController {
         }
 
         List<Item> drops = dropsFrom(item);
-        cell.getItems().remove(item);
+        if (item instanceof Vase vase) {
+            vase.breakApart();
+        } else {
+            cell.getItems().remove(item);
+        }
         cell.getItems().addAll(drops);
         return new InteractionController.BreakResult(
                 item.getName(), InteractionController.BreakOutcome.BROKEN,

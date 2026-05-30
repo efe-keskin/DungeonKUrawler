@@ -15,6 +15,7 @@ import model.GridCell;
 import model.HealPotion;
 import model.Hero;
 import model.Item;
+import model.Vase;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ class InteractionControllerBreakTest {
         Hero hero = engine.getHero();
         hero.setStr(20);
         hero.setEnergy(30);
+        clearNearbyItems();
         GridCell targetCell = targetCell();
         Column column = new Column(Column.GRAY_SPRITE);
         targetCell.getItems().clear();
@@ -59,6 +61,7 @@ class InteractionControllerBreakTest {
         Hero hero = engine.getHero();
         hero.setStr(8);
         hero.setEnergy(30);
+        clearNearbyItems();
         GridCell targetCell = targetCell();
         Column column = new Column(Column.GRAY_SPRITE);
         targetCell.getItems().clear();
@@ -78,6 +81,7 @@ class InteractionControllerBreakTest {
         Hero hero = engine.getHero();
         hero.setStr(20);
         hero.setEnergy(3);
+        clearNearbyItems();
         GridCell targetCell = targetCell();
         Column column = new Column(Column.GRAY_SPRITE);
         targetCell.getItems().clear();
@@ -157,6 +161,35 @@ class InteractionControllerBreakTest {
     }
 
     @Test
+    void breakObjectAt_whenVaseBreaks_keepsBrokenSpriteAndDroppedLootCollectible() {
+        InteractionController controller = controllerWithRolls(0.0, 0.74, 0.36);
+        Hero hero = engine.getHero();
+        hero.setStr(20);
+        hero.setEnergy(30);
+        GridCell targetCell = targetCell();
+        Vase vase = new Vase();
+        targetCell.getItems().clear();
+        targetCell.getItems().add(vase);
+
+        InteractionController.BreakResult result = controller.breakObjectAt(vase, targetCell.getX(), targetCell.getY());
+
+        assertTrue(result.broken());
+        assertEquals(1, result.droppedItemCount());
+        assertTrue(vase.isBroken());
+        assertEquals(Vase.BROKEN_SPRITE, vase.spriteResource());
+        assertFalse(vase.isBlocking());
+        assertFalse(new BreakController().isBreakable(vase));
+        assertSame(vase, targetCell.getItems().get(0));
+        assertTrue(targetCell.getItems().get(1) instanceof HealPotion);
+
+        assertEquals(InventoryController.PickupResult.SUCCESS,
+                new InventoryController(engine).takeFirstItemFromCell(targetCell.getX(), targetCell.getY()));
+        assertEquals(1, targetCell.getItems().size());
+        assertSame(vase, targetCell.getItems().get(0));
+        assertTrue(hero.getInventory().getItems().stream().anyMatch(HealPotion.class::isInstance));
+    }
+
+    @Test
     void breakObjectAt_whenNoHiddenItemAndLootRollSucceeds_dropsRandomLoot() {
         InteractionController controller = controllerWithRolls(0.0, 0.74, 0.36);
         Hero hero = engine.getHero();
@@ -194,16 +227,15 @@ class InteractionControllerBreakTest {
     }
 
     private GridCell targetCell() {
-        clearNearbyCells();
+        clearNearbyItems();
         return engine.getDungeonMap().getCell(engine.getHero().getX() + 1, engine.getHero().getY());
     }
 
-    private void clearNearbyCells() {
-        int hx = engine.getHero().getX();
-        int hy = engine.getHero().getY();
+    private void clearNearbyItems() {
+        Hero hero = engine.getHero();
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
-                GridCell cell = engine.getDungeonMap().getCell(hx + dx, hy + dy);
+                GridCell cell = engine.getDungeonMap().getCell(hero.getX() + dx, hero.getY() + dy);
                 if (cell != null) {
                     cell.getItems().clear();
                 }

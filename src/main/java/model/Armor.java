@@ -24,6 +24,6 @@ public class Armor extends Item {
 
     @Override
     public List<ItemAction> getInventoryActions() {
-        return List.of(ItemAction.WEAR, ItemAction.DISCARD);
+        return List.of(ItemAction.WEAR, ItemAction.EQUIP, ItemAction.DISCARD);
     }
 }
