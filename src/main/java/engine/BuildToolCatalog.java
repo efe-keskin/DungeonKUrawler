@@ -35,6 +35,7 @@ import model.MissingBrick;
 import model.Pedestal;
 import model.Pool;
 import model.Ring;
+import model.RingEffectType;
 import model.SearchableObject;
 import model.ValuableItem;
 import model.ValuableItemCatalog;
@@ -209,11 +210,11 @@ public final class BuildToolCatalog {
                 b23Weapon("B23_WAND", "Magic Wand"),
                 object("ARMOR", "Armor", () -> new Armor("Leather Armor", 3)),
                 object("RING", "Ring Red Gem",
-                        () -> ring("Red Gem Ring", "10_ring_red_gem.png")),
+                        () -> ring("Power Ring", RingEffectType.STRENGTH, 3, "10_ring_red_gem.png")),
                 object("RING_GREEN", "Ring Green Gem",
-                        () -> ring("Green Gem Ring", "11_ring_green_gem.png")),
+                        () -> ring("Energy Ring", RingEffectType.ENERGY, 6, "11_ring_green_gem.png")),
                 object("RING_BLUE", "Ring Blue Gem",
-                        () -> ring("Blue Gem Ring", "12_ring_blue_gem.png")),
+                        () -> ring("Mana Ring", RingEffectType.MANA, 6, "12_ring_blue_gem.png")),
                 object("COIN_SINGLE", "Gold Coin", () -> coin(1, "15_coin_gold_single.png")),
                 object("COIN_PILE", "Gold Coin Pile", () -> coin(10, "20_coin_pile_gold.png")),
                 object("TREASURE_GEM_WHITE", "White Gem",
@@ -379,8 +380,8 @@ public final class BuildToolCatalog {
         return new Container(name, false, false, 8, true, ITEM_DIR + "bags/" + spriteFile);
     }
 
-    private static Ring ring(String name, String spriteFile) {
-        return new Ring(name, 2, ITEM_DIR + "rings/" + spriteFile);
+    private static Ring ring(String name, RingEffectType effectType, int bonus, String spriteFile) {
+        return new Ring(name, effectType, bonus, ITEM_DIR + "rings/" + spriteFile);
     }
 
     private static Coin coin(int value, String spriteFile) {

@@ -26,6 +26,7 @@ import model.Pet;
 import model.PetState;
 import model.Pool;
 import model.Ring;
+import model.RingEffectType;
 import model.SearchableObject;
 import model.ValuableItem;
 import model.Vase;
@@ -87,6 +88,8 @@ final class ItemDtoFactory {
             dto.keyColor = key.getColor().name();
             dto.singleUse = key.isSingleUse();
         } else if (item instanceof Ring ring) {
+            dto.ringEffectType = ring.getEffectType().name();
+            dto.ringBonus = ring.getBonus();
             dto.defBonus = ring.getDefBonus();
         } else if (item instanceof Armor armor) {
             dto.defModifier = armor.getDefModifier();
@@ -136,7 +139,10 @@ final class ItemDtoFactory {
             case ENERGY_POTION -> new EnergyPotion();
             case COIN -> new Coin(positive(dto.value, 1), dto.spriteResource);
             case KEY -> new Key(fallback(dto.keyId, "key"), parseKeyColor(dto.keyColor), dto.singleUse);
-            case RING -> new Ring(fallback(dto.name, "Protective Ring"), dto.defBonus, dto.spriteResource);
+            case RING -> new Ring(fallback(dto.name, "Protective Ring"),
+                    parseRingEffectType(dto.ringEffectType),
+                    ringBonus(dto),
+                    dto.spriteResource);
             case ARMOR -> new Armor(fallback(dto.name, "Armor"), dto.defModifier);
             case WEAPON -> new Weapon(resolveWeaponType(dto));
             case BOOK -> new Book(fallback(dto.name, "Book"), fallback(dto.bookText, ""));
@@ -324,6 +330,24 @@ final class ItemDtoFactory {
         } catch (IllegalArgumentException ex) {
             return PetState.UNEQUIPPED;
         }
+    }
+
+    private static RingEffectType parseRingEffectType(String value) {
+        if (value == null || value.isBlank()) {
+            return RingEffectType.DEFENSE;
+        }
+        try {
+            return RingEffectType.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            return RingEffectType.DEFENSE;
+        }
+    }
+
+    private static int ringBonus(ItemDto dto) {
+        if (dto.ringBonus != 0) {
+            return dto.ringBonus;
+        }
+        return dto.defBonus;
     }
 
     private static int positive(int value, int fallback) {

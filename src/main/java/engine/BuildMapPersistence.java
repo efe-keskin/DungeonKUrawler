@@ -40,6 +40,7 @@ import model.MissingBrick;
 import model.Pedestal;
 import model.Pool;
 import model.Ring;
+import model.RingEffectType;
 import model.SearchableObject;
 import model.Torch;
 import model.ValuableItem;
@@ -241,6 +242,8 @@ public final class BuildMapPersistence {
             dto.defModifier = armor.getDefModifier();
         } else if (item instanceof Ring ring) {
             dto.type = "ring";
+            dto.ringEffectType = ring.getEffectType().name();
+            dto.ringBonus = ring.getBonus();
             dto.defBonus = ring.getDefBonus();
         } else if (item instanceof ValuableItem) {
             dto.type = "valuable";
@@ -325,7 +328,8 @@ public final class BuildMapPersistence {
             case "key" -> new Key(valueOr(dto.keyId, "silver"), keyColor(dto.keyColor), bool(dto.singleUse));
             case "weapon" -> new Weapon(weaponType(dto));
             case "armor" -> new Armor(name(dto, "Armor"), intOr(dto.defModifier, 0));
-            case "ring" -> new Ring(name(dto, "Ring"), intOr(dto.defBonus, 0), dto.spriteResource);
+            case "ring" -> new Ring(name(dto, "Ring"), ringEffectType(dto.ringEffectType),
+                    ringBonus(dto), dto.spriteResource);
             case "valuable" -> new ValuableItem(name(dto, "Valuable"), dto.spriteResource);
             case "coin" -> new Coin(positive(dto.value, 1), dto.spriteResource);
             case "book" -> new Book(name(dto, "Book"), valueOr(dto.text, ""));
@@ -420,6 +424,24 @@ public final class BuildMapPersistence {
         return KeyColor.SILVER;
     }
 
+    private static RingEffectType ringEffectType(String value) {
+        if (value != null) {
+            try {
+                return RingEffectType.valueOf(value);
+            } catch (IllegalArgumentException ignored) {
+                // Fall through to default.
+            }
+        }
+        return RingEffectType.DEFENSE;
+    }
+
+    private static int ringBonus(ItemDto dto) {
+        if (dto.ringBonus != null && dto.ringBonus != 0) {
+            return dto.ringBonus;
+        }
+        return intOr(dto.defBonus, 0);
+    }
+
     private static final class MapDto {
         String schema;
         int version;
@@ -465,6 +487,8 @@ public final class BuildMapPersistence {
         Boolean ranged;
 
         Integer defModifier;
+        String ringEffectType;
+        Integer ringBonus;
         Integer defBonus;
         Integer value;
         String text;

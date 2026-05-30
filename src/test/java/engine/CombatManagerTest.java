@@ -5,6 +5,7 @@ import model.Hero;
 import model.HeroProjectileStyle;
 import model.Knight;
 import model.Ring;
+import model.RingEffectType;
 import model.Sorcerer;
 import model.Weapon;
 import model.WeaponCatalog;
@@ -86,6 +87,55 @@ class CombatManagerTest {
         int stackedDamage = combatManager.knightAttacksHero(attacker, stackedHero).getDamageReceived();
 
         assertTrue(stackedDamage < armorDamage);
+    }
+
+    @Test
+    void powerRingIncreasesHeroStrength() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        Ring powerRing = new Ring("Power Ring", RingEffectType.STRENGTH, 3);
+        hero.getInventory().tryAdd(powerRing);
+
+        hero.wearRing(powerRing);
+
+        assertEquals(13, hero.getStr());
+        assertEquals(10, hero.getBaseStr());
+    }
+
+    @Test
+    void manaAndEnergyRingsIncreaseCaps() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        Ring manaRing = new Ring("Mana Ring", RingEffectType.MANA, 6);
+        Ring energyRing = new Ring("Energy Ring", RingEffectType.ENERGY, 6);
+        hero.getInventory().tryAdd(manaRing);
+        hero.getInventory().tryAdd(energyRing);
+
+        hero.wearRing(manaRing);
+        assertEquals(86, hero.getMaxMana());
+        assertEquals(100, hero.getMaxEnergy());
+
+        hero.wearRing(energyRing);
+        assertEquals(80, hero.getMaxMana());
+        assertEquals(106, hero.getMaxEnergy());
+    }
+
+    @Test
+    void ringAndWeaponCanBeEquippedTogetherButOnlyOneWeaponStaysEquipped() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        Ring powerRing = new Ring("Power Ring", RingEffectType.STRENGTH, 3);
+        Weapon sword = new Weapon(new WeaponType("TEST_SWORD", "Sword", "swords", null, 3, false));
+        Weapon axe = new Weapon(new WeaponType("TEST_AXE", "Axe", "axes", null, 4, false));
+        hero.getInventory().tryAdd(powerRing);
+        hero.getInventory().tryAdd(sword);
+        hero.getInventory().tryAdd(axe);
+
+        hero.wearRing(powerRing);
+        hero.equipWeapon(sword);
+        hero.equipWeapon(axe);
+
+        assertEquals(powerRing, hero.getEquippedRing());
+        assertEquals(axe, hero.getEquippedWeapon());
+        assertTrue(hero.isEquipped(powerRing));
+        assertTrue(hero.isEquipped(axe));
     }
 
     @Test

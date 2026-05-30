@@ -36,6 +36,7 @@ import model.ShadowClone;
 import model.ShadowCloneScroll;
 
 import model.Ring;
+import model.RingEffectType;
 import model.ValuableItem;
 import model.ValuableItemCatalog;
 import model.Weapon;
@@ -578,7 +579,8 @@ public class GameEngine {
 
         GridCell ringCell = map.getCell(3, 3);
         if (ringCell != null) {
-            ringCell.getItems().add(new Ring("Protective Ring", 2));
+            ringCell.getItems().add(new Ring("Power Ring", RingEffectType.STRENGTH, 3,
+                    "/items/rings/10_ring_red_gem.png"));
         }
 
         GridCell weaponCell = map.getCell(11, 3);
@@ -679,9 +681,21 @@ public class GameEngine {
             case 1 -> new ManaPotion();
             case 2 -> new EnergyPotion();
             case 3 -> new Key("silver", KeyColor.SILVER);
-            case 4 -> new Ring("Hidden Ring", 1);
+            case 4 -> randomHiddenRing();
             case 5 -> map != null && map.isFogEnabled() ? new Torch() : new HealPotion();
             default -> new Book("Dusty Note", "A folded note found inside the old wall.");
+        };
+    }
+
+    private Ring randomHiddenRing() {
+        return switch (random.nextInt(4)) {
+            case 0 -> new Ring("Power Ring", RingEffectType.STRENGTH, 3,
+                    "/items/rings/10_ring_red_gem.png");
+            case 1 -> new Ring("Energy Ring", RingEffectType.ENERGY, 6,
+                    "/items/rings/11_ring_green_gem.png");
+            case 2 -> new Ring("Mana Ring", RingEffectType.MANA, 6,
+                    "/items/rings/12_ring_blue_gem.png");
+            default -> new Ring("Protective Ring", RingEffectType.DEFENSE, 3);
         };
     }
 
