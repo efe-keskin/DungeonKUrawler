@@ -32,6 +32,7 @@ import model.ManaPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
+import model.ShadowCloneScroll;
 
 import model.Ring;
 import model.ValuableItem;
@@ -98,6 +99,7 @@ public class GameEngine {
 
     private Timer spawnTimer;
     private Timer coinSpawnTimer;
+    private Timer shadowCloneSpawnTimer;
     private Timer detectionTimer;
     private Timer knightActionTimer;
     private Timer sorcererAttackTimer;
@@ -113,6 +115,7 @@ public class GameEngine {
     private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
+    private static final int SHADOW_CLONE_SPAWN_INTERVAL_MS = 15000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int BOSS_SHOOT_RANGE = 8;
@@ -1117,6 +1120,37 @@ public class GameEngine {
         return true;
     }
 
+    private boolean spawnShadowCloneOnGround() {
+        List<GridCell> candidates = new ArrayList<>();
+
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+
+                if (cell == null
+                        || !cell.isWalkable()
+                        || !cell.getItemsView().isEmpty()
+                        || !cell.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+
+                candidates.add(cell);
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return false;
+        }
+
+        GridCell cell = candidates.get(random.nextInt(candidates.size()));
+        cell.getItems().add(new ShadowCloneScroll(
+                "Shadow Clone Scroll",
+                "A faded scroll that hums faintly."
+        ));
+
+        return true;
+    }
+
     private void fillMinimumGroundCoins(int excludedX, int excludedY) {
         while (countGroundCoins() < MIN_GROUND_COINS) {
             if (!spawnCoinPile(excludedX, excludedY)) {
@@ -1234,6 +1268,15 @@ public class GameEngine {
         });
         coinSpawnTimer.setRepeats(true);
         coinSpawnTimer.start();
+
+        shadowCloneSpawnTimer = new Timer(SHADOW_CLONE_SPAWN_INTERVAL_MS, e -> {
+            if (isPaused || isGameOver) return;
+            if (spawnShadowCloneOnGround()) {
+                notifyListeners();
+            }
+        });
+        shadowCloneSpawnTimer.setRepeats(true);
+        shadowCloneSpawnTimer.start();
 
         detectionTimer = new Timer(DETECTION_TICK_MS, e -> updateEnemyDetection());
         detectionTimer.setRepeats(true);
@@ -2329,6 +2372,7 @@ public class GameEngine {
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();
+        if (shadowCloneSpawnTimer != null) shadowCloneSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
@@ -2341,6 +2385,7 @@ public class GameEngine {
     private void pauseAllTimers() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();
+        if (shadowCloneSpawnTimer != null) shadowCloneSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
@@ -2353,6 +2398,7 @@ public class GameEngine {
     private void resumeAllTimers() {
         if (spawnTimer != null) spawnTimer.start();
         if (coinSpawnTimer != null) coinSpawnTimer.start();
+        if (shadowCloneSpawnTimer != null) shadowCloneSpawnTimer.start();
         if (detectionTimer != null) detectionTimer.start();
         if (knightActionTimer != null) knightActionTimer.start();
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();
