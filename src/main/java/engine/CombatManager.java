@@ -5,6 +5,8 @@ import model.BossEnemy;
 import model.Hero;
 import model.Knight;
 import model.Sorcerer;
+import model.HeroProjectileStyle;
+import model.RangedCostType;
 import model.Weapon;
 
 /**
@@ -18,7 +20,6 @@ public final class CombatManager {
     private static final int BOSS_PROJECTILE_MANA_COST = 8;
     private static final int HERO_ATTACK_ENERGY_COST = 2;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
-    private static final int HERO_RANGED_MANA_COST = 5;
 
     /**
      * Result returned to callers so UI/controller code can show combat feedback.
@@ -94,15 +95,17 @@ public final class CombatManager {
     public static final class HeroProjectilePrep {
         public final int damageGenerated;
         public final int damageReceived;
+        public final HeroProjectileStyle projectileStyle;
 
-        public HeroProjectilePrep(int damageGenerated, int damageReceived) {
+        public HeroProjectilePrep(int damageGenerated, int damageReceived, HeroProjectileStyle projectileStyle) {
             this.damageGenerated = damageGenerated;
             this.damageReceived = damageReceived;
+            this.projectileStyle = projectileStyle;
         }
     }
 
     /**
-     * @return prep when the hero has a ranged weapon and enough mana; {@code null} otherwise
+     * @return prep when the hero has a ranged weapon and enough resources; {@code null} otherwise
      */
     public HeroProjectilePrep prepareHeroRangedProjectile(Hero hero, Entity target) {
         Weapon weapon = hero.getEquippedWeapon();
@@ -112,10 +115,9 @@ public final class CombatManager {
         if (!(target instanceof Knight) && !(target instanceof Sorcerer) && !(target instanceof BossEnemy)) {
             return null;
         }
-        if (!hero.spendMana(HERO_RANGED_MANA_COST)) {
+        if (!spendRangedWeaponCost(hero, weapon)) {
             return null;
         }
-        hero.consumeEnergy(HERO_ATTACK_ENERGY_COST);
         int weaponAtk = weapon.getAtkValue();
         int damageGenerated = generateDamage(weaponAtk, hero.getStr());
         int damageReceived;
@@ -127,7 +129,19 @@ public final class CombatManager {
             BossEnemy boss = (BossEnemy) target;
             damageReceived = receiveDamage(damageGenerated, boss.getDef(), 0);
         }
-        return new HeroProjectilePrep(damageGenerated, damageReceived);
+        return new HeroProjectilePrep(damageGenerated, damageReceived, weapon.getProjectileStyle());
+    }
+
+    private static boolean spendRangedWeaponCost(Hero hero, Weapon weapon) {
+        RangedCostType costType = weapon.getRangedCostType();
+        int cost = weapon.getRangedCostAmount();
+        if (costType == RangedCostType.ENERGY) {
+            return hero.spendEnergy(cost);
+        }
+        if (costType == RangedCostType.MANA) {
+            return hero.spendMana(cost);
+        }
+        return false;
     }
 
     public AttackResult applyHeroProjectileHit(Entity target, HeroProjectilePrep prep) {
@@ -143,8 +157,8 @@ public final class CombatManager {
         return new AttackResult(0, 0, 0, false);
     }
 
-    public static int heroRangedManaCost() {
-        return HERO_RANGED_MANA_COST;
+    public static int heroRangedCostFor(Weapon weapon) {
+        return weapon == null ? 0 : weapon.getRangedCostAmount();
     }
 
     public static int sorcererProjectileManaCost() {

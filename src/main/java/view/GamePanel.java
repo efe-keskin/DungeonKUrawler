@@ -38,6 +38,7 @@ import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
+import model.HeroProjectileStyle;
 import model.Item;
 import model.Knight;
 import model.PetEntity;
@@ -45,6 +46,7 @@ import model.Potion;
 import model.Projectile;
 import model.SearchableObject;
 import model.Sorcerer;
+import model.Weapon;
 import save.SaveGameController;
 import save.SaveGameException;
 import save.SaveLimitExceededException;
@@ -489,7 +491,11 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private void handleHitKeyPress() {
-        CombatController.TargetedAttack attack = combatController.attackNearestEnemy();
+        Hero hero = engine.getHero();
+        Weapon weapon = hero.getEquippedWeapon();
+        CombatController.TargetedAttack attack = weapon != null && weapon.isRanged()
+                ? combatController.autoAimRangedAttack()
+                : combatController.attackNearestEnemy();
         if (attack != null) {
             if (attack.result().isDefenderDefeated()) {
                 leaveDefeatMarker(attack.x(), attack.y());
@@ -1042,41 +1048,102 @@ private void handleInventoryKeyPress() {
             }
             int px = offsetX + projectile.getX() * tileSize;
             int py = offsetY + projectile.getY() * tileSize;
-            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned(), projectile.isBossOwned());
+            drawProjectilePixelArt(g2, px, py, tileSize, projectile);
         }
     }
 
-    /**
-     * 8-bit projectile: sorcerer fireball (red/orange/yellow) or hero ice bolt (blue/cyan/white).
-     */
-    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize,
-            boolean heroOwned, boolean bossOwned) {
+    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, Projectile projectile) {
+        if (projectile.isHeroOwned()) {
+            HeroProjectileStyle style = projectile.getHeroStyle();
+            if (style == HeroProjectileStyle.ARROW) {
+                drawHeroArrowPixelArt(g2, tileX, tileY, tileSize, projectile.getDx(), projectile.getDy());
+                return;
+            }
+            if (style == HeroProjectileStyle.FIRE_BALL) {
+                drawFireballPixelArt(g2, tileX, tileY, tileSize);
+                return;
+            }
+            drawIceBoltPixelArt(g2, tileX, tileY, tileSize);
+            return;
+        }
+        if (projectile.isBossOwned()) {
+            drawBossProjectilePixelArt(g2, tileX, tileY, tileSize);
+        } else {
+            drawFireballPixelArt(g2, tileX, tileY, tileSize);
+        }
+    }
+
+    private void drawIceBoltPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize) {
         int pixel = Math.max(2, tileSize / 7);
         int size = pixel * 5;
         int left = tileX + (tileSize - size) / 2;
         int top = tileY + (tileSize - size) / 2;
+        g2.setColor(Color.BLUE);
+        g2.fillRect(left, top, size, size);
+        g2.setColor(Color.CYAN);
+        g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    }
 
-        if (heroOwned) {
-            g2.setColor(Color.BLUE);
-            g2.fillRect(left, top, size, size);
-            g2.setColor(Color.CYAN);
-            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
-            g2.setColor(Color.WHITE);
-            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
-        } else if (bossOwned) {
-            g2.setColor(new Color(70, 20, 120));
-            g2.fillRect(left, top, size, size);
-            g2.setColor(new Color(160, 60, 230));
-            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
-            g2.setColor(new Color(235, 170, 255));
-            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    private void drawFireballPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize) {
+        int pixel = Math.max(2, tileSize / 7);
+        int size = pixel * 5;
+        int left = tileX + (tileSize - size) / 2;
+        int top = tileY + (tileSize - size) / 2;
+        g2.setColor(Color.RED);
+        g2.fillRect(left, top, size, size);
+        g2.setColor(Color.ORANGE);
+        g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+        g2.setColor(Color.YELLOW);
+        g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    }
+
+    private void drawBossProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize) {
+        int pixel = Math.max(2, tileSize / 7);
+        int size = pixel * 5;
+        int left = tileX + (tileSize - size) / 2;
+        int top = tileY + (tileSize - size) / 2;
+        g2.setColor(new Color(70, 20, 120));
+        g2.fillRect(left, top, size, size);
+        g2.setColor(new Color(160, 60, 230));
+        g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+        g2.setColor(new Color(235, 170, 255));
+        g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    }
+
+    /** Brown 8-bit arrow oriented along travel direction. */
+    private void drawHeroArrowPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, int dx, int dy) {
+        int pixel = Math.max(2, tileSize / 7);
+        int cx = tileX + tileSize / 2;
+        int cy = tileY + tileSize / 2;
+        Color shaft = new Color(101, 67, 33);
+        Color head = new Color(210, 210, 210);
+        Color fletch = new Color(139, 90, 43);
+
+        if (dx != 0 && dy == 0) {
+            int dir = dx > 0 ? 1 : -1;
+            g2.setColor(shaft);
+            g2.fillRect(cx - pixel * 2 * dir, cy - pixel / 2, pixel * 4 * dir, pixel);
+            g2.setColor(head);
+            g2.fillRect(cx + pixel * dir, cy - pixel, pixel * dir, pixel * 2);
+            g2.setColor(fletch);
+            g2.fillRect(cx - pixel * 2 * dir, cy - pixel, pixel, pixel * 2);
+        } else if (dy != 0 && dx == 0) {
+            int dir = dy > 0 ? 1 : -1;
+            g2.setColor(shaft);
+            g2.fillRect(cx - pixel / 2, cy - pixel * 2 * dir, pixel, pixel * 4 * dir);
+            g2.setColor(head);
+            g2.fillRect(cx - pixel, cy + pixel * dir, pixel * 2, pixel * dir);
+            g2.setColor(fletch);
+            g2.fillRect(cx - pixel, cy - pixel * 2 * dir, pixel * 2, pixel);
         } else {
-            g2.setColor(Color.RED);
-            g2.fillRect(left, top, size, size);
-            g2.setColor(Color.ORANGE);
-            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
-            g2.setColor(Color.YELLOW);
-            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+            g2.setColor(shaft);
+            g2.fillRect(cx - pixel, cy - pixel, pixel * 2, pixel * 2);
+            g2.setColor(head);
+            g2.fillRect(cx + dx * pixel, cy + dy * pixel, pixel, pixel);
+            g2.setColor(fletch);
+            g2.fillRect(cx - dx * pixel, cy - dy * pixel, pixel, pixel);
         }
     }
 
@@ -1117,6 +1184,38 @@ private void handleInventoryKeyPress() {
         } else {
             g2.drawImage(heroSprite, drawX, drawY, spriteW, spriteH, null);
         }
+        drawEquippedWeaponOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
+    }
+
+    private void drawEquippedWeaponOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
+            int spriteH) {
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon == null) {
+            return;
+        }
+        int handX = heroFacingLeft ? drawX + spriteW / 4 : drawX + spriteW * 3 / 4;
+        int handY = drawY + spriteH / 2;
+        int pixel = Math.max(2, spriteW / 12);
+        HeroProjectileStyle style = weapon.getProjectileStyle();
+        if (style == HeroProjectileStyle.ARROW) {
+            g2.setColor(new Color(101, 67, 33));
+            g2.fillRect(handX, handY - pixel / 2, pixel * 4, pixel);
+            g2.setColor(new Color(139, 90, 43));
+            g2.fillRect(handX - pixel, handY - pixel, pixel, pixel * 2);
+        } else if (style == HeroProjectileStyle.FIRE_BALL) {
+            g2.setColor(new Color(220, 80, 40));
+            g2.fillRect(handX, handY - pixel, pixel * 2, pixel * 2);
+            g2.setColor(new Color(255, 180, 60));
+            g2.fillRect(handX + pixel / 2, handY - pixel / 2, pixel, pixel);
+        } else if (weapon.isRanged()) {
+            g2.setColor(new Color(70, 140, 220));
+            g2.fillRect(handX, handY - pixel, pixel * 2, pixel * 3);
+            g2.setColor(Color.CYAN);
+            g2.fillRect(handX + pixel / 2, handY - pixel * 2, pixel, pixel);
+        } else {
+            g2.setColor(new Color(190, 190, 200));
+            g2.fillRect(handX, handY - pixel * 2, pixel, pixel * 4);
+        }
     }
 
     private void drawHud(Graphics2D g2) {
@@ -1127,7 +1226,7 @@ private void handleInventoryKeyPress() {
         int x = 10;
         int y = 10;
         int w = 176;
-        int h = 198; 
+        int h = 216;
 
         g2.setColor(new Color(0, 0, 0, 120));
         g2.fillRect(x + 6, y + 7, w - 4, h - 4);
@@ -1159,12 +1258,16 @@ private void handleInventoryKeyPress() {
         drawHudStat(g2, x, y + 127, HUD_DEF, "DEF", Integer.toString(hero.getDef()));
         drawHudStat(g2, x, y + 145, HUD_MANA, "MANA", Integer.toString(hero.getMana()));
 
+        Weapon equipped = hero.getEquippedWeapon();
+        String weaponLabel = equipped == null ? "Unarmed" : equipped.getName();
+        drawHudStat(g2, x, y + 163, HUD_GOLD, "WEAPON", weaponLabel);
+
         long elapsedSeconds = (System.currentTimeMillis() - playStartTime) / 1000;
         long minutes = elapsedSeconds / 60;
         long seconds = elapsedSeconds % 60;
         String timeText = String.format("%02d:%02d", minutes, seconds);
-        
-        drawHudStat(g2, x, y + 163, Color.LIGHT_GRAY, "TIME", timeText);
+
+        drawHudStat(g2, x, y + 181, Color.LIGHT_GRAY, "TIME", timeText);
     }
 
     private void drawHudStat(Graphics2D g2, int panelX, int rowY, Color marker, String label, String value) {

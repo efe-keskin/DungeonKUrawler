@@ -28,6 +28,22 @@ public class Weapon extends Item {
         return type.ranged();
     }
 
+    public int getMaxRange() {
+        return type.maxRange();
+    }
+
+    public RangedCostType getRangedCostType() {
+        return type.rangedCostType();
+    }
+
+    public int getRangedCostAmount() {
+        return type.rangedCostAmount();
+    }
+
+    public HeroProjectileStyle getProjectileStyle() {
+        return type.projectileStyle();
+    }
+
     @Override
     public String spriteResource() {
         return type.spritePath();
