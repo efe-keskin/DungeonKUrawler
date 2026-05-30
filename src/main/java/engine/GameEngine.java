@@ -32,6 +32,8 @@ import model.ManaPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
+import model.ShadowClone;
+import model.ShadowCloneScroll;
 
 import model.Ring;
 import model.ValuableItem;
@@ -98,6 +100,7 @@ public class GameEngine {
 
     private Timer spawnTimer;
     private Timer coinSpawnTimer;
+    private Timer shadowCloneSpawnTimer;
     private Timer detectionTimer;
     private Timer knightActionTimer;
     private Timer sorcererAttackTimer;
@@ -113,6 +116,8 @@ public class GameEngine {
     private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
+    private static final int SHADOW_CLONE_SPAWN_INTERVAL_MS = 15000;
+    private static final int SHADOW_CLONE_DURATION_MS = 7000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int BOSS_SHOOT_RANGE = 8;
@@ -904,6 +909,8 @@ public class GameEngine {
         if (!canHeroAct()) {
             return;
         }
+        int heroDx = nx - hero.getX();
+        int heroDy = ny - hero.getY();
         GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
         GridCell to = dungeonMap.getCell(nx, ny);
 
@@ -916,6 +923,7 @@ public class GameEngine {
         if (to != null && !to.getEntities().contains(hero)) {
             to.getEntities().add(hero);
         }
+        moveShadowClonesOpposite(heroDx, heroDy);
 
         lastMoveNanos = System.nanoTime();
         fogEngine.revealAround(dungeonMap, hero);
@@ -1031,6 +1039,9 @@ public class GameEngine {
         boolean removeAction = action == ItemAction.REMOVE && hero.isEquipped(item);
         if (!removeAction && !item.getInventoryActions().contains(action)) {
             return false;
+        }
+        if (action == ItemAction.READ && item instanceof ShadowCloneScroll) {
+            return summonShadowClone((ShadowCloneScroll) item);
         }
 
         ItemActionEffects.Effect effect = ItemActionEffects.forAction(action);
@@ -1149,6 +1160,92 @@ public class GameEngine {
         return true;
     }
 
+    private boolean summonShadowClone(ShadowCloneScroll scroll) {
+        GridCell cell = findEmptyAdjacentCell(hero.getX(), hero.getY());
+        if (cell == null) {
+            return false;
+        }
+
+        ShadowClone clone = new ShadowClone(cell.getX(), cell.getY());
+        cell.getEntities().add(clone);
+        hero.getInventory().remove(scroll);
+        notifyListeners();
+
+        Timer removalTimer = new Timer(SHADOW_CLONE_DURATION_MS, e -> {
+            if (removeEntity(clone)) {
+                notifyListeners();
+            }
+        });
+        removalTimer.setRepeats(false);
+        removalTimer.start();
+        return true;
+    }
+
+    private GridCell findEmptyAdjacentCell(int x, int y) {
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                GridCell cell = dungeonMap.getCell(x + dx, y + dy);
+                if (cell != null
+                        && cell.isWalkable()
+                        && cell.getItemsView().isEmpty()
+                        && cell.getEntitiesView().isEmpty()) {
+                    return cell;
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean removeEntity(Entity entity) {
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell != null && cell.getEntities().remove(entity)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void moveShadowClonesOpposite(int heroDx, int heroDy) {
+        if (heroDx == 0 && heroDy == 0) {
+            return;
+        }
+        List<ShadowClone> clones = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Entity entity : cell.getEntitiesView()) {
+                    if (entity instanceof ShadowClone clone) {
+                        clones.add(clone);
+                    }
+                }
+            }
+        }
+        for (ShadowClone clone : clones) {
+            moveShadowClone(clone, -heroDx, -heroDy);
+        }
+    }
+
+    private void moveShadowClone(ShadowClone clone, int dx, int dy) {
+        GridCell from = dungeonMap.getCell(clone.getX(), clone.getY());
+        GridCell to = dungeonMap.getCell(clone.getX() + dx, clone.getY() + dy);
+        if (from == null || to == null || !to.isWalkable() || !to.getEntitiesView().isEmpty()) {
+            return;
+        }
+        from.getEntities().remove(clone);
+        clone.setX(to.getX());
+        clone.setY(to.getY());
+        to.getEntities().add(clone);
+    }
+
     /**
      * Adds one coin pile on a random empty floor cell, excluding the cell just
      * collected when replenishing the minimum visible rewards.
@@ -1174,6 +1271,37 @@ public class GameEngine {
         }
         GridCell cell = candidates.get(random.nextInt(candidates.size()));
         cell.getItems().add(new Coin(COIN_REWARD_VALUE));
+        return true;
+    }
+
+    private boolean spawnShadowCloneOnGround() {
+        List<GridCell> candidates = new ArrayList<>();
+
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+
+                if (cell == null
+                        || !cell.isWalkable()
+                        || !cell.getItemsView().isEmpty()
+                        || !cell.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+
+                candidates.add(cell);
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return false;
+        }
+
+        GridCell cell = candidates.get(random.nextInt(candidates.size()));
+        cell.getItems().add(new ShadowCloneScroll(
+                "Shadow Clone Scroll",
+                "A faded scroll that hums faintly."
+        ));
+
         return true;
     }
 
@@ -1295,6 +1423,15 @@ public class GameEngine {
         coinSpawnTimer.setRepeats(true);
         coinSpawnTimer.start();
 
+        shadowCloneSpawnTimer = new Timer(SHADOW_CLONE_SPAWN_INTERVAL_MS, e -> {
+            if (isPaused || isGameOver) return;
+            if (spawnShadowCloneOnGround()) {
+                notifyListeners();
+            }
+        });
+        shadowCloneSpawnTimer.setRepeats(true);
+        shadowCloneSpawnTimer.start();
+
         detectionTimer = new Timer(DETECTION_TICK_MS, e -> updateEnemyDetection());
         detectionTimer.setRepeats(true);
         detectionTimer.start();
@@ -1342,7 +1479,7 @@ public class GameEngine {
     }
 
     /**
-     * Visits every enemy on the map, computes Euclidean distance to the hero, and flips
+     * Visits every enemy on the map, computes Euclidean distance to the nearest hero-like target, and flips
      * its {@link AIState} to CHASING when within vision range (else ROAMING). Prints to
      * console only on state transitions to avoid log spam.
      */
@@ -1381,7 +1518,12 @@ public class GameEngine {
                 applyPetDamage(KNIGHT_PET_MELEE_DAMAGE);
                 changed = true;
             }
-            if (!isAdjacentToHero(knight)) {
+            Entity target = adjacentHeroLikeTarget(knight);
+            if (target == null) {
+                continue;
+            }
+            if (target instanceof ShadowClone) {
+                changed = true;
                 continue;
             }
             CombatManager.AttackResult result = combatManager.knightAttacksHero(knight, hero);
@@ -1417,7 +1559,7 @@ public class GameEngine {
                 continue;
             }
             if (enemy instanceof Knight knight) {
-                if (isAdjacentToHero(knight)) {
+                if (adjacentHeroLikeTarget(knight) != null) {
                     continue;
                 }
                 changed |= applyEnemyWalkStep(knight);
@@ -1440,7 +1582,7 @@ public class GameEngine {
 
     private boolean applyEnemyWalkStep(Entity enemy) {
         if (getEnemyAiState(enemy) == AIState.CHASING) {
-            return moveEnemyTowardHero(enemy);
+            return moveEnemyTowardTarget(enemy, nearestHeroLikeTarget(enemy));
         }
         return moveEnemyRandomly(enemy);
     }
@@ -1467,12 +1609,13 @@ public class GameEngine {
             if (!(enemy instanceof Sorcerer sorcerer) || isFrozen(sorcerer)) {
                 continue;
             }
-            if (!canSorcererShootAtHero(sorcerer)) {
+            Entity target = nearestHeroLikeTarget(sorcerer);
+            if (!canSorcererShootAtTarget(sorcerer, target)) {
                 continue;
             }
             CombatManager.SorcererProjectilePrep prep = combatManager.prepareSorcererProjectile(sorcerer, hero);
             if (prep != null) {
-                spawnProjectile(sorcerer.getX(), sorcerer.getY(), hero.getX(), hero.getY(),
+                spawnProjectile(sorcerer.getX(), sorcerer.getY(), target.getX(), target.getY(),
                         prep.damageGenerated, prep.damageReceived, false);
                 changed = true;
             }
@@ -1491,12 +1634,13 @@ public class GameEngine {
             if (!(enemy instanceof BossEnemy boss) || isFrozen(boss)) {
                 continue;
             }
-            if (!canBossShootAtHero(boss)) {
+            Entity target = nearestHeroLikeTarget(boss);
+            if (!canBossShootAtTarget(boss, target)) {
                 continue;
             }
             CombatManager.SorcererProjectilePrep prep = combatManager.prepareBossProjectile(boss, hero);
             if (prep != null) {
-                spawnProjectile(boss.getX(), boss.getY(), hero.getX(), hero.getY(),
+                spawnProjectile(boss.getX(), boss.getY(), target.getX(), target.getY(),
                         prep.damageGenerated, prep.damageReceived, false, true);
                 changed = true;
             }
@@ -1529,6 +1673,16 @@ public class GameEngine {
         return hasClearProjectilePath(sx, sy, hx, hy, SORCERER_SHOOT_RANGE);
     }
 
+    private boolean canSorcererShootAtTarget(Sorcerer sorcerer, Entity target) {
+        if (sorcerer.getAiState() != AIState.CHASING) {
+            return false;
+        }
+        if (sorcerer.getMana() < SORCERER_PROJECTILE_MANA_COST) {
+            return false;
+        }
+        return canShootAtTarget(sorcerer.getX(), sorcerer.getY(), target, SORCERER_SHOOT_RANGE);
+    }
+
     private boolean canBossShootAtHero(BossEnemy boss) {
         if (boss.getAiState() != AIState.CHASING || boss.getMana() < 8) {
             return false;
@@ -1544,6 +1698,28 @@ public class GameEngine {
             return false;
         }
         return hasClearProjectilePath(sx, sy, hx, hy, BOSS_SHOOT_RANGE);
+    }
+
+    private boolean canBossShootAtTarget(BossEnemy boss, Entity target) {
+        if (boss.getAiState() != AIState.CHASING || boss.getMana() < 8) {
+            return false;
+        }
+        return canShootAtTarget(boss.getX(), boss.getY(), target, BOSS_SHOOT_RANGE);
+    }
+
+    private boolean canShootAtTarget(int sx, int sy, Entity target, int range) {
+        if (target == null) {
+            return false;
+        }
+        int tx = target.getX();
+        int ty = target.getY();
+        if (sx == tx && sy == ty) {
+            return true;
+        }
+        if (!heroOnStraightRayFrom(sx, sy, tx, ty)) {
+            return false;
+        }
+        return hasClearProjectilePath(sx, sy, tx, ty, range);
     }
 
     private static boolean heroOnStraightRayFrom(int sx, int sy, int hx, int hy) {
@@ -1799,8 +1975,9 @@ public class GameEngine {
 
     /** @return true when the projectile moved or hit something */
     private boolean advanceEnemyProjectile(Projectile projectile) {
-        if (projectile.getX() == hero.getX() && projectile.getY() == hero.getY()) {
-            resolveEnemyProjectileHitOnHero(projectile.getDamageReceived());
+        Entity currentTarget = enemyProjectileTargetAt(projectile.getX(), projectile.getY());
+        if (currentTarget != null) {
+            resolveEnemyProjectileHit(currentTarget, projectile.getDamageReceived());
             projectile.setActive(false);
             return true;
         }
@@ -1818,8 +1995,9 @@ public class GameEngine {
             return true;
         }
 
-        if (nextX == hero.getX() && nextY == hero.getY()) {
-            resolveEnemyProjectileHitOnHero(projectile.getDamageReceived());
+        Entity target = enemyProjectileTargetAt(nextX, nextY);
+        if (target != null) {
+            resolveEnemyProjectileHit(target, projectile.getDamageReceived());
             projectile.setActive(false);
             return true;
         }
@@ -1850,6 +2028,13 @@ public class GameEngine {
             return;
         }
         notifyListeners();
+    }
+
+    private void resolveEnemyProjectileHit(Entity target, int damageReceived) {
+        if (target instanceof ShadowClone) {
+            return;
+        }
+        resolveEnemyProjectileHitOnHero(damageReceived);
     }
 
     private void resolveEnemyProjectileHitOnHero(int damageReceived) {
@@ -1925,11 +2110,11 @@ public class GameEngine {
     }
 
     /**
-     * Updates a single enemy's AI state based on distance to the hero.
+     * Updates a single enemy's AI state based on distance to the nearest hero-like target.
      * @return true if the state actually changed (so we can log + repaint)
      */
     private boolean updateAiStateFor(Entity e) {
-        double dist = euclideanDistanceToHero(e.getX(), e.getY());
+        double dist = euclideanDistanceToNearestHeroLikeTarget(e.getX(), e.getY());
         AIState next;
         AIState current;
         String label;
@@ -1975,6 +2160,69 @@ public class GameEngine {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    private double euclideanDistanceToNearestHeroLikeTarget(int x, int y) {
+        Entity target = nearestHeroLikeTarget(x, y);
+        return target == null ? Double.MAX_VALUE : euclideanDistance(x, y, target.getX(), target.getY());
+    }
+
+    private static double euclideanDistance(int ax, int ay, int bx, int by) {
+        int dx = ax - bx;
+        int dy = ay - by;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private Entity nearestHeroLikeTarget(Entity seeker) {
+        return seeker == null ? hero : nearestHeroLikeTarget(seeker.getX(), seeker.getY());
+    }
+
+    private Entity nearestHeroLikeTarget(int x, int y) {
+        Entity best = hero;
+        double bestDistance = euclideanDistance(x, y, hero.getX(), hero.getY());
+        for (int cx = 0; cx < dungeonMap.getWidth(); cx++) {
+            for (int cy = 0; cy < dungeonMap.getHeight(); cy++) {
+                GridCell cell = dungeonMap.getCell(cx, cy);
+                if (cell == null) {
+                    continue;
+                }
+                for (Entity entity : cell.getEntitiesView()) {
+                    if (entity instanceof ShadowClone) {
+                        double distance = euclideanDistance(x, y, entity.getX(), entity.getY());
+                        if (distance < bestDistance) {
+                            best = entity;
+                            bestDistance = distance;
+                        }
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    private Entity adjacentHeroLikeTarget(Entity seeker) {
+        Entity target = nearestHeroLikeTarget(seeker);
+        return target != null && isAdjacentTo(seeker, target) ? target : null;
+    }
+
+    private Entity enemyProjectileTargetAt(int x, int y) {
+        if (x == hero.getX() && y == hero.getY()) {
+            return hero;
+        }
+        return shadowCloneAt(x, y);
+    }
+
+    private ShadowClone shadowCloneAt(int x, int y) {
+        GridCell cell = dungeonMap.getCell(x, y);
+        if (cell == null) {
+            return null;
+        }
+        for (Entity entity : cell.getEntitiesView()) {
+            if (entity instanceof ShadowClone clone) {
+                return clone;
+            }
+        }
+        return null;
+    }
+
     private List<Entity> enemiesSnapshot() {
         List<Entity> enemies = new ArrayList<>();
         for (int x = 0; x < dungeonMap.getWidth(); x++) {
@@ -1995,6 +2243,25 @@ public class GameEngine {
 
     private boolean isAdjacentToHero(Entity entity) {
         return dungeonMap.isHeroAdjacent(hero, entity.getX(), entity.getY());
+    }
+
+    private boolean moveEnemyTowardTarget(Entity enemy, Entity target) {
+        if (target == null) {
+            return false;
+        }
+        int dx = Integer.compare(target.getX(), enemy.getX());
+        int dy = Integer.compare(target.getY(), enemy.getY());
+
+        if (Math.abs(target.getX() - enemy.getX()) >= Math.abs(target.getY() - enemy.getY())) {
+            if (tryMoveEnemy(enemy, enemy.getX() + dx, enemy.getY())) {
+                return true;
+            }
+            return tryMoveEnemy(enemy, enemy.getX(), enemy.getY() + dy);
+        }
+        if (tryMoveEnemy(enemy, enemy.getX(), enemy.getY() + dy)) {
+            return true;
+        }
+        return tryMoveEnemy(enemy, enemy.getX() + dx, enemy.getY());
     }
 
     private boolean moveEnemyTowardHero(Entity enemy) {
@@ -2400,6 +2667,7 @@ public class GameEngine {
     public void shutdown() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();
+        if (shadowCloneSpawnTimer != null) shadowCloneSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
@@ -2412,6 +2680,7 @@ public class GameEngine {
     private void pauseAllTimers() {
         if (spawnTimer != null) spawnTimer.stop();
         if (coinSpawnTimer != null) coinSpawnTimer.stop();
+        if (shadowCloneSpawnTimer != null) shadowCloneSpawnTimer.stop();
         if (detectionTimer != null) detectionTimer.stop();
         if (knightActionTimer != null) knightActionTimer.stop();
         if (sorcererAttackTimer != null) sorcererAttackTimer.stop();
@@ -2424,6 +2693,7 @@ public class GameEngine {
     private void resumeAllTimers() {
         if (spawnTimer != null) spawnTimer.start();
         if (coinSpawnTimer != null) coinSpawnTimer.start();
+        if (shadowCloneSpawnTimer != null) shadowCloneSpawnTimer.start();
         if (detectionTimer != null) detectionTimer.start();
         if (knightActionTimer != null) knightActionTimer.start();
         if (sorcererAttackTimer != null) sorcererAttackTimer.start();

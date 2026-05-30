@@ -1,6 +1,8 @@
 package view;
 
 import java.awt.Color;
+import java.awt.AlphaComposite;
+import java.awt.Composite;
 import java.awt.Dimension;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
@@ -45,6 +47,7 @@ import model.PetEntity;
 import model.Potion;
 import model.Projectile;
 import model.SearchableObject;
+import model.ShadowClone;
 import model.Sorcerer;
 import model.Weapon;
 import save.SaveGameController;
@@ -711,6 +714,10 @@ private void handleInventoryKeyPress() {
                         if (ent instanceof Hero) {
                             continue;
                         }
+                        if (ent instanceof ShadowClone) {
+                            drawShadowClone(g2, px, py, cellW, cellH);
+                            continue;
+                        }
                         EnemyDrawPosition enemyDrawPosition = enemyDrawPosition(ent, px, py, tileSize);
                         BufferedImage enemySprite = enemySpriteFor(ent);
                         if (enemySprite != null) {    
@@ -932,6 +939,25 @@ private void handleInventoryKeyPress() {
             return;
         }
         g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
+    }
+
+    private void drawShadowClone(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        BufferedImage sprite = SpriteRegistry.heroFrame(heroFrame);
+        if (sprite == null) {
+            g2.setColor(new Color(HERO.getRed(), HERO.getGreen(), HERO.getBlue(), 128));
+            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+            g2.fillRect(px + inset, py + inset, cellW - inset * 2, cellH - inset * 2);
+            return;
+        }
+
+        int spriteW = Math.round(sprite.getWidth() * HERO_SPRITE_SCALE);
+        int spriteH = Math.round(sprite.getHeight() * HERO_SPRITE_SCALE);
+        int drawX = px + (cellW - spriteW) / 2;
+        int drawY = py + (cellH - spriteH) / 2;
+        Composite originalComposite = g2.getComposite();
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        g2.drawImage(sprite, drawX, drawY, spriteW, spriteH, null);
+        g2.setComposite(originalComposite);
     }
 
     private void drawGroundBowPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
