@@ -1,11 +1,9 @@
 index,filename,label,category,output_width,output_height
 1,01_wall_section_top_plain_left.png,wall_section_top_plain_left,wall_section,96,40
 2,02_wall_section_top_decor_left.png,wall_section_top_decor_left,wall_section,96,32
-3,03_floor_large_left.png,floor_large_left,floor,192,96
 4,04_floor_worn_patch_round.png,floor_worn_patch_round,floor,96,72
 5,05_wall_section_top_decor_center.png,wall_section_top_decor_center,wall_section,160,32
 6,06_wall_section_top_decor_hanging.png,wall_section_top_decor_hanging,wall_section,96,46
-7,07_floor_strip_top_clean_long.png,floor_strip_top_clean_long,floor,416,32
 8,08_wall_section_top_decor_drips_column.png,wall_section_top_decor_drips_column,wall_section,128,48
 9,09_wall_section_top_decor_right.png,wall_section_top_decor_right,wall_section,192,40
 10,10_wall_column_round_top.png,wall_column_round_top,wall_section,32,54

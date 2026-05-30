@@ -806,7 +806,7 @@ public class GameEngine {
 
     private void placeHeroOnMap() {
         GridCell cell = dungeonMap.getCell(hero.getX(), hero.getY());
-        if (cell != null) {
+        if (cell != null && !cell.getEntitiesView().contains(hero)) {
             cell.getEntities().add(hero);
         }
     }
