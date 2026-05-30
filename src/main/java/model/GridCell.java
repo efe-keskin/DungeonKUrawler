@@ -21,6 +21,7 @@ public class GridCell {
     private final int x;
     private final int y;
     private boolean passable;
+    private boolean discovered = false;
     private final List<Item> items;
     private final List<Entity> entities;
 
@@ -46,6 +47,14 @@ public class GridCell {
 
     public void setPassable(boolean passable) {
         this.passable = passable;
+    }
+
+    public boolean isDiscovered() {
+        return discovered;
+    }
+
+    public void setDiscovered(boolean discovered) {
+        this.discovered = discovered;
     }
 
     /**

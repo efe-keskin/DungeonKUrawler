@@ -14,6 +14,7 @@ public class DungeonMap {
     private final int width;
     private final int height;
     private final GridCell[][] cells;
+    private boolean fogEnabled = false;
 
     /**
      * Builds a map with the given dimensions; all cells default to passable unless
@@ -52,6 +53,14 @@ public class DungeonMap {
 
     public GridCell[][] getCells() {
         return cells;
+    }
+
+    public boolean isFogEnabled() {
+        return fogEnabled;
+    }
+
+    public void setFogEnabled(boolean fogEnabled) {
+        this.fogEnabled = fogEnabled;
     }
 
     /**

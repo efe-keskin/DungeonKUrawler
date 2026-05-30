@@ -11,6 +11,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.LineEvent;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.ByteArrayInputStream;
@@ -32,6 +33,7 @@ public class AudioManager implements GameEventListener, MissionListener {
 
     private final Map<String, byte[]> samples = new HashMap<>();
     private Clip musicClip;
+    private Clip activeFearOfTheDarkClip;
     private boolean musicMuted = false;
     private static final float MUSIC_GAIN_DB = -10.0f;
 
@@ -44,6 +46,7 @@ public class AudioManager implements GameEventListener, MissionListener {
         preload("enemy_defeat");
         preload("victory");
         preload("defeat");
+        preload("fear_of_the_dark");
         preloadMusic();
     }
 
@@ -104,6 +107,42 @@ public class AudioManager implements GameEventListener, MissionListener {
             clip.start();
         } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
             System.err.println("[audio] play(" + name + ") failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Plays the 4-second Fear of the Dark cue, ignoring the call
+     * if it's already playing. Used by the level-5 introduction
+     * and by the Build-mode checkbox toggle.
+     */
+    public void playFearOfTheDark() {
+        byte[] data = samples.get("fear_of_the_dark");
+        if (data == null) {
+            return;
+        }
+        if (activeFearOfTheDarkClip != null
+                && activeFearOfTheDarkClip.isRunning()) {
+            return;
+        }
+        try {
+            AudioInputStream stream = AudioSystem.getAudioInputStream(
+                    new ByteArrayInputStream(data));
+            Clip clip = AudioSystem.getClip();
+            clip.open(stream);
+            stream.close();
+            clip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    clip.close();
+                    if (activeFearOfTheDarkClip == clip) {
+                        activeFearOfTheDarkClip = null;
+                    }
+                }
+            });
+            activeFearOfTheDarkClip = clip;
+            clip.start();
+        } catch (UnsupportedAudioFileException | IOException
+                | LineUnavailableException e) {
+            System.err.println("[audio] playFearOfTheDark failed: " + e.getMessage());
         }
     }
 

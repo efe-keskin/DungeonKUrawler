@@ -39,6 +39,16 @@ public enum AssetId {
     GEM_WHITE("/items_keys_extracted/assets/16_gem_white.png"),
     DEFEATED_ENEMY_MARKER("/items_keys_extracted/assets/26_tombstone_skull.png"),
 
+    // Torch animation frames (8 frames for inventory animation).
+    TORCH_FRAME_1("/background_floor/assets/50_torch_lit_01.png"),
+    TORCH_FRAME_2("/background_floor/assets/51_torch_lit_02.png"),
+    TORCH_FRAME_3("/background_floor/assets/52_torch_lit_03.png"),
+    TORCH_FRAME_4("/background_floor/assets/53_torch_lit_04.png"),
+    TORCH_FRAME_5("/background_floor/assets/54_torch_lit_05.png"),
+    TORCH_FRAME_6("/background_floor/assets/55_torch_lit_06.png"),
+    TORCH_FRAME_7("/background_floor/assets/56_torch_lit_07.png"),
+    TORCH_FRAME_8("/background_floor/assets/57_torch_lit_08.png"),
+
     // Containers.
     CHEST_CLOSED("/chest_models_plus_crates_sacks_v6/assets/01_chest_closed_blue_trim.png"),
     CHEST_OPEN("/chest_models_plus_crates_sacks_v6/assets/05_chest_open_loot_blue_trim.png"),

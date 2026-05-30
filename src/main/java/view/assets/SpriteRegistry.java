@@ -25,6 +25,7 @@ import model.PetEntity;
 import model.Ring;
 import model.Sorcerer;
 import model.Team;
+import model.Torch;
 import model.ValuableItem;
 
 /**
@@ -54,6 +55,16 @@ public final class SpriteRegistry {
             AssetId.HERO_FRAME_8,
             AssetId.HERO_FRAME_9);
 
+    private static final List<AssetId> TORCH_ANIMATION_FRAMES = List.of(
+            AssetId.TORCH_FRAME_1,
+            AssetId.TORCH_FRAME_2,
+            AssetId.TORCH_FRAME_3,
+            AssetId.TORCH_FRAME_4,
+            AssetId.TORCH_FRAME_5,
+            AssetId.TORCH_FRAME_6,
+            AssetId.TORCH_FRAME_7,
+            AssetId.TORCH_FRAME_8);
+
     static {
         registerEntity(Knight.class, AssetId.KNIGHT);
         registerEntity(Sorcerer.class, AssetId.SORCERER);
@@ -67,6 +78,7 @@ public final class SpriteRegistry {
         registerItem(ValuableItem.class, AssetId.GEM_WHITE);
         registerItem(DefeatedEnemyMarker.class, AssetId.DEFEATED_ENEMY_MARKER);
         registerItem(Chest.class, AssetId.CHEST_CLOSED);
+        registerItem(Torch.class, AssetId.TORCH_FRAME_1);
 
         registerKey(KeyColor.OLIVE, AssetId.KEY_OLIVE);
         registerKey(KeyColor.SILVER, AssetId.KEY_SILVER);
@@ -201,5 +213,17 @@ public final class SpriteRegistry {
 
     public static int heroFrameCount() {
         return HERO_ANIMATION_FRAMES.size();
+    }
+
+    public static int torchFrameCount() {
+        return TORCH_ANIMATION_FRAMES.size();
+    }
+
+    public static BufferedImage torchFrame(int index) {
+        if (TORCH_ANIMATION_FRAMES.isEmpty()) {
+            return null;
+        }
+        int safe = Math.floorMod(index, TORCH_ANIMATION_FRAMES.size());
+        return AssetManager.get().image(TORCH_ANIMATION_FRAMES.get(safe));
     }
 }

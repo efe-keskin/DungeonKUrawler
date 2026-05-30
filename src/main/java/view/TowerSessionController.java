@@ -14,6 +14,7 @@ import model.DungeonLevel;
 import model.FullGameInventory;
 import model.Hero;
 import model.ShopCatalog;
+import model.TowerScenario;
 import model.ValuableItem;
 import save.SaveGameException;
 
@@ -50,7 +51,8 @@ public final class TowerSessionController {
     private void openTowerMap(int heroFloor, int climbToFloor) {
         currentFloor = heroFloor;
         mapWindow = new TowerMapWindow(progress, this::enterLevel, this::returnToMainMenu,
-                this::openShop, this::openInventory, heroFloor, climbToFloor);
+                this::openShop, this::openInventory, heroFloor, climbToFloor,
+                this::debugSkipToLevel);
         mapWindow.setVisible(true);
     }
 
@@ -127,7 +129,63 @@ public final class TowerSessionController {
             mapWindow = null;
         }
         gameWindow = new GameWindow(engine);
+        if (levelNumber == 5) {
+            showFearOfTheDarkIntro();
+        }
         gameWindow.setVisible(true);
+    }
+
+    /**
+     * Debug entry point: jumps to {@code levelNumber} without
+     * consulting progress.canEnter. Used by the SKIP TO LEVEL
+     * button on the tower map for testing higher floors without
+     * playing through the prerequisites. Logs to stderr so the
+     * developer can confirm it fired.
+     */
+    private void debugSkipToLevel(int levelNumber) {
+        if (levelNumber < 1 || levelNumber > TowerScenario.LEVEL_COUNT) {
+            return;
+        }
+        System.err.println("[debug] Skipping to level " + levelNumber);
+        currentFloor = levelNumber;
+        DungeonLevel level = progress.getLevel(levelNumber);
+        GameStateSnapshot snapshot = GameStateSnapshot.of(progress.getActiveEngine());
+        GameEngine engine = levelFactory.createEngine(level, snapshot);
+
+        progress.setActiveEngine(engine);
+        engine.setLevelCompletionListener(progress);
+        progress.setOnLevelCompleted(result ->
+                SwingUtilities.invokeLater(() -> onFloorCleared(result)));
+
+        AudioManager.shared().stopMenuMusic();
+        if (mapWindow != null) {
+            mapWindow.dispose();
+            mapWindow = null;
+        }
+        gameWindow = new GameWindow(engine);
+        if (levelNumber == 5) {
+            showFearOfTheDarkIntro();
+        }
+        gameWindow.setVisible(true);
+    }
+
+    /**
+     * Shows the Fear-of-the-Dark introduction popup on the level
+     * where the mechanic first appears. Starts the audio cue at the
+     * moment the dialog opens; the cue continues whether or not the
+     * player has closed the dialog.
+     */
+    private void showFearOfTheDarkIntro() {
+        if (AudioManager.shared() != null) {
+            AudioManager.shared().playFearOfTheDark();
+        }
+        ItemActionMenuDialog.showNotice(
+                gameWindow,
+                "Floor Briefing",
+                "Fear of the Dark",
+                "The deeper floors of this tower hold lightless dread.\n"
+                        + "Your vision is now limited - explore with care.\n"
+                        + "Search for a Torch to push back the darkness.");
     }
 
     /**
