@@ -32,6 +32,7 @@ import model.ManaPotion;
 import model.Potion;
 import model.Armor;
 import model.Book;
+import model.ShadowClone;
 import model.ShadowCloneScroll;
 
 import model.Ring;
@@ -116,6 +117,7 @@ public class GameEngine {
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int SHADOW_CLONE_SPAWN_INTERVAL_MS = 15000;
+    private static final int SHADOW_CLONE_DURATION_MS = 7000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int BOSS_SHOOT_RANGE = 8;
@@ -975,6 +977,9 @@ public class GameEngine {
         if (!removeAction && !item.getInventoryActions().contains(action)) {
             return false;
         }
+        if (action == ItemAction.READ && item instanceof ShadowCloneScroll) {
+            return summonShadowClone((ShadowCloneScroll) item);
+        }
 
         ItemActionEffects.Effect effect = ItemActionEffects.forAction(action);
         if (effect == null) {
@@ -1090,6 +1095,57 @@ public class GameEngine {
         fillMinimumGroundCoins(x, y);
         notifyListeners();
         return true;
+    }
+
+    private boolean summonShadowClone(ShadowCloneScroll scroll) {
+        GridCell cell = findEmptyAdjacentCell(hero.getX(), hero.getY());
+        if (cell == null) {
+            return false;
+        }
+
+        ShadowClone clone = new ShadowClone(cell.getX(), cell.getY());
+        cell.getEntities().add(clone);
+        hero.getInventory().remove(scroll);
+        notifyListeners();
+
+        Timer removalTimer = new Timer(SHADOW_CLONE_DURATION_MS, e -> {
+            if (removeEntity(clone)) {
+                notifyListeners();
+            }
+        });
+        removalTimer.setRepeats(false);
+        removalTimer.start();
+        return true;
+    }
+
+    private GridCell findEmptyAdjacentCell(int x, int y) {
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                GridCell cell = dungeonMap.getCell(x + dx, y + dy);
+                if (cell != null
+                        && cell.isWalkable()
+                        && cell.getItemsView().isEmpty()
+                        && cell.getEntitiesView().isEmpty()) {
+                    return cell;
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean removeEntity(Entity entity) {
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell != null && cell.getEntities().remove(entity)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
