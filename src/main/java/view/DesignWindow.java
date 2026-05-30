@@ -28,6 +28,7 @@ import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -90,6 +91,7 @@ public class DesignWindow extends JFrame {
     private final DesignCanvas canvas;
     private final List<ToolButton> toolButtons = new ArrayList<>();
     private JLabel selectedLabel;
+    private JCheckBox fogToggle;
     private Path lastMapPath;
 
     public DesignWindow() {
@@ -213,9 +215,26 @@ public class DesignWindow extends JFrame {
             SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
         });
 
+        fogToggle = new JCheckBox("Fear of the Dark");
+        fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
+        fogToggle.setFocusable(false);
+        fogToggle.setFont(controlFont(12f));
+        fogToggle.setForeground(new Color(218, 200, 158));
+        fogToggle.setBackground(CONTROL_BACKGROUND);
+        fogToggle.setOpaque(false);
+        fogToggle.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        fogToggle.addActionListener(e -> {
+            boolean enabled = fogToggle.isSelected();
+            controller.getDesignMap().setFogEnabled(enabled);
+            if (enabled && engine.audio.AudioManager.shared() != null) {
+                engine.audio.AudioManager.shared().playFearOfTheDark();
+            }
+        });
+
         panel.add(save);
         panel.add(load);
         panel.add(clear);
+        panel.add(fogToggle);
         panel.add(random);
         panel.add(run);
         panel.add(teamMatch);
@@ -252,6 +271,9 @@ public class DesignWindow extends JFrame {
                 controller.loadMap(path);
                 lastMapPath = path;
                 refreshSelectedLabel("Loaded " + path.getFileName());
+                if (fogToggle != null) {
+                    fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
+                }
                 canvas.repaint();
             } catch (IOException ex) {
                 ItemActionMenuDialog.showNotice(this, "Build", "Load Failed", ex.getMessage());
