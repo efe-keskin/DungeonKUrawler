@@ -7,6 +7,7 @@ import model.Coin;
 import model.Column;
 import model.Container;
 import model.Crate;
+import model.DecorativeObject;
 import model.DefeatedEnemyMarker;
 import model.EnergyPotion;
 import model.Gargoyle;
@@ -46,6 +47,7 @@ final class ItemDtoFactory {
     private static final String COLUMN = "COLUMN";
     private static final String CONTAINER = "CONTAINER";
     private static final String CRATE = "CRATE";
+    private static final String DECORATIVE = "DECORATIVE";
     private static final String DEFEATED_ENEMY = "DEFEATED_ENEMY";
     private static final String ENERGY_POTION = "ENERGY_POTION";
     private static final String GARGOYLE = "GARGOYLE";
@@ -131,30 +133,37 @@ final class ItemDtoFactory {
             case HEAL_POTION -> new HealPotion();
             case MANA_POTION -> new ManaPotion();
             case ENERGY_POTION -> new EnergyPotion();
-            case COIN -> new Coin(positive(dto.value, 1));
+            case COIN -> new Coin(positive(dto.value, 1), dto.spriteResource);
             case KEY -> new Key(fallback(dto.keyId, "key"), parseKeyColor(dto.keyColor), dto.singleUse);
-            case RING -> new Ring(fallback(dto.name, "Protective Ring"), dto.defBonus);
+            case RING -> new Ring(fallback(dto.name, "Protective Ring"), dto.defBonus, dto.spriteResource);
             case ARMOR -> new Armor(fallback(dto.name, "Armor"), dto.defModifier);
             case WEAPON -> new Weapon(resolveWeaponType(dto));
             case BOOK -> new Book(fallback(dto.name, "Book"), fallback(dto.bookText, ""));
-            case CHEST -> restoreContainer(new Chest(fallback(dto.name, "Chest"), positive(dto.capacity, 1)),
+            case CHEST -> restoreContainer(
+                    new Chest(fallback(dto.name, "Chest"), positive(dto.capacity, 1), dto.spriteResource),
                     dto, context);
             case CONTAINER -> restoreContainer(new Container(fallback(dto.name, "Container"),
-                    dto.locked, dto.requiresKey, positive(dto.capacity, 1), dto.portable), dto, context);
+                    dto.locked, dto.requiresKey, positive(dto.capacity, 1), dto.portable, dto.spriteResource),
+                    dto, context);
             case MISSING_BRICK -> new MissingBrick(fallback(dto.spriteResource, MissingBrick.SPRITE_1),
                     fromDto(dto.hiddenItem, context));
-            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE));
+            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE),
+                    fromDto(dto.hiddenItem, context));
             case GARGOYLE -> new Gargoyle(fallback(dto.spriteResource, Gargoyle.RED_LEFT_SPRITE),
                     fromDto(dto.hiddenItem, context));
-            case HOLE -> new Hole(fromDto(dto.hiddenItem, context));
+            case HOLE -> new Hole(fallback(dto.spriteResource, Hole.SPRITE), fromDto(dto.hiddenItem, context));
             case GRILL -> new Grill(fallback(dto.spriteResource, Grill.HORIZONTAL_SPRITE),
                     fromDto(dto.hiddenItem, context));
-            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE));
+            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE),
+                    fromDto(dto.hiddenItem, context));
             case POOL -> new Pool(fallback(dto.spriteResource, Pool.CYAN_DRIP_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case SEARCHABLE -> new SearchableObject(fallback(dto.name, "Searchable Location"),
                     dto.blocking, dto.spriteResource, fromDto(dto.hiddenItem, context));
-            case CRATE -> new Crate(fromDto(dto.hiddenItem, context));
+            case CRATE -> new Crate(fallback(dto.spriteResource, Crate.WOOD_TALL_SPRITE),
+                    fromDto(dto.hiddenItem, context));
+            case DECORATIVE -> new DecorativeObject(fallback(dto.name, "Decorative Object"),
+                    dto.blocking, dto.spriteResource);
             case VASE -> new Vase();
             case PEDESTAL -> new Pedestal(fromDto(dto.hiddenItem, context));
             case DEFEATED_ENEMY -> new DefeatedEnemyMarker();
@@ -240,6 +249,9 @@ final class ItemDtoFactory {
         }
         if (item instanceof Pedestal) {
             return PEDESTAL;
+        }
+        if (item instanceof DecorativeObject) {
+            return DECORATIVE;
         }
         if (item instanceof SearchableObject) {
             return SEARCHABLE;

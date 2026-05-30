@@ -25,36 +25,36 @@ public enum AssetId {
     // Enemies.
     KNIGHT("/characters/knight1.png"),
     RED_KNIGHT("/characters/redknight1.png"),
-    SORCERER("/characters/sorcerer1.png"),
+    SORCERER("/characters/wizard1.png"),
     WIZARD("/characters/wizard1.png"),
     RED_WIZARD("/characters/redWizard1.png"),
 
     // Items.
-    HEAL_POTION("/items_objects/healpotion.png"),
-    ENERGY_POTION("/items_objects/energypotion.png"),
-    MANA_POTION("/items_objects/manapotion.png"),
-    COIN_PILE("/items_keys_extracted/assets/20_coin_pile_gold.png"),
-    RING_RED_GEM("/items_keys_extracted/assets/10_ring_red_gem.png"),
-    BOOK_RED("/items_keys_extracted/assets/22_book_red.png"),
-    GEM_WHITE("/items_keys_extracted/assets/16_gem_white.png"),
-    DEFEATED_ENEMY_MARKER("/items_keys_extracted/assets/26_tombstone_skull.png"),
+    HEAL_POTION("/items/potions/07_potion_red.png"),
+    ENERGY_POTION("/items/potions/09_potion_green.png"),
+    MANA_POTION("/items/potions/08_potion_blue.png"),
+    COIN_PILE("/items/golds_coins/20_coin_pile_gold.png"),
+    RING_RED_GEM("/items/rings/10_ring_red_gem.png"),
+    BOOK_RED("/items/books/22_book_red.png"),
+    GEM_WHITE("/items/golds_coins/16_gem_white.png"),
+    DEFEATED_ENEMY_MARKER("/items/tombstones/26_tombstone_skull.png"),
 
     // Containers.
-    CHEST_CLOSED("/chest_models_plus_crates_sacks_v6/assets/01_chest_closed_blue_trim.png"),
-    CHEST_OPEN("/chest_models_plus_crates_sacks_v6/assets/05_chest_open_loot_blue_trim.png"),
+    CHEST_CLOSED("/items/chests/01_chest_closed_blue_trim.png"),
+    CHEST_OPEN("/items/chests/05_chest_open_loot_blue_trim.png"),
 
     // Keys.
-    KEY_OLIVE("/items_keys_extracted/assets/01_key_olive.png"),
-    KEY_SILVER("/items_keys_extracted/assets/02_key_silver.png"),
-    KEY_GOLD("/items_keys_extracted/assets/03_key_gold.png"),
-    KEY_ORANGE("/items_keys_extracted/assets/04_key_orange.png"),
-    KEY_BENT_SILVER("/items_keys_extracted/assets/05_key_bent_silver.png"),
-    KEY_LONG_GOLD("/items_keys_extracted/assets/06_key_long_gold.png"),
+    KEY_OLIVE("/items/keys/01_key_olive.png"),
+    KEY_SILVER("/items/keys/02_key_silver.png"),
+    KEY_GOLD("/items/keys/03_key_gold.png"),
+    KEY_ORANGE("/items/keys/04_key_orange.png"),
+    KEY_BENT_SILVER("/items/keys/05_key_bent_silver.png"),
+    KEY_LONG_GOLD("/items/keys/06_key_long_gold.png"),
 
     // UI surfaces.
-    INVENTORY_BACKGROUND("/Inventory x4.png"),
+    INVENTORY_BACKGROUND("/inventorychest.png"),
     INVENTORY_CHEST_ICON("/inventorychest.png"),
-    CHEST_BACKGROUND("/chest_models_plus_crates_sacks_v6/bag - empty.png"),
+    CHEST_BACKGROUND("/inventorychest.png"),
     MAIN_MENU_BACKGROUND("/mainmenu_background.jpg"),
     HELP_QUESTION_MARK("/questionmark_minecraft.png");
 

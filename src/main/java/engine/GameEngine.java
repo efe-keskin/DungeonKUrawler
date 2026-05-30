@@ -42,15 +42,16 @@ import javax.swing.Timer;
 import model.AIState;
 import model.DragonPet;
 import model.Gargoyle;
+import model.Grill;
 import model.Knight;
 import model.MissingBrick;
 import model.PenguinPet;
 import model.Pet;
 import model.PetEntity;
-import model.Pool;
 import model.Projectile;
 import model.SearchableObject;
 import model.Sorcerer;
+import model.WaterPipe;
 
 /**
  * Game state owner and observer subject.
@@ -570,8 +571,10 @@ public class GameEngine {
         return switch (random.nextInt(20)) {
             case 0, 1, 2, 3 -> new MissingBrick(MissingBrick.SPRITE_1, hiddenItem);
             case 4, 5, 6, 7 -> new MissingBrick(MissingBrick.SPRITE_2, hiddenItem);
-            case 8, 9, 10, 11 -> new Pool(randomDripSprite(topWall), hiddenItem);
-            default -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
+            case 8, 9, 10, 11 -> new Gargoyle(randomDripSprite(topWall), hiddenItem);
+            case 12, 13, 14 -> new Grill(Grill.HORIZONTAL_SPRITE, hiddenItem);
+            case 15, 16, 17 -> new Grill(Grill.VERTICAL_SPRITE, hiddenItem);
+            default -> new WaterPipe(WaterPipe.LARGE_RING_SPRITE, hiddenItem);
         };
     }
 

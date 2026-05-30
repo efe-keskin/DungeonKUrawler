@@ -874,12 +874,17 @@ private void handleInventoryKeyPress() {
             g2.drawImage(sprite, px, py, cellW, cellH, null);
             return;
         }
+        if (item instanceof model.DecorativeObject) {
+            g2.drawImage(sprite, px, py, cellW, cellH, null);
+            return;
+        }
         g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
     }
 
     private boolean isWallDripSearchable(Item item) {
         String resource = item == null ? null : item.spriteResource();
-        return resource != null && resource.contains("wall_detail_drip_");
+        return resource != null
+                && (resource.contains("wall_detail_drip_") || resource.contains("gargoyle_"));
     }
 
     private void drawItemMarker(Graphics2D g2, int px, int py, int cellW, int cellH, Color color) {
