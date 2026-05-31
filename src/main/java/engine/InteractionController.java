@@ -198,7 +198,7 @@ public class InteractionController {
                 }
             }
         }
-        BreakResult result = breakController.attemptBreak(hero, nearestCell, nearestItem);
+        BreakResult result = breakController.attemptBreak(hero, nearestCell, nearestItem, engine.getLootTier());
         notifyAfterBreak(result);
         return result;
     }
@@ -211,7 +211,8 @@ public class InteractionController {
 
     public BreakResult breakObjectAt(Item item, int x, int y) {
         GridCell cell = engine.getDungeonMap().getCell(x, y);
-        BreakResult result = breakController.attemptBreak(engine.getHero(), cell, item);
+        BreakResult result = breakController.attemptBreak(
+                engine.getHero(), cell, item, engine.getLootTier());
         notifyAfterBreak(result);
         return result;
     }

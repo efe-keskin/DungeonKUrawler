@@ -51,6 +51,11 @@ final class BreakController {
     }
 
     InteractionController.BreakResult attemptBreak(Hero hero, GridCell cell, Item item) {
+        return attemptBreak(hero, cell, item, ObjectLootTable.LootTier.DEFAULT);
+    }
+
+    InteractionController.BreakResult attemptBreak(Hero hero, GridCell cell, Item item,
+            ObjectLootTable.LootTier lootTier) {
         if (hero == null || cell == null || !isBreakable(item) || !cell.getItemsView().contains(item)) {
             return null;
         }
@@ -72,7 +77,7 @@ final class BreakController {
                     BREAK_ENERGY_COST, chance, 0);
         }
 
-        List<Item> drops = dropsFrom(item);
+        List<Item> drops = dropsFrom(item, lootTier);
         if (item instanceof Vase vase) {
             vase.breakApart();
         } else {
@@ -110,7 +115,7 @@ final class BreakController {
         return DEFAULT_CONTAINER_DIFFICULTY;
     }
 
-    private List<Item> dropsFrom(Item item) {
+    private List<Item> dropsFrom(Item item, ObjectLootTable.LootTier lootTier) {
         List<Item> drops = new ArrayList<>();
         if (item instanceof Container container) {
             for (Item content : new ArrayList<>(container.getContents())) {
@@ -128,13 +133,13 @@ final class BreakController {
         // If the object did not already hide loot, successful breaks still have
         // a 75% chance to reward the player from the small loot table below.
         if (drops.isEmpty() && ObjectLootTable.shouldDropRandomLoot(random)) {
-            drops.add(ObjectLootTable.randomLoot(random));
+            drops.add(ObjectLootTable.randomLoot(random, lootTier));
         }
         return drops;
     }
 
-    // Loot table after a successful break with no hidden item:
-    // 35% coin, 20% heal, 15% energy, 15% mana, 7% key, 5% ring, 3% weapon/armor.
+    // Loot table after a successful break with no hidden item is selected by
+    // ObjectLootTable. Custom maps use the same profile as tower levels 3-4.
     // The actual item creation lives in ObjectLootTable so search and break use
     // the same probabilities.
 }

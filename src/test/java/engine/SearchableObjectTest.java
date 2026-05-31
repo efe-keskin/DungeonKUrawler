@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Random;
 
+import model.Armor;
 import model.Coin;
 import model.GridCell;
 import model.HealPotion;
@@ -92,6 +93,20 @@ class SearchableObjectTest {
         assertSame(first.getFoundItem(), cell.getItems().get(0));
         assertEquals(GameEngine.SearchOutcome.NOTHING_FOUND, second.getOutcome());
         assertEquals(2, cell.getItems().size());
+    }
+
+    @Test
+    void searchWithoutHiddenItemInLateTowerLevel_usesLateLootTable() {
+        engine.shutdown();
+        engine = newGameWithFixedDouble(0.74);
+        engine.configureTowerLevel(10, true);
+        SearchableObject object = new SearchableObject("Loose Brick", false, null);
+        placeSearchableNextToHero(object);
+
+        GameEngine.SearchResult result = engine.search(object);
+
+        assertEquals(GameEngine.SearchOutcome.FOUND, result.getOutcome());
+        assertTrue(result.getFoundItem() instanceof Armor);
     }
 
     @Test

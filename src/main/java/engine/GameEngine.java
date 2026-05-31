@@ -489,6 +489,10 @@ public class GameEngine {
         return towerLevelNumber;
     }
 
+    ObjectLootTable.LootTier getLootTier() {
+        return ObjectLootTable.tierForTowerLevel(towerLevelNumber);
+    }
+
     public boolean isFinalTowerLevel() {
         return finalTowerLevel;
     }
@@ -936,7 +940,7 @@ public class GameEngine {
         // so the player cannot farm the same object forever.
         Item found = object.takeHiddenItem();
         if (found == null && ObjectLootTable.shouldDropRandomLoot(random)) {
-            found = ObjectLootTable.randomLoot(random);
+            found = ObjectLootTable.randomLoot(random, getLootTier());
         }
         object.markSearched();
         if (found == null) {

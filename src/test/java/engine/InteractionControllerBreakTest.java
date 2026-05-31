@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Random;
 
+import model.Armor;
 import model.Chest;
 import model.Column;
 import model.Crate;
@@ -224,6 +225,25 @@ class InteractionControllerBreakTest {
         assertTrue(result.broken());
         assertEquals(0, result.droppedItemCount());
         assertTrue(targetCell.getItems().isEmpty());
+    }
+
+    @Test
+    void breakObjectAt_inLateTowerLevel_usesLateLootTable() {
+        InteractionController controller = controllerWithRolls(0.0, 0.74, 0.75, 0.99);
+        Hero hero = engine.getHero();
+        hero.setStr(20);
+        hero.setEnergy(30);
+        engine.configureTowerLevel(10, true);
+        GridCell targetCell = targetCell();
+        Column column = new Column(Column.GRAY_SPRITE);
+        targetCell.getItems().clear();
+        targetCell.getItems().add(column);
+
+        InteractionController.BreakResult result = controller.breakObjectAt(column, targetCell.getX(), targetCell.getY());
+
+        assertTrue(result.broken());
+        assertEquals(1, result.droppedItemCount());
+        assertTrue(targetCell.getItems().get(0) instanceof Armor);
     }
 
     private GridCell targetCell() {
