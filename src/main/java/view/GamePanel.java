@@ -126,11 +126,13 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
     private final Timer energyRefillTimer;
     private final Timer darknessShimmerTimer;
     private final long playStartTime = System.currentTimeMillis();
+    private long lastClockSecond = -1;
     private Timer continuousMoveTimer;
     private Timer transientWarningTimer;
     private Direction currentMovementDirection = null;
     private String transientWarningTitle;
     private String transientWarningMessage;
+    private TransientNoticeBar noticeBar;
     private boolean lastPausedState;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
@@ -199,6 +201,13 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
             long now = System.nanoTime();
             if (now - heroAttackAnimNanos < ATTACK_ANIM_DURATION_NANOS
                     || now < enemyTiltEffectUntilNanos) {
+                repaintNeeded = true;
+            }
+            // Keep the HUD clock ticking even while the hero stands still: repaint
+            // whenever the whole-second display value changes.
+            long second = (System.currentTimeMillis() - playStartTime) / 1000;
+            if (second != lastClockSecond) {
+                lastClockSecond = second;
                 repaintNeeded = true;
             }
             if (repaintNeeded) {
@@ -889,7 +898,20 @@ private void handleInventoryKeyPress() {
         };
     }
 
+    /**
+     * Routes no-input notices to the off-map {@link TransientNoticeBar} beside
+     * the PAUSE button. When set, warnings render there instead of over the map.
+     */
+    void setNoticeBar(TransientNoticeBar noticeBar) {
+        this.noticeBar = noticeBar;
+    }
+
     private void showTransientWarning(String title, String message) {
+        if (noticeBar != null) {
+            noticeBar.show(title == null ? "Warning" : title, message == null ? "" : message);
+            requestFocusInWindow();
+            return;
+        }
         transientWarningTitle = title == null ? "Warning" : title;
         transientWarningMessage = message == null ? "" : message;
         if (transientWarningTimer != null) {
@@ -1501,12 +1523,8 @@ private void handleInventoryKeyPress() {
         }
         double angle = (WEAPON_REST_RADIANS + swing) * dir;
 
-        // Seat the grip lower so the sword sits in the hand rather than up by
-        // the torso.
-        int gripY = handY + Math.round(heroSpriteH * 0.25f);
-
         AffineTransform saved = g2.getTransform();
-        g2.translate(handX, gripY);
+        g2.translate(handX, handY);
         g2.rotate(angle);
         // Handle sits at the pivot (hand); blade extends upward from there.
         g2.drawImage(sprite, -wpnW / 2, -wpnH, wpnW, wpnH, null);
