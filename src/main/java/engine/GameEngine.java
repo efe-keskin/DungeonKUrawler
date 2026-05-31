@@ -1516,6 +1516,10 @@ public class GameEngine {
         petTimer = new Timer(PET_TICK_MS, e -> updatePet());
         petTimer.setRepeats(true);
         petTimer.start();
+
+        shadowCloneTimer = new Timer(SHADOW_CLONE_TICK_MS, e -> updateShadowClones());
+        shadowCloneTimer.setRepeats(true);
+        shadowCloneTimer.start();
     }
 
     /** Counts all Knight/Sorcerer entities currently on the map. */
@@ -2732,6 +2736,7 @@ public class GameEngine {
         if (projectileTimer != null) projectileTimer.stop();
         if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
         if (petTimer != null) petTimer.stop();
+        if (shadowCloneTimer != null) shadowCloneTimer.stop();
     }
 
     private void pauseAllTimers() {
@@ -2745,6 +2750,7 @@ public class GameEngine {
         if (projectileTimer != null) projectileTimer.stop();
         if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
         if (petTimer != null) petTimer.stop();
+        if (shadowCloneTimer != null) shadowCloneTimer.stop();
     }
 
     private void resumeAllTimers() {
@@ -2758,5 +2764,6 @@ public class GameEngine {
         if (projectileTimer != null) projectileTimer.start();
         if (teamMatchActionTimer != null) teamMatchActionTimer.start();
         if (petTimer != null) petTimer.start();
+        if (shadowCloneTimer != null) shadowCloneTimer.start();
     }
 }
