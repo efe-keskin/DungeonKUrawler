@@ -2509,6 +2509,41 @@ public class GameEngine {
         }
     }
 
+    /**
+     * One-step move for a shadow clone toward the hero. Returns true
+     * if the clone moved. Stops one cell short (chebyshev distance 1)
+     * so it doesn't crowd the hero.
+     */
+    private boolean stepShadowCloneTowardHero(ShadowClone clone) {
+        int distance = chebyshevDistance(clone.getX(), clone.getY(),
+                                          hero.getX(), hero.getY());
+        if (distance <= 1) return false;
+        int dx = Integer.compare(hero.getX(), clone.getX());
+        int dy = Integer.compare(hero.getY(), clone.getY());
+        if (Math.abs(hero.getX() - clone.getX()) >= Math.abs(hero.getY() - clone.getY())) {
+            if (tryMoveShadowClone(clone, clone.getX() + dx, clone.getY())) {
+                return true;
+            }
+            return tryMoveShadowClone(clone, clone.getX(), clone.getY() + dy);
+        }
+        if (tryMoveShadowClone(clone, clone.getX(), clone.getY() + dy)) {
+            return true;
+        }
+        return tryMoveShadowClone(clone, clone.getX() + dx, clone.getY());
+    }
+
+    private boolean tryMoveShadowClone(ShadowClone clone, int targetX, int targetY) {
+        GridCell from = dungeonMap.getCell(clone.getX(), clone.getY());
+        GridCell to = dungeonMap.getCell(targetX, targetY);
+        if (from == null || to == null || !to.isWalkable()) return false;
+        if (!to.getEntitiesView().isEmpty()) return false;
+        from.getEntities().remove(clone);
+        clone.setX(targetX);
+        clone.setY(targetY);
+        to.getEntities().add(clone);
+        return true;
+    }
+
     private boolean movePenguinTowardEnemy() {
         Entity target = nearestEnemyNearPet();
         if (target == null) {
