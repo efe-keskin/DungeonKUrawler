@@ -33,7 +33,6 @@ import engine.GameStateListener;
 import engine.InteractionController;
 import model.BossEnemy;
 import model.Container;
-import model.DefeatedEnemyMarker;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
@@ -272,9 +271,6 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
                 if (attackResult != null) {
-                    if (attackResult.isDefenderDefeated()) {
-                        leaveDefeatMarker(gridX, gridY);
-                    }
                     GamePanel.this.requestFocusInWindow();
                     return;
                 }
@@ -425,14 +421,6 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
     }
 
-    private void leaveDefeatMarker(int gridX, int gridY) {
-        GridCell cell = engine.getDungeonMap().getCell(gridX, gridY);
-        if (cell != null) {
-            cell.getItems().add(new DefeatedEnemyMarker());
-            repaint();
-        }
-    }
-
     private void handleOpenKeyPress() {
         Window parent = SwingUtilities.getWindowAncestor(this);
 
@@ -495,9 +483,6 @@ public class GamePanel extends JPanel implements GameStateListener {
     private void handleHitKeyPress() {
         CombatController.TargetedAttack attack = combatController.attackNearestEnemy();
         if (attack != null) {
-            if (attack.result().isDefenderDefeated()) {
-                leaveDefeatMarker(attack.x(), attack.y());
-            }
             requestFocusInWindow();
             return;
         }
