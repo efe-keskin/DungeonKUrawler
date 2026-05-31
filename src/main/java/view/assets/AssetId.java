@@ -38,7 +38,7 @@ public enum AssetId {
     BOOK_RED("/items/books/22_book_red.png"),
     SHADOW_CLONE_SCROLL("/items/scrolls/shadow_clone_scroll.png"),
     GEM_WHITE("/items/golds_coins/16_gem_white.png"),
-    DEFEATED_ENEMY_MARKER("/items/tombstones/26_tombstone_skull.png"),
+    DEFEATED_ENEMY_MARKER("/items/skulls/14_skull_dark.png"),
 
     // Torch animation frames (8 frames for inventory animation).
     TORCH_FRAME_1("/background_floor/assets/torches/50_torch_lit_01.png"),

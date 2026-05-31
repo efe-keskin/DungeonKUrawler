@@ -150,7 +150,7 @@ public final class AssetManager {
                     "19_nugget_gold.png", "20_coin_pile_gold.png" -> "/items/golds_coins/" + filename;
             case "22_book_red.png" -> "/items/books/" + filename;
             case "23_tombstone_crack.png", "24_tombstone_lines.png", "25_tombstone_cross.png",
-                    "26_tombstone_skull.png" -> "/items/tombstones/" + filename;
+                    "26_tombstone_skull.png" -> "/items/tombstones/23_tombstone_crack.png";
             default -> "/items/" + filename;
         };
     }
@@ -211,14 +211,7 @@ public final class AssetManager {
             case "15" -> "/background_floor/assets/doors/" + filename;
             case "17" -> "/background_floor/assets/doors/17_door_open_wood.png";
             case "35", "36", "37", "38" -> "/background_floor/assets/banners/" + filename;
-            case "41", "42", "43", "44", "45", "46", "47", "48" -> "/background_floor/assets/rugs/" + filename;
             case "49", "50", "51", "52", "53", "54", "55", "56", "57" -> "/background_floor/assets/torches/" + filename;
-            case "58" -> "/background_floor/assets/trap_floors/58_trap_floor.png";
-            case "59", "60", "63" -> "/background_floor/assets/stairs/" + filename;
-            case "61", "62" -> "/background_floor/assets/trap_floors/" + filename;
-            case "64" -> "/background_floor/assets/trap_floors/61_trap_floor_holes.png";
-            case "65" -> "/background_floor/assets/trap_floors/62_trap_floor_spikes.png";
-            case "66", "67" -> "/background_floor/assets/signs/" + filename;
             default -> "/background_floor/assets/" + filename;
         };
     }

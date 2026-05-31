@@ -1,7 +1,7 @@
 {
   "schema": "DungeonKUrawler.DungeonMap",
   "version": 2,
-  "levelName": "Warden\u0027s Lair",
+  "levelName": "Warden's Lair",
   "width": 20,
   "height": 16,
   "fogEnabled": true,
@@ -347,14 +347,7 @@
       "x": 12,
       "y": 2,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/61_trap_floor_holes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 13,
@@ -444,14 +437,7 @@
       "x": 7,
       "y": 3,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/62_trap_floor_spikes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 8,
@@ -1315,14 +1301,7 @@
       "x": 8,
       "y": 10,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/61_trap_floor_holes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 9,
@@ -1568,14 +1547,7 @@
       "x": 9,
       "y": 12,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 10,
@@ -1587,14 +1559,7 @@
       "x": 11,
       "y": 12,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 12,
