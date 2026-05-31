@@ -132,6 +132,8 @@ public class GameEngine {
     private static final int PROJECTILE_TICK_MS = 300;
     private static final int PET_TICK_MS = 650;
     private static final long DRAGON_ATTACK_COOLDOWN_NANOS = TimeUnit.MILLISECONDS.toNanos(450);
+    /** Chebyshev radius of the dragon pet's light — radius 1 lights a 3x3 area. */
+    private static final int DRAGON_LIGHT_RADIUS = 1;
     private static final int KNIGHT_PET_MELEE_DAMAGE = 2;
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
@@ -2662,6 +2664,11 @@ public class GameEngine {
         return isFrozen(enemy);
     }
 
+    /** The equipped pet's on-grid presence for this floor, or {@code null} when none. */
+    public PetEntity getPetEntity() {
+        return petEntity;
+    }
+
     /**
      * Places the hero's equipped pet on a free tile beside the hero for this
      * floor, restoring it to full vitals first (a fresh floor revives a fainted
@@ -2671,11 +2678,13 @@ public class GameEngine {
         petEntity = null;
         Pet pet = hero.getEquippedPet();
         if (pet == null) {
+            syncDragonLight();
             return;
         }
         pet.revive();
         int[] spot = freeTileNextTo(hero.getX(), hero.getY());
         if (spot == null) {
+            syncDragonLight();
             return;
         }
         petEntity = new PetEntity(pet, spot[0], spot[1]);
@@ -2683,6 +2692,7 @@ public class GameEngine {
         if (cell != null) {
             cell.getEntities().add(petEntity);
         }
+        syncDragonLight();
     }
 
     private int[] freeTileNextTo(int x, int y) {
@@ -2709,6 +2719,7 @@ public class GameEngine {
         }
         Pet pet = hero.getEquippedPet();
         if (pet == null || petEntity == null || !pet.isAlive()) {
+            syncDragonLight();
             return;
         }
         boolean changed;
@@ -2724,8 +2735,24 @@ public class GameEngine {
         } else {
             changed = movePetTowardHero();
         }
+        syncDragonLight();
         if (changed) {
             notifyListeners();
+        }
+    }
+
+    /**
+     * Keeps the Fear-of-the-Dark engine's companion light tracking the dragon
+     * pet: a dragon lights a {@link #DRAGON_LIGHT_RADIUS}-radius (3x3) area
+     * around itself, while any other pet (or none) leaves the dark untouched.
+     */
+    private void syncDragonLight() {
+        if (petEntity != null && petEntity.getPet() instanceof DragonPet
+                && petEntity.getPet().isAlive()) {
+            fearOfTheDarkEngine.setAuxiliaryLight(
+                    petEntity.getX(), petEntity.getY(), DRAGON_LIGHT_RADIUS);
+        } else {
+            fearOfTheDarkEngine.clearAuxiliaryLight();
         }
     }
 
@@ -2916,10 +2943,30 @@ public class GameEngine {
                     Math.abs(enemy.getY() - petEntity.getY()));
             if (gap <= 1) {
                 frozenUntilNanos.put(enemy, until);
+                penguinTouchDamage(enemy);
                 any = true;
             }
         }
+        if (any) {
+            // Drives the view's attack-tilt, same as a knight melee strike.
+            petEntity.markAttacked();
+        }
         return any;
+    }
+
+    /** Penguin touch: a light flat melee hit on an adjacent enemy, clearing it on defeat. */
+    private void penguinTouchDamage(Entity enemy) {
+        CombatManager.AttackResult result =
+                combatManager.applyPetMeleeHit(enemy, PenguinPet.TOUCH_DAMAGE);
+        if (result.isDefenderDefeated()) {
+            frozenUntilNanos.remove(enemy);
+            GridCell cell = dungeonMap.getCell(enemy.getX(), enemy.getY());
+            if (cell != null) {
+                cell.getEntities().remove(enemy);
+            }
+            fireEnemyDefeated(enemy);
+            resolveTeamMatchOutcome();
+        }
     }
 
     /** Dragon: fires at the nearest enemy on a clear straight ray within range. */

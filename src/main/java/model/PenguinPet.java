@@ -2,13 +2,15 @@ package model;
 
 /**
  * Pet that freezes any enemy it touches for a few seconds (the freeze timer is
- * enforced by the engine). Roams beside the hero at knight range.
+ * enforced by the engine) and chips it with a light touch attack. Roams beside
+ * the hero at knight range.
  */
 public final class PenguinPet extends Pet {
 
-    /** +30% over the previous 3000 ms — the penguin deals no damage, so its
-     *  freeze uptime is its "DPS" equivalent. */
+    /** +30% over the previous 3000 ms — the freeze is the penguin's main weapon. */
     public static final int FREEZE_DURATION_MS = 3900;
+    /** Flat melee damage dealt to each enemy the penguin touches per pet tick. */
+    public static final int TOUCH_DAMAGE = 2;
     private static final String SPRITE = "/pets/penguin1.png";
     private static final int FOLLOW_RANGE = 5;
 
