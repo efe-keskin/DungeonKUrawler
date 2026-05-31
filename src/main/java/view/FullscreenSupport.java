@@ -11,8 +11,9 @@ import javax.swing.JFrame;
 import javax.swing.KeyStroke;
 
 /**
- * Adds an F11 fullscreen toggle to any JFrame. Single static method:
- * each window calls install(this) once.
+ * Adds a Cmd+Shift+F (macOS) / Ctrl+Shift+F (Windows/Linux)
+ * fullscreen toggle to any JFrame. Single static method: each window
+ * calls install(this) once.
  *
  * <p>Uses Swing's input/action map on the root pane so the binding is
  * window-local and doesn't conflict with focused-component handlers.
@@ -28,10 +29,16 @@ public final class FullscreenSupport {
 
     public static void install(JFrame frame) {
         JComponent rootPane = frame.getRootPane();
-        KeyStroke f11 = KeyStroke.getKeyStroke(KeyEvent.VK_F11, 0);
+
+        // Cmd+Shift+F on macOS, Ctrl+Shift+F on Windows/Linux.
+        // F11 was used originally but macOS intercepts F11 system-wide
+        // (Mission Control / Show Desktop), so the JVM never sees it.
+        int menuMask = java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+        KeyStroke combo = KeyStroke.getKeyStroke(KeyEvent.VK_F,
+                menuMask | java.awt.event.InputEvent.SHIFT_DOWN_MASK);
 
         rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(f11, "toggleFullscreen");
+                .put(combo, "toggleFullscreen");
         rootPane.getActionMap().put("toggleFullscreen", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
