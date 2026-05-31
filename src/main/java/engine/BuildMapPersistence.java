@@ -18,6 +18,7 @@ import com.google.gson.GsonBuilder;
 
 import model.Armor;
 import model.Book;
+import model.BreakableObject;
 import model.Chest;
 import model.Coin;
 import model.Column;
@@ -258,6 +259,9 @@ public final class BuildMapPersistence {
         } else {
             dto.type = "item";
         }
+        if (item instanceof BreakableObject breakableObject) {
+            addBreakableState(dto, breakableObject);
+        }
         return dto;
     }
 
@@ -277,6 +281,11 @@ public final class BuildMapPersistence {
 
     private void addSearchableState(ItemDto dto, SearchableObject searchableObject) {
         Item hidden = searchableObject.getHiddenItem();
+        dto.hiddenItem = hidden == null ? null : toDto(hidden);
+    }
+
+    private void addBreakableState(ItemDto dto, BreakableObject breakableObject) {
+        Item hidden = breakableObject.getHiddenItem();
         dto.hiddenItem = hidden == null ? null : toDto(hidden);
     }
 
@@ -314,13 +323,13 @@ public final class BuildMapPersistence {
                     bool(dto.blocking), dto.spriteResource);
             case "searchableObject" -> new SearchableObject(name(dto, "Searchable Object"),
                     bool(dto.blocking), dto.spriteResource, fromNullableDto(dto.hiddenItem));
-            case "column" -> dto.spriteResource == null
+            case "column" -> restoreBreakable(dto.spriteResource == null
                     ? new Column()
-                    : new Column(dto.spriteResource);
-            case "vase" -> new Vase(Vase.BROKEN_SPRITE.equals(dto.spriteResource));
-            case "waterPipe" -> dto.spriteResource == null
+                    : new Column(dto.spriteResource), dto);
+            case "vase" -> restoreBreakable(new Vase(Vase.BROKEN_SPRITE.equals(dto.spriteResource)), dto);
+            case "waterPipe" -> restoreBreakable(dto.spriteResource == null
                     ? new WaterPipe()
-                    : new WaterPipe(dto.spriteResource);
+                    : new WaterPipe(dto.spriteResource), dto);
             case "healPotion" -> new HealPotion();
             case "energyPotion" -> new EnergyPotion();
             case "manaPotion" -> new ManaPotion();
@@ -357,6 +366,12 @@ public final class BuildMapPersistence {
             }
         }
         return container;
+    }
+
+    private <T extends BreakableObject> T restoreBreakable(T breakableObject, ItemDto dto)
+            throws IOException {
+        breakableObject.setHiddenItem(fromNullableDto(dto.hiddenItem));
+        return breakableObject;
     }
 
     private WeaponType weaponType(ItemDto dto) {

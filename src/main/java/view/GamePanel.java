@@ -529,16 +529,15 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
 
         model.Arch arch = engine.findArchNearHero();
         if (arch != null) {
-            boolean hasKey = engine.heroHasGoldKey();
-            boolean foundTreasure = engine.getTargetMission().isWon();
-            if (!hasKey) {
-                showTransientWarning("Cannot Open Exit",
-                        "The exit is locked. Find the gold key before opening the arch.");
-            } else if (!foundTreasure) {
-                showTransientWarning("Treasure Required",
-                        "You have the gold key, but you must claim the floor's hidden treasure before leaving.");
-            } else {
-                engine.openArch(arch);
+            GameEngine.ExitOpenResult result = engine.tryOpenExit(arch);
+            switch (result) {
+                case NO_MATCHING_KEY -> showTransientWarning("Cannot Open Exit",
+                        "The exit is locked. Find its assigned key before opening the door.");
+                case TREASURE_REQUIRED -> showTransientWarning("Treasure Required",
+                        "You have the exit key, but you must claim the floor's hidden treasure before leaving.");
+                default -> {
+                    // Opening and already-open exits need no blocking notice.
+                }
             }
             requestFocusInWindow();
             return;
