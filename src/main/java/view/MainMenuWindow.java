@@ -131,15 +131,10 @@ public class MainMenuWindow extends JFrame {
         help.setOpaque(false);
         help.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            ItemActionMenuDialog.showNotice(this, "Controls", "Help",
-                    "WASD / Arrow Keys: Move hero\n"
-                            + "R / PAUSE: Pause game and open menu\n"
-                            + "T: Take nearby item\n"
-                            + "O: Open exit/chest or search nearby object\n"
-                            + "P: Attack nearest enemy or break nearby object\n"
-                            + "I / INVENTORY: Open inventory\n"
-                            + "Mouse Click: Attack or interact with clicked tile\n"
-                            + "ESC: Close dialogs/popups");
+
+            new HelpDialog(this).setVisible(true);
+
+
         });
 
         JButton exit = new JButton("EXIT");
