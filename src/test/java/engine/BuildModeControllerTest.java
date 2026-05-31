@@ -26,6 +26,7 @@ import model.Crate;
 import model.Key;
 import model.MissingBrick;
 import model.SearchableObject;
+import model.ShadowCloneScroll;
 import model.ValuableItem;
 import model.Vase;
 import model.WaterPipe;
@@ -330,6 +331,27 @@ class BuildModeControllerTest {
         assertChestVariant(controller, "CHEST_OPEN_LOOT_BLUE", 3, 2, false);
         assertChestVariant(controller, "CHEST_ORANGE_OPEN_EMPTY_1", 4, 2, true);
         assertChestVariant(controller, "CHEST_ORANGE_OPEN_LOOT_1", 5, 2, false);
+    }
+
+    @Test
+    void shadowCloneScrollSurvivesBuildMapSaveLoadRoundTrip() throws IOException {
+        BuildModeController controller = controller();
+
+        assertTrue(controller.placeToolAt(2, 2, controller.findTool("SHADOW_CLONE_SCROLL")));
+
+        Path path = tempDir.resolve("shadow-clone-scroll.dkmap");
+        controller.saveMap(path);
+        controller.clearMap();
+        controller.loadMap(path);
+
+        ShadowCloneScroll scroll = assertInstanceOf(ShadowCloneScroll.class,
+                controller.getDesignMap().getCell(2, 2).getItemsView().get(0));
+        assertTrue(scroll.getInventoryActions().contains(ItemAction.READ));
+    }
+
+    @Test
+    void crackedTombstoneIsNotExposedInBuildPalette() {
+        assertNull(controller().findTool("TOMBSTONE_CRACK"));
     }
 
     @Test

@@ -37,6 +37,7 @@ import model.Pool;
 import model.Ring;
 import model.RingEffectType;
 import model.SearchableObject;
+import model.ShadowCloneScroll;
 import model.ValuableItem;
 import model.ValuableItemCatalog;
 import model.Vase;
@@ -101,8 +102,6 @@ public final class BuildToolCatalog {
                         ITEM_DIR + "skulls/13_skull_beige.png"),
                 decor("SKULL_DARK", "Skull Dark", false,
                         ITEM_DIR + "skulls/14_skull_dark.png"),
-                decor("TOMBSTONE_CRACK", "Tombstone Crack", false,
-                        ITEM_DIR + "tombstones/23_tombstone_crack.png"),
                 chest("CHEST", "Locked Blue Chest", "01_chest_closed_blue_trim.png", true),
                 chest("LOCKED_CHEST", "Locked Gold Chest", "02_chest_closed_gold_trim.png", true),
                 chest("CHEST_ORNATE_TAN", "Locked Ornate Tan Chest", "07_ornate_chest_gold_tan.png", true),
@@ -164,6 +163,7 @@ public final class BuildToolCatalog {
                 object("ENERGY", "Energy", EnergyPotion::new),
                 object("MANA", "Mana", ManaPotion::new),
                 object("BOOK", "Red Book", () -> new Book("Red Book", "A dusty dungeon journal.")),
+                object("SHADOW_CLONE_SCROLL", "Shadow Clone Scroll", ShadowCloneScroll::new),
                 object("KEY", "Key Silver", () -> new Key("silver", KeyColor.SILVER)),
                 object("KEY_OLIVE", "Key Olive", () -> new Key("olive", KeyColor.OLIVE)),
                 object("KEY_GOLD", "Key Gold", () -> new Key("gold", KeyColor.GOLD)),
