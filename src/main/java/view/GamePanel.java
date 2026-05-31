@@ -50,7 +50,8 @@ import model.SearchableObject;
 import model.ShadowClone;
 import model.Sorcerer;
 import model.Weapon;
-import save.SaveGameController;
+import save.CustomGameSaveStrategy;
+import save.GameSaveStrategy;
 import save.SaveGameException;
 import save.SaveLimitExceededException;
 import view.assets.SpriteRegistry;
@@ -110,7 +111,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
     private final CombatController combatController;
-    private final SaveGameController saveGameController = new SaveGameController();
+    private final GameSaveStrategy saveStrategy;
+    private final GameReturnStrategy returnStrategy;
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
@@ -136,9 +138,23 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
+        this(engine, playerModeController, interactionController,
+                new CustomGameSaveStrategy(), new MainMenuReturnStrategy());
+    }
+
+    public GamePanel(GameEngine engine, PlayerModeController playerModeController,
+            InteractionController interactionController, GameSaveStrategy saveStrategy) {
+        this(engine, playerModeController, interactionController, saveStrategy, new MainMenuReturnStrategy());
+    }
+
+    public GamePanel(GameEngine engine, PlayerModeController playerModeController,
+            InteractionController interactionController, GameSaveStrategy saveStrategy,
+            GameReturnStrategy returnStrategy) {
         this.engine = engine;
         this.playerModeController = playerModeController;
         this.interactionController = interactionController;
+        this.saveStrategy = saveStrategy == null ? new CustomGameSaveStrategy() : saveStrategy;
+        this.returnStrategy = returnStrategy == null ? new MainMenuReturnStrategy() : returnStrategy;
         this.combatController = new CombatController(engine);
 
         Hero hero = engine.getHero();
@@ -189,14 +205,8 @@ public class GamePanel extends JPanel implements GameStateListener {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                    showInGameMenu();
-                    return;
-                }
-
                 if (e.getKeyCode() == KeyEvent.VK_R) {
-                    engine.togglePause();
-                    applyPauseState();
+                    showPauseMenu();
                     return;
                 }
                 if (engine.isGameOver() || engine.isPaused()) {
@@ -366,7 +376,20 @@ public class GamePanel extends JPanel implements GameStateListener {
         return true;
     }
 
-    public void showInGameMenu() {
+    public void showPauseMenu() {
+        if (!engine.isPaused() && !engine.isGameOver()) {
+            engine.togglePause();
+            applyPauseState();
+        }
+
+        boolean returnToGameplay = showInGameMenu();
+        if (returnToGameplay && engine.isPaused() && !engine.isGameOver()) {
+            engine.togglePause();
+            applyPauseState();
+        }
+    }
+
+    private boolean showInGameMenu() {
         currentMovementDirection = null;
         if (continuousMoveTimer != null) {
             continuousMoveTimer.stop();
@@ -374,45 +397,47 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         Window parent = SwingUtilities.getWindowAncestor(this);
         int choice = ItemActionMenuDialog.show(parent, "Menu", "Game Menu",
-                "Choose an action.", "Continue", "Save Game", "Menu");
+                "Choose an action.", "Continue", "Save Game", returnStrategy.menuLabel());
         switch (choice) {
-            case 1 -> handleSaveGame(parent);
-            case 2 -> returnToMainMenu(parent);
-            default -> requestFocusInWindow();
+            case 1:
+                return handleSaveGame(parent);
+            case 2:
+                returnStrategy.returnFrom(parent);
+                return false;
+            default:
+                requestFocusInWindow();
+                return true;
         }
     }
 
-    private void handleSaveGame(Window parent) {
+    private boolean handleSaveGame(Window parent) {
         SaveGameDialog.Result result = SaveGameDialog.show(parent);
         if (result.action() == SaveGameDialog.Action.CANCEL) {
             requestFocusInWindow();
-            return;
+            return true;
         }
         try {
-            saveGameController.saveGame(engine, result.saveName());
+            saveStrategy.save(engine, result.saveName());
             if (result.action() == SaveGameDialog.Action.SAVE_AND_EXIT) {
-                returnToMainMenu(parent);
+                returnStrategy.returnFrom(parent);
+                return false;
             } else {
                 ItemActionMenuDialog.showNotice(parent, "Save Game", "Saved",
                         "Game saved successfully.");
                 requestFocusInWindow();
+                return true;
             }
         } catch (SaveLimitExceededException ex) {
             ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Limit",
                     "You can keep at most 10 saved games. Delete an old save first.");
             requestFocusInWindow();
+            return true;
         } catch (SaveGameException ex) {
             ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
                     "Game could not be saved. Please try again.");
             requestFocusInWindow();
+            return true;
         }
-    }
-
-    private void returnToMainMenu(Window parent) {
-        if (parent != null) {
-            parent.dispose();
-        }
-        SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
     }
 
     private void showSearchResult(GameEngine.SearchResult result) {

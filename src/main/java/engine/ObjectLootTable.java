@@ -12,6 +12,7 @@ import model.Key;
 import model.KeyColor;
 import model.ManaPotion;
 import model.Ring;
+import model.RingEffectType;
 import model.Weapon;
 import model.WeaponCatalog;
 
@@ -50,7 +51,7 @@ final class ObjectLootTable {
             return new Key("silver", KeyColor.SILVER);
         }
         if (roll < 0.97) {
-            return new Ring("Protective Ring", 1);
+            return randomRing(rng);
         }
         if (rng.nextDouble() < 0.5) {
             return new Weapon(WeaponCatalog.get().byId("W006"));
@@ -60,5 +61,14 @@ final class ObjectLootTable {
 
     private static Random safeRandom(Random random) {
         return random == null ? ThreadLocalRandom.current() : random;
+    }
+
+    private static Ring randomRing(Random rng) {
+        return switch (rng.nextInt(4)) {
+            case 0 -> new Ring("Power Ring", RingEffectType.STRENGTH, 3, "/items/rings/10_ring_red_gem.png");
+            case 1 -> new Ring("Energy Ring", RingEffectType.ENERGY, 6, "/items/rings/11_ring_green_gem.png");
+            case 2 -> new Ring("Mana Ring", RingEffectType.MANA, 6, "/items/rings/12_ring_blue_gem.png");
+            default -> new Ring("Protective Ring", RingEffectType.DEFENSE, 3);
+        };
     }
 }
