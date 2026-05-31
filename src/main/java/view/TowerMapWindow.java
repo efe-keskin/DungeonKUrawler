@@ -21,6 +21,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
@@ -219,7 +220,7 @@ public final class TowerMapWindow extends JFrame {
         JButton skip = createSkipToLevelButton();
         JButton shop = createShopButton();
         JButton inventory = createInventoryButton();
-        JPanel mapLayer = new JPanel(null) {
+        JLayeredPane mapLayer = new JLayeredPane() {
             @Override
             public void doLayout() {
                 scroll.setBounds(0, 0, getWidth(), getHeight());
@@ -236,15 +237,15 @@ public final class TowerMapWindow extends JFrame {
             }
         };
         mapLayer.setBackground(BACKDROP);
-        mapLayer.add(scroll);
-        mapLayer.add(back);
-        mapLayer.add(skip);
-        mapLayer.add(shop);
-        mapLayer.add(inventory);
-        mapLayer.setComponentZOrder(back, 0);
-        mapLayer.setComponentZOrder(skip, 0);
-        mapLayer.setComponentZOrder(shop, 0);
-        mapLayer.setComponentZOrder(inventory, 0);
+        mapLayer.setOpaque(true);
+        // Keep controls in a real overlay layer. A JScrollPane repaints its
+        // viewport while scrolling, so sibling components on a plain JPanel
+        // can be visually overwritten even when their bounds stay unchanged.
+        mapLayer.add(scroll, JLayeredPane.DEFAULT_LAYER);
+        mapLayer.add(back, JLayeredPane.PALETTE_LAYER);
+        mapLayer.add(skip, JLayeredPane.PALETTE_LAYER);
+        mapLayer.add(shop, JLayeredPane.PALETTE_LAYER);
+        mapLayer.add(inventory, JLayeredPane.PALETTE_LAYER);
         root.add(mapLayer, BorderLayout.CENTER);
 
         setContentPane(root);
