@@ -604,14 +604,7 @@
       "x": 1,
       "y": 4,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/61_trap_floor_holes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 2,
@@ -779,14 +772,7 @@
       "x": 7,
       "y": 5,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/62_trap_floor_spikes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 8,
@@ -924,14 +910,7 @@
       "x": 7,
       "y": 6,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/62_trap_floor_spikes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 8,
@@ -1447,14 +1426,7 @@
       "x": 1,
       "y": 10,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/61_trap_floor_holes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 2,
@@ -1526,14 +1498,7 @@
       "x": 13,
       "y": 10,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/61_trap_floor_holes.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 14,
@@ -1635,14 +1600,7 @@
       "x": 8,
       "y": 11,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 9,
@@ -1654,14 +1612,7 @@
       "x": 10,
       "y": 11,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 11,
@@ -2142,14 +2093,7 @@
       "x": 15,
       "y": 14,
       "passable": true,
-      "items": [
-        {
-          "type": "decorativeObject",
-          "name": "Trap Floor",
-          "spriteResource": "/background_floor/assets/trap_floors/58_trap_floor.png",
-          "blocking": false
-        }
-      ]
+      "items": []
     },
     {
       "x": 16,

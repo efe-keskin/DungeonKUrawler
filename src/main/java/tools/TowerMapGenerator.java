@@ -19,7 +19,6 @@ import model.Chest;
 import model.Coin;
 import model.Column;
 import model.Crate;
-import model.DecorativeObject;
 import model.DungeonMap;
 import model.EnergyPotion;
 import model.Gargoyle;
@@ -47,28 +46,22 @@ public final class TowerMapGenerator {
 
     private static final Path DEFAULT_OUTPUT = Path.of("src/main/resources/maps/tower");
     private static final String CHEST_DIR = "/items/chests/";
-    private static final String TRAP_DIR = "/background_floor/assets/trap_floors/";
     private static final long LEVEL_SEED_STEP = 0x9E3779B97F4A7C15L;
     private static final List<LevelSpec> LEVELS = List.of(
-            new LevelSpec(1, "Crypt Entrance", 16, 12, false, 8, 1, 2, 1),
-            new LevelSpec(2, "Dusty Halls", 16, 12, false, 14, 2, 3, 2),
-            new LevelSpec(3, "Forgotten Vault", 18, 13, false, 20, 3, 3, 3),
-            new LevelSpec(4, "Sunken Gallery", 18, 13, false, 27, 4, 4, 4),
-            new LevelSpec(5, "Warden's Lair", 20, 16, true, 35, 5, 4, 5),
-            new LevelSpec(6, "Ashen Catacombs", 20, 14, true, 43, 6, 5, 6),
-            new LevelSpec(7, "Veiled Passage", 20, 14, true, 51, 7, 5, 7),
-            new LevelSpec(8, "Shrouded Depths", 22, 16, true, 60, 8, 6, 8),
-            new LevelSpec(9, "Abyssal Threshold", 22, 16, true, 69, 9, 6, 10),
-            new LevelSpec(10, "Throne of the Dread King", 20, 16, true, 78, 11, 7, 12));
+            new LevelSpec(1, "Crypt Entrance", 16, 12, false, 8, 1, 2),
+            new LevelSpec(2, "Dusty Halls", 16, 12, false, 14, 2, 3),
+            new LevelSpec(3, "Forgotten Vault", 18, 13, false, 20, 3, 3),
+            new LevelSpec(4, "Sunken Gallery", 18, 13, false, 27, 4, 4),
+            new LevelSpec(5, "Warden's Lair", 20, 16, true, 35, 5, 4),
+            new LevelSpec(6, "Ashen Catacombs", 20, 14, true, 43, 6, 5),
+            new LevelSpec(7, "Veiled Passage", 20, 14, true, 51, 7, 5),
+            new LevelSpec(8, "Shrouded Depths", 22, 16, true, 60, 8, 6),
+            new LevelSpec(9, "Abyssal Threshold", 22, 16, true, 69, 9, 6),
+            new LevelSpec(10, "Throne of the Dread King", 20, 16, true, 78, 11, 7));
     private static final List<String> CHEST_SPRITES = List.of(
             "01_chest_closed_blue_trim.png",
             "02_chest_closed_gold_trim.png",
             "07_ornate_chest_gold_tan.png");
-    private static final List<String> TRAP_SPRITES = List.of(
-            TRAP_DIR + "58_trap_floor.png",
-            TRAP_DIR + "61_trap_floor_holes.png",
-            TRAP_DIR + "62_trap_floor_spikes.png");
-
     private final BuildMapPersistence persistence = new BuildMapPersistence(
             new BuildToolCatalog(), new BuildMapFactory(), new StandardBuildPlacementStrategy());
 
@@ -114,7 +107,6 @@ public final class TowerMapGenerator {
         placeLockedRewardKey(level, searchables);
         placeHiddenEnergyPotion(level, searchables);
         placeChests(level, map, openCells, used);
-        placeTraps(level, map, openCells, used);
 
         if (!openCells.contains(exitApproach)) {
             throw new IllegalStateException("Floor " + level.number() + " exit is unreachable.");
@@ -258,18 +250,6 @@ public final class TowerMapGenerator {
         }
     }
 
-    private void placeTraps(LevelSpec level, DungeonMap map, Set<Point> openCells, Set<Point> used) {
-        List<Point> candidates = new ArrayList<>(available(openCells, used));
-        candidates.sort(Comparator.comparingInt(Point::y).thenComparingInt(Point::x));
-        java.util.Collections.shuffle(candidates, layoutRandom(level, 18000L));
-        for (int index = 0; index < level.trapCount(); index++) {
-            Point point = candidates.get(index);
-            addItem(map, point, new DecorativeObject(
-                    "Trap Floor", false, TRAP_SPRITES.get(index % TRAP_SPRITES.size())));
-            used.add(point);
-        }
-    }
-
     private SearchableObject createSearchable(int index) {
         return switch (Math.floorMod(index, 11)) {
             case 0 -> new MissingBrick(MissingBrick.SPRITE_1, null);
@@ -405,8 +385,7 @@ public final class TowerMapGenerator {
             boolean fogEnabled,
             int wallCount,
             int breakableCount,
-            int searchableCount,
-            int trapCount) {
+            int searchableCount) {
     }
 
     private record Point(int x, int y) {

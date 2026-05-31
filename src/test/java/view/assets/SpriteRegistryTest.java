@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.awt.image.BufferedImage;
 
+import engine.BuildTool;
+import engine.BuildToolCatalog;
+import model.DefeatedEnemyMarker;
+import model.Item;
 import model.Knight;
 import model.Sorcerer;
 import model.Team;
@@ -79,6 +83,24 @@ class SpriteRegistryTest {
                 AssetManager.get().image("/background_floor/assets/searchable assets/water_pipes.png"));
         assertSame(AssetManager.get().image(Crate.WOOD_TALL_SPRITE),
                 AssetManager.get().image("/items/crates/17_crate_wood_tall_corrected.png"));
+    }
+
+    @Test
+    void defeatedEnemyMarkerUsesRetainedDarkSkullAsset() {
+        BufferedImage expected = AssetManager.get().image("/items/skulls/14_skull_dark.png");
+
+        assertNotNull(expected);
+        assertSame(expected, SpriteRegistry.spriteFor(new DefeatedEnemyMarker()));
+    }
+
+    @Test
+    void visibleBuildPaletteDoesNotReferenceMissingSprites() {
+        for (BuildTool tool : new BuildToolCatalog().tools()) {
+            Item preview = tool.previewItem();
+            if (preview != null) {
+                assertNotNull(SpriteRegistry.spriteFor(preview), tool.id());
+            }
+        }
     }
 
 }
