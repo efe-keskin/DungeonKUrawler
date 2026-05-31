@@ -93,11 +93,23 @@ public final class TargetItemMission {
         if (!pick.hide(target)) {
             return false;
         }
+        return startPlaced(target, pick);
+    }
+
+    /**
+     * Arms the mission around a valuable that is already present in an authored
+     * map. The hiding place may be {@code null} for legacy maps that stored the
+     * valuable directly on the floor.
+     */
+    public boolean startPlaced(ValuableItem target, HidingPlace hidingPlace) {
+        if (started || target == null) {
+            return false;
+        }
         this.target = target;
-        this.hidingPlace = pick;
+        this.hidingPlace = hidingPlace;
         this.started = true;
-        System.out.println("[mission] target '" + target.getName()
-                + "' hidden in " + pick.describe());
+        String location = hidingPlace == null ? "on the map" : "hidden in " + hidingPlace.describe();
+        System.out.println("[mission] target '" + target.getName() + "' " + location);
         for (MissionListener listener : listeners) {
             listener.onMissionStart(target);
         }

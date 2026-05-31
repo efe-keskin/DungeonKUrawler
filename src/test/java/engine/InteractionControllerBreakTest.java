@@ -162,6 +162,28 @@ class InteractionControllerBreakTest {
     }
 
     @Test
+    void breakObjectAt_whenPureBreakableBreaks_dropsHiddenItem() {
+        InteractionController controller = controllerWithRoll(0.0);
+        Hero hero = engine.getHero();
+        hero.setStr(20);
+        hero.setEnergy(30);
+        GridCell targetCell = targetCell();
+        Item hidden = new HealPotion();
+        Column column = new Column(Column.GRAY_SPRITE);
+        column.setHiddenItem(hidden);
+        targetCell.getItems().clear();
+        targetCell.getItems().add(column);
+
+        InteractionController.BreakResult result = controller.breakObjectAt(column,
+                targetCell.getX(), targetCell.getY());
+
+        assertTrue(result.broken());
+        assertEquals(1, result.droppedItemCount());
+        assertFalse(targetCell.getItems().contains(column));
+        assertSame(hidden, targetCell.getItems().get(0));
+    }
+
+    @Test
     void breakObjectAt_whenVaseBreaks_keepsBrokenSpriteAndDroppedLootCollectible() {
         InteractionController controller = controllerWithRolls(0.0, 0.74, 0.36);
         Hero hero = engine.getHero();

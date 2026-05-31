@@ -21,10 +21,12 @@ import model.ItemAction;
 import model.BreakableObject;
 import model.Chest;
 import model.Column;
+import model.Container;
 import model.Crate;
 import model.Key;
 import model.MissingBrick;
 import model.SearchableObject;
+import model.ValuableItem;
 import model.Vase;
 import model.WaterPipe;
 
@@ -91,6 +93,17 @@ class BuildModeControllerTest {
         controller.clearMap();
         assertTrue(controller.canAddFiveRandomItems());
         assertEquals(BuildModeController.MAX_RANDOM_ITEM_ADDS, controller.getRemainingRandomItemAdds());
+    }
+
+    @Test
+    void randomItemAdditionsNeverCreateValuableObjectives() {
+        BuildModeController controller = controller();
+
+        for (int i = 0; i < BuildModeController.MAX_RANDOM_ITEM_ADDS; i++) {
+            controller.addFiveRandomItems();
+        }
+
+        assertEquals(0, countValuableItems(controller.getDesignMap()));
     }
 
     @Test
@@ -202,6 +215,114 @@ class BuildModeControllerTest {
     }
 
     @Test
+    void valuableMustBeHiddenInsideExistingSearchableOrBreakableObject() {
+        BuildModeController controller = controller();
+        BuildTool valuable = controller.findTool("VALUABLE_CRYSTAL");
+
+        assertFalse(controller.placeToolAt(3, 3, valuable));
+        assertEquals(BuildModeController.VALUABLE_HIDING_PLACE_ONLY_MESSAGE,
+                controller.getLastPlacementMessage());
+
+        assertTrue(controller.placeToolAt(3, 0, controller.findTool("MISSING_BRICK")));
+        SearchableObject searchable = assertInstanceOf(SearchableObject.class,
+                controller.getDesignMap().getCell(3, 0).getItemsView().get(0));
+
+        assertTrue(controller.placeToolAt(3, 0, valuable));
+        assertInstanceOf(ValuableItem.class, searchable.getHiddenItem());
+        assertTrue(controller.getLastPlacementMessage().contains("Crystal Shard hidden in Missing Brick"));
+    }
+
+    @Test
+    void placingAnotherValuableRelocatesTheSingleAuthoredObjective() {
+        BuildModeController controller = controller();
+
+        assertTrue(controller.placeToolAt(3, 0, controller.findTool("MISSING_BRICK")));
+        SearchableObject searchable = assertInstanceOf(SearchableObject.class,
+                controller.getDesignMap().getCell(3, 0).getItemsView().get(0));
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("COLUMN")));
+        BreakableObject breakable = assertInstanceOf(BreakableObject.class,
+                controller.getDesignMap().getCell(4, 4).getItemsView().get(0));
+
+        assertTrue(controller.placeToolAt(3, 0, controller.findTool("VALUABLE_CRYSTAL")));
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("VALUABLE_IDOL")));
+
+        assertNull(searchable.getHiddenItem());
+        ValuableItem relocated = assertInstanceOf(ValuableItem.class, breakable.getHiddenItem());
+        assertEquals("Golden Idol", relocated.getName());
+        assertEquals(1, countValuableItems(controller.getDesignMap()));
+    }
+
+    @Test
+    void valuablePlacementDoesNotOverwriteExistingHiddenLootOrRemoveCurrentObjective() {
+        BuildModeController controller = controller();
+        assertTrue(controller.placeToolAt(3, 0, controller.findTool("MISSING_BRICK")));
+        SearchableObject occupied = assertInstanceOf(SearchableObject.class,
+                controller.getDesignMap().getCell(3, 0).getItemsView().get(0));
+        HealPotion hiddenLoot = new HealPotion();
+        occupied.setHiddenItem(hiddenLoot);
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("COLUMN")));
+        BreakableObject current = assertInstanceOf(BreakableObject.class,
+                controller.getDesignMap().getCell(4, 4).getItemsView().get(0));
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("VALUABLE_CRYSTAL")));
+
+        assertFalse(controller.placeToolAt(3, 0, controller.findTool("VALUABLE_IDOL")));
+
+        assertEquals(BuildModeController.VALUABLE_HIDING_PLACE_OCCUPIED_MESSAGE,
+                controller.getLastPlacementMessage());
+        assertEquals("Crystal Shard", current.getHiddenItem().getName());
+        assertEquals(hiddenLoot, occupied.getHiddenItem());
+        assertEquals(1, countValuableItems(controller.getDesignMap()));
+    }
+
+    @Test
+    void breakableHiddenValuableSurvivesBuildMapSaveLoadRoundTrip() throws IOException {
+        BuildModeController controller = controller();
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("COLUMN")));
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("VALUABLE_IDOL")));
+
+        Path path = tempDir.resolve("breakable-objective.dkmap");
+        controller.saveMap(path);
+        controller.clearMap();
+        controller.loadMap(path);
+
+        BreakableObject breakable = assertInstanceOf(BreakableObject.class,
+                controller.getDesignMap().getCell(4, 4).getItemsView().get(0));
+        ValuableItem valuable = assertInstanceOf(ValuableItem.class, breakable.getHiddenItem());
+        assertEquals("Golden Idol", valuable.getName());
+    }
+
+    @Test
+    void valuableCanBeHiddenInsideChestWithoutRemovingExistingLoot() {
+        BuildModeController controller = controller();
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("CHEST_OPEN_LOOT_BLUE")));
+        Chest chest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(4, 4).getItemsView().get(0));
+        assertEquals(1, chest.getContents().size());
+
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("VALUABLE_IDOL")));
+
+        assertEquals(2, chest.getContents().size());
+        ValuableItem valuable = assertInstanceOf(ValuableItem.class, chest.getContents().get(1));
+        assertEquals("Golden Idol", valuable.getName());
+        assertEquals(1, countValuableItems(controller.getDesignMap()));
+    }
+
+    @Test
+    void keyCanBeHiddenInsideChestWithoutReplacingChest() {
+        BuildModeController controller = controller();
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("CHEST_OPEN_EMPTY_BLUE")));
+        Chest chest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(4, 4).getItemsView().get(0));
+
+        assertTrue(controller.placeToolAt(4, 4, controller.findTool("KEY_ORANGE")));
+
+        assertEquals(1, controller.getDesignMap().getCell(4, 4).getItemsView().size());
+        Key key = assertInstanceOf(Key.class, chest.getContents().get(0));
+        assertEquals("orange", key.getKeyId());
+        assertTrue(controller.getLastPlacementMessage().contains("hidden in Open Empty Blue Chest"));
+    }
+
+    @Test
     void openChestVariantsCanBePlacedFromTheCatalog() {
         BuildModeController controller = controller();
 
@@ -245,6 +366,22 @@ class BuildModeControllerTest {
         assertTrue(key.matches(chest.getRequiredKeyId()));
         assertFalse(hasGroundKeyMatching(controller.getDesignMap(), chest.getRequiredKeyId()));
         assertTrue(controller.getLastPlacementMessage().contains("hidden in Stone Gargoyle"));
+    }
+
+    @Test
+    void lockedChestKeyCanBeHiddenInsideExistingOpenChest() {
+        BuildModeController controller = controller();
+        assertTrue(controller.placeToolAt(2, 2, controller.findTool("CHEST_OPEN_EMPTY_BLUE")));
+        Chest openChest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(2, 2).getItemsView().get(0));
+
+        assertTrue(controller.placeToolAt(3, 3, controller.findTool("CHEST")));
+
+        Chest lockedChest = assertInstanceOf(Chest.class,
+                controller.getDesignMap().getCell(3, 3).getItemsView().get(0));
+        Key key = assertInstanceOf(Key.class, openChest.getContents().get(0));
+        assertTrue(key.matches(lockedChest.getRequiredKeyId()));
+        assertTrue(controller.getLastPlacementMessage().contains("hidden in Open Empty Blue Chest"));
     }
 
     @Test
@@ -408,5 +545,33 @@ class BuildModeControllerTest {
             }
         }
         return count;
+    }
+
+    private int countValuableItems(DungeonMap map) {
+        int count = 0;
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                for (Item item : map.getCell(x, y).getItemsView()) {
+                    count += countValuableItems(item);
+                }
+            }
+        }
+        return count;
+    }
+
+    private int countValuableItems(Item item) {
+        if (item instanceof ValuableItem) {
+            return 1;
+        }
+        if (item instanceof SearchableObject searchableObject) {
+            return countValuableItems(searchableObject.getHiddenItem());
+        }
+        if (item instanceof BreakableObject breakableObject) {
+            return countValuableItems(breakableObject.getHiddenItem());
+        }
+        if (item instanceof Container container) {
+            return container.getContents().stream().mapToInt(this::countValuableItems).sum();
+        }
+        return 0;
     }
 }
