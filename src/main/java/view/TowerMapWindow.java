@@ -249,6 +249,7 @@ public final class TowerMapWindow extends JFrame {
 
         setContentPane(root);
         setSize(WINDOW_W, WINDOW_H);
+        FullscreenSupport.install(this);
         setLocationRelativeTo(null);
         SwingUtilities.invokeLater(() -> {
             int targetY = towerPanel.heroYForScroll();

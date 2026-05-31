@@ -175,6 +175,7 @@ public class MainMenuWindow extends JFrame {
         setContentPane(background);
         pack();
         setSize(PREF_W, PREF_H);
+        FullscreenSupport.install(this);
         setMinimumSize(getSize());
         setLocationRelativeTo(null);
     }

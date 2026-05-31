@@ -170,6 +170,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         });
 
         setSize(WINDOW_W, WINDOW_H);
+        FullscreenSupport.install(this);
         setLocationRelativeTo(null);
 
         engine.addGameStateListener(this);

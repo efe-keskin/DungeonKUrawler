@@ -128,6 +128,7 @@ public class DesignWindow extends JFrame {
         setContentPane(wrap);
 
         setSize(WINDOW_W, WINDOW_H);
+        FullscreenSupport.install(this);
         setLocationRelativeTo(null);
     }
 
