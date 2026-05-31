@@ -98,6 +98,8 @@ public class GameEngine {
     private int towerLevelNumber = 0;
     private boolean finalTowerLevel = false;
     private boolean levelCompleted = false;
+    /** Opening the floor exit ends hostile offense while the hero walks through it. */
+    private boolean enemiesPacified = false;
     private LevelCompletionListener levelCompletionListener;
 
     private Timer spawnTimer;
@@ -1087,11 +1089,30 @@ public class GameEngine {
             return false;
         }
         arch.open();
+        pacifyEnemiesForOpenExit();
         for (GameEventListener listener : eventListeners) {
             listener.onArchOpened();
         }
         notifyListeners();
         return true;
+    }
+
+    /**
+     * Once the floor exit opens, enemies can no longer damage the hero or pet.
+     * Hero movement stays active so the player can take the final step through
+     * the doorway. Existing hostile projectiles are removed immediately.
+     */
+    private void pacifyEnemiesForOpenExit() {
+        enemiesPacified = true;
+        activeProjectiles.removeIf(projectile -> !projectile.isHeroOwned());
+    }
+
+    boolean areEnemiesPacified() {
+        return enemiesPacified;
+    }
+
+    private boolean canEnemiesAttack() {
+        return !isPaused && !isGameOver && !enemiesPacified;
     }
 
     /** True if the hero is carrying a gold key (the arch's unlock requirement). */
@@ -1541,6 +1562,9 @@ public class GameEngine {
      * Uses {@link EnemyFactory#createRandomEnemy(int, int)} for the 60/30/10 split.
      */
     public String spawnEnemyProcedurally() {
+        if (enemiesPacified) {
+            return "spawnEnemyProcedurally: exit is open";
+        }
         List<int[]> candidates = new ArrayList<>();
         for (int x = 0; x < dungeonMap.getWidth(); x++) {
             for (int y = 0; y < dungeonMap.getHeight(); y++) {
@@ -1582,7 +1606,7 @@ public class GameEngine {
      */
     private void startGameTimers() {
         spawnTimer = new Timer(spawnPolicy.spawnIntervalMs(), e -> {
-            if (countEnemies() >= spawnPolicy.maxEnemies()) {
+            if (enemiesPacified || countEnemies() >= spawnPolicy.maxEnemies()) {
                 return;
             }
             String msg = spawnEnemyProcedurally();
@@ -1684,7 +1708,7 @@ public class GameEngine {
     }
 
     private void updateKnightMeleeActions() {
-        if (isPaused || isGameOver) {
+        if (!canEnemiesAttack()) {
             return;
         }
         boolean changed = false;
@@ -1781,7 +1805,7 @@ public class GameEngine {
     }
 
     private void updateSorcererAttacks() {
-        if (isPaused || isGameOver) {
+        if (!canEnemiesAttack()) {
             return;
         }
         boolean changed = false;
@@ -1806,7 +1830,7 @@ public class GameEngine {
     }
 
     private void updateBossAttacks() {
-        if (isPaused || isGameOver) {
+        if (!canEnemiesAttack()) {
             return;
         }
         boolean changed = false;
@@ -2054,6 +2078,9 @@ public class GameEngine {
     private void spawnProjectile(int startX, int startY, int targetX, int targetY,
             int damageGenerated, int damageReceived, boolean heroOwned, boolean bossOwned,
             HeroProjectileStyle heroStyle) {
+        if (!heroOwned && enemiesPacified) {
+            return;
+        }
         if (startX == targetX && startY == targetY) {
             if (heroOwned) {
                 GridCell cell = dungeonMap.getCell(targetX, targetY);
@@ -2080,6 +2107,12 @@ public class GameEngine {
     private void updateProjectiles() {
         if (isPaused || isGameOver || activeProjectiles.isEmpty()) {
             return;
+        }
+        if (enemiesPacified) {
+            activeProjectiles.removeIf(projectile -> !projectile.isHeroOwned());
+            if (activeProjectiles.isEmpty()) {
+                return;
+            }
         }
         boolean changed = false;
         Iterator<Projectile> iterator = activeProjectiles.iterator();
