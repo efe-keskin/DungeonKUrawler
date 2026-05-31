@@ -478,6 +478,45 @@ public class GameEngine {
         return true;
     }
 
+    /**
+     * Places an item on a randomly chosen walkable, empty interior cell.
+     * Returns the cell that received the item, or null when the map is fully
+     * occupied (extremely unlikely on the demo map).
+     */
+    private GridCell placeRandomly(DungeonMap map, Item item) {
+        List<int[]> candidates = new ArrayList<>();
+        for (int x = 1; x < map.getWidth() - 1; x++) {
+            for (int y = 1; y < map.getHeight() - 1; y++) {
+                GridCell c = map.getCell(x, y);
+                if (c == null) {
+                    continue;
+                }
+                if (!c.isWalkable()) {
+                    continue;
+                }
+                if (!c.getItemsView().isEmpty()) {
+                    continue;
+                }
+                if (!c.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+                if (x == 1 && y == 1) {
+                    continue;
+                }
+                candidates.add(new int[] { x, y });
+            }
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        int[] pick = candidates.get(random.nextInt(candidates.size()));
+        GridCell target = map.getCell(pick[0], pick[1]);
+        if (target != null) {
+            target.getItems().add(item);
+        }
+        return target;
+    }
+
     // DEMO WALLS
     private DungeonMap buildDemoMap(String levelName) {
         int w = 16;
@@ -504,55 +543,30 @@ public class GameEngine {
             }
         }
 
-        // Temporary test items: hero should be able to move onto these cells.
-        GridCell itemCell1 = map.getCell(3, 1);
-        if (itemCell1 != null) {
-            itemCell1.getItems().add(new HealPotion());
-        }
+        // Hero starts at (1, 1). Everything else is random walkable.
+        placeRandomly(map, new HealPotion());
+        placeRandomly(map, new EnergyPotion());
+        placeRandomly(map, new ManaPotion());
+        placeRandomly(map, new Ring("Protective Ring", 2));
+        placeRandomly(map, new Weapon(WeaponCatalog.get().byId("W002")));
 
-        GridCell itemCell2 = map.getCell(5, 3);
-        if (itemCell2 != null) {
-            itemCell2.getItems().add(new EnergyPotion());
-        }
+        // Wooden Chest (locked with olive key) gets a guaranteed cell before keys land.
+        Chest wooden = Chest.locked("Wooden Chest", 16, "olive");
+        wooden.addItem(new HealPotion());
+        wooden.addItem(new Key("silver", KeyColor.SILVER));
+        wooden.addItem(new Book("Explorer's Journal",
+                "The old silver chest protects equipment for anyone brave enough to unlock it."));
+        placeRandomly(map, wooden);
 
-        GridCell itemCell3 = map.getCell(5, 4);
-        if (itemCell3 != null) {
-            itemCell3.getItems().add(new ManaPotion());
-        }
+        // Silver Chest with the gold key + leather armor.
+        Chest silver = Chest.locked("Silver Chest", 16, "silver");
+        silver.addItem(new EnergyPotion());
+        silver.addItem(new Key("gold", KeyColor.GOLD));
+        silver.addItem(new Armor("Leather Armor", 3));
+        placeRandomly(map, silver);
 
-        GridCell ringCell = map.getCell(3, 3);
-        if (ringCell != null) {
-            ringCell.getItems().add(new Ring("Protective Ring", 2));
-        }
-
-        GridCell weaponCell = map.getCell(11, 3);
-        if (weaponCell != null) {
-            weaponCell.getItems().add(new Weapon(WeaponCatalog.get().byId("W002")));
-        }
-
-        GridCell chestCell = map.getCell(4, 2);
-        if (chestCell != null) {
-            Chest chest = Chest.locked("Wooden Chest", 16, "olive");
-            chest.addItem(new HealPotion());
-            chest.addItem(new Key("silver", KeyColor.SILVER));
-            chest.addItem(new Book("Explorer's Journal",
-                    "The old silver chest protects equipment for anyone brave enough to unlock it."));
-            chestCell.getItems().add(chest);
-        }
-
-        GridCell keyCell = map.getCell(8, 2);
-        if (keyCell != null) {
-            keyCell.getItems().add(new Key("olive", KeyColor.OLIVE));
-        }
-
-        GridCell lockedChestCell = map.getCell(10, 6);
-        if (lockedChestCell != null) {
-            Chest lockedChest = Chest.locked("Silver Chest", 16, "silver");
-            lockedChest.addItem(new EnergyPotion());
-            lockedChest.addItem(new Key("gold", KeyColor.GOLD));
-            lockedChest.addItem(new Armor("Leather Armor", 3));
-            lockedChestCell.getItems().add(lockedChest);
-        }
+        // Olive key lands after chests so it cannot share a chest cell.
+        placeRandomly(map, new Key("olive", KeyColor.OLIVE));
 
         placeRandomSearchablesOnHorizontalWalls(map);
 
