@@ -197,7 +197,6 @@ public final class TowerSessionController {
         GameEngine completedEngine = progress.getActiveEngine();
         ValuableItem target = completedEngine == null || completedEngine.getTargetMission() == null
                 ? null : completedEngine.getTargetMission().getTarget();
-        AudioManager.shared().play("victory");
         MissionSplashDialog.showVictory(gameWindow, target);
 
         if (gameWindow != null) {

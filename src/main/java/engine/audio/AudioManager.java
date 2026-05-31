@@ -5,7 +5,6 @@ import engine.GameEventListener;
 import engine.MissionListener;
 import model.Entity;
 import model.Item;
-import model.ValuableItem;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -225,12 +224,12 @@ public class AudioManager implements GameEventListener, MissionListener {
     }
 
     @Override
-    public void onButtonClick() {
-        play("button_click");
+    public void onArchOpened() {
+        play("victory");
     }
 
     @Override
-    public void onMissionWon(ValuableItem target) {
-        play("victory");
+    public void onButtonClick() {
+        play("button_click");
     }
 }

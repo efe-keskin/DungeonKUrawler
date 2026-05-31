@@ -870,6 +870,9 @@ public class GameEngine {
             return false;
         }
         arch.open();
+        for (GameEventListener listener : eventListeners) {
+            listener.onArchOpened();
+        }
         notifyListeners();
         return true;
     }
