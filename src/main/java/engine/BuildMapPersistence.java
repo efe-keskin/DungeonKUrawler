@@ -43,6 +43,7 @@ import model.Pool;
 import model.Ring;
 import model.RingEffectType;
 import model.SearchableObject;
+import model.ShadowCloneScroll;
 import model.Torch;
 import model.ValuableItem;
 import model.Vase;
@@ -254,6 +255,9 @@ public final class BuildMapPersistence {
         } else if (item instanceof Book book) {
             dto.type = "book";
             dto.text = book.read();
+        } else if (item instanceof ShadowCloneScroll scroll) {
+            dto.type = "shadowCloneScroll";
+            dto.text = scroll.read();
         } else if (item instanceof DefeatedEnemyMarker) {
             dto.type = "defeatedEnemy";
         } else {
@@ -342,6 +346,8 @@ public final class BuildMapPersistence {
             case "valuable" -> new ValuableItem(name(dto, "Valuable"), dto.spriteResource);
             case "coin" -> new Coin(positive(dto.value, 1), dto.spriteResource);
             case "book" -> new Book(name(dto, "Book"), valueOr(dto.text, ""));
+            case "shadowCloneScroll" -> new ShadowCloneScroll(
+                    name(dto, ShadowCloneScroll.DISPLAY_NAME), valueOr(dto.text, ""));
             case "defeatedEnemy" -> new DefeatedEnemyMarker();
             case "item" -> new ValuableItem(name(dto, "Item"), dto.spriteResource);
             default -> throw new IOException("Unsupported map item type: " + dto.type);
