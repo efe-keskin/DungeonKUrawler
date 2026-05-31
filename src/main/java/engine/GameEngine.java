@@ -1605,6 +1605,9 @@ public class GameEngine {
 
     private boolean applyEnemyWalkStep(Entity enemy) {
         if (getEnemyAiState(enemy) == AIState.CHASING) {
+            if (enemy instanceof Knight knight) {
+                return moveEnemyTowardTarget(knight, preferredTargetFor(knight));
+            }
             return moveEnemyTowardTarget(enemy, nearestHeroLikeTarget(enemy));
         }
         return moveEnemyRandomly(enemy);
