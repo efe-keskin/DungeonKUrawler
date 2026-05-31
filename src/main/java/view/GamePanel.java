@@ -1205,7 +1205,7 @@ private void handleInventoryKeyPress() {
         int barW = Math.max(10, cellW - 8);
         int barH = Math.max(3, cellH / 10);
         int barX = px + (cellW - barW) / 2;
-        int barY = py + cellH - barH - 2;
+        int barY = py + cellH + 2;
         int fillW = Math.round(barW * Math.max(0, currentHp) / (float) maxHp);
 
         g2.setColor(new Color(20, 20, 24, 210));
