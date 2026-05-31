@@ -109,6 +109,7 @@ public class GameEngine {
     private Timer projectileTimer;
     private Timer teamMatchActionTimer;
     private Timer petTimer;
+    private Timer shadowCloneTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
     /** Transient on-grid presence of the equipped pet for this floor; null when none. */
     private PetEntity petEntity;
@@ -120,6 +121,7 @@ public class GameEngine {
     // 45s rather than 15s; scrolls felt too common at 15s.
     private static final int SHADOW_CLONE_SPAWN_INTERVAL_MS = 45000;
     private static final int SHADOW_CLONE_DURATION_MS = 7000;
+    private static final int SHADOW_CLONE_TICK_MS = 650;
     private static final int DETECTION_TICK_MS = 300;
     private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int BOSS_SHOOT_RANGE = 8;
