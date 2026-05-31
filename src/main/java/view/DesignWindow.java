@@ -184,19 +184,21 @@ public class DesignWindow extends JFrame {
         JButton load = new CommandButton("LOAD");
         load.addActionListener(e -> loadMap());
 
-        JButton clear = new CommandButton("CLEAR");
-        clear.addActionListener(e -> {
-            controller.clearMap();
-            refreshSelectedLabel();
-            canvas.repaint();
-        });
-
         JButton random = new CommandButton("ADD 5 RANDOM ITEMS");
         random.addActionListener(e -> {
             BuildRandomItemPlacer.Result result = controller.addFiveRandomItems();
             refreshSelectedLabel("Added " + result.visibleItemsPlaced()
                     + " items" + (result.hiddenItemPlaced() ? " + hidden item" : ""));
             canvas.repaint();
+            random.setEnabled(false);
+        });
+
+        JButton clear = new CommandButton("CLEAR");
+        clear.addActionListener(e -> {
+            controller.clearMap();
+            refreshSelectedLabel();
+            canvas.repaint();
+            random.setEnabled(true);
         });
 
         JButton run = new CommandButton("RUN IN PLAY MODE");
