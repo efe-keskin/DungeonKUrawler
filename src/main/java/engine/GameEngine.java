@@ -117,7 +117,8 @@ public class GameEngine {
     private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
-    private static final int SHADOW_CLONE_SPAWN_INTERVAL_MS = 15000;
+    // 45s rather than 15s; scrolls felt too common at 15s.
+    private static final int SHADOW_CLONE_SPAWN_INTERVAL_MS = 45000;
     private static final int SHADOW_CLONE_DURATION_MS = 7000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int SORCERER_SHOOT_RANGE = 5;
