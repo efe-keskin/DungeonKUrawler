@@ -19,6 +19,10 @@ public final class BuildModeController {
     public static final int DEFAULT_MAP_WIDTH = 16;
     public static final int DEFAULT_MAP_HEIGHT = 12;
     public static final int MAX_RANDOM_ITEM_ADDS = 3;
+    public static final String INVALID_DOOR_COUNT_MESSAGE =
+            "Add exactly one closed door to an outer side of the map before running it.";
+    public static final String BORDER_DOOR_ONLY_MESSAGE =
+            "Doors can only be placed on the outer sides of the map.";
 
     private static final String DEFAULT_LEVEL_NAME = "Designed Map";
 
@@ -115,9 +119,16 @@ public final class BuildModeController {
             return false;
         }
         selectTool(tool);
+        if (tool.isDoorObject() && !isBorderCell(x, y)) {
+            lastPlacementMessage = BORDER_DOOR_ONLY_MESSAGE;
+            return false;
+        }
         boolean placed = placementStrategy.place(designMap, x, y, tool);
         lastPlacementMessage = null;
         if (placed) {
+            if (tool.isDoorObject()) {
+                removeDoorsOutsideCell(x, y);
+            }
             GridCell cell = designMap.getCell(x, y);
             Item item = cell == null || cell.getItemsView().isEmpty()
                     ? null : cell.getItemsView().get(0);
@@ -136,5 +147,63 @@ public final class BuildModeController {
 
     public boolean eraseAt(int x, int y) {
         return placementStrategy.erase(designMap, x, y);
+    }
+
+    /**
+     * A designed play map needs exactly one door: a closed exit on its
+     * perimeter. Saving is intentionally still allowed for unfinished drafts.
+     *
+     * @return user-facing validation error, or {@code null} when play may start
+     */
+    public String getPlayModeValidationError() {
+        return hasExactlyOneClosedBorderDoor() ? null : INVALID_DOOR_COUNT_MESSAGE;
+    }
+
+    public boolean hasExactlyOneClosedBorderDoor() {
+        int doorCount = 0;
+        boolean closedBorderDoor = false;
+        for (int x = 0; x < designMap.getWidth(); x++) {
+            for (int y = 0; y < designMap.getHeight(); y++) {
+                GridCell cell = designMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    if (!BuildToolCatalog.isDoorSpriteResource(item.spriteResource())) {
+                        continue;
+                    }
+                    doorCount++;
+                    closedBorderDoor = closedBorderDoor
+                            || (isBorderCell(x, y)
+                                    && BuildToolCatalog.CLOSED_DOOR_SPRITE_RESOURCE.equals(item.spriteResource()));
+                }
+            }
+        }
+        return doorCount == 1 && closedBorderDoor;
+    }
+
+    private void removeDoorsOutsideCell(int excludedX, int excludedY) {
+        for (int x = 0; x < designMap.getWidth(); x++) {
+            for (int y = 0; y < designMap.getHeight(); y++) {
+                if (x == excludedX && y == excludedY) {
+                    continue;
+                }
+                GridCell cell = designMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    if (BuildToolCatalog.isDoorSpriteResource(item.spriteResource())) {
+                        placementStrategy.erase(designMap, x, y);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean isBorderCell(int x, int y) {
+        return designMap.getCell(x, y) != null
+                && (x == 0 || y == 0 || x == designMap.getWidth() - 1 || y == designMap.getHeight() - 1);
     }
 }

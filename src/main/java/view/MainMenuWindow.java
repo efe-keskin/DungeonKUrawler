@@ -210,6 +210,12 @@ public class MainMenuWindow extends JFrame {
         try {
             BuildModeController controller = new BuildModeController();
             controller.loadMap(path);
+            String validationError = controller.getPlayModeValidationError();
+            if (validationError != null) {
+                ItemActionMenuDialog.showNotice(this, "Menu", "Closed Door Required",
+                        validationError);
+                return;
+            }
             GameEngine engine = new GameEngine(controller.getDesignMap());
             AudioManager.shared().stopMenuMusic();
             dispose();

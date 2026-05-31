@@ -43,6 +43,9 @@ public final class StandardBuildPlacementStrategy implements BuildPlacementStrat
         }
 
         if (tool.isDoorObject()) {
+            if (!isBorder(map, x, y)) {
+                return false;
+            }
             placeSingleItem(cell, tool);
             Item door = cell.getItemsView().isEmpty() ? null : cell.getItemsView().get(0);
             cell.setPassable(door == null || !door.isBlocking());
@@ -110,5 +113,9 @@ public final class StandardBuildPlacementStrategy implements BuildPlacementStrat
 
     private boolean isTopOrBottomBorder(DungeonMap map, int y) {
         return y == 0 || y == map.getHeight() - 1;
+    }
+
+    private boolean isBorder(DungeonMap map, int x, int y) {
+        return isLeftOrRightBorder(map, x) || isTopOrBottomBorder(map, y);
     }
 }
