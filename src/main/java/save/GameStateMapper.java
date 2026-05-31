@@ -2,7 +2,9 @@ package save;
 
 import engine.GameEngine;
 import engine.TargetItemMission;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import model.Armor;
@@ -24,6 +26,7 @@ import save.SaveDtos.GameStateDto;
 import save.SaveDtos.HeroDto;
 import save.SaveDtos.ItemDto;
 import save.SaveDtos.LevelProgressDto;
+import save.SaveDtos.LevelSaveDto;
 import save.SaveDtos.MapDto;
 import save.SaveDtos.SaveGameDto;
 import save.SaveDtos.TowerProgressDto;
@@ -117,6 +120,68 @@ public final class GameStateMapper {
         } catch (IllegalArgumentException ex) {
             return LevelStatus.LOCKED;
         }
+    }
+
+    /**
+     * Builds the long-term scenario game state: the persistent carry-over hero,
+     * the tower progression, and the embedded per-level saves. The {@code map}
+     * and mission fields stay null — only the hero matters for carry-over, since
+     * each floor mints a fresh map.
+     */
+    public GameStateDto toScenarioState(Hero persistentHero, TowerProgress progress,
+            List<LevelSaveDto> levelSaves) throws SaveGameException {
+        if (persistentHero == null) {
+            throw new SaveGameException("Cannot save a missing hero.");
+        }
+        GameStateDto dto = new GameStateDto();
+        dto.hero = heroToDto(persistentHero, null);
+        dto.towerProgress = toDto(progress);
+        dto.levelSpecificSaves = levelSaves == null ? new ArrayList<>() : new ArrayList<>(levelSaves);
+        return dto;
+    }
+
+    /**
+     * Captures the current in-floor session as a resumable level save. The
+     * snapshot reuses the standard single-session mapping; its own
+     * {@code towerProgress}/{@code levelSpecificSaves} stay null so it never
+     * recurses into the scenario aggregate.
+     */
+    public LevelSaveDto toLevelSave(GameEngine engine) throws SaveGameException {
+        if (engine == null) {
+            throw new SaveGameException("No active level to save.");
+        }
+        LevelSaveDto dto = new LevelSaveDto();
+        dto.levelNumber = engine.getTowerLevelNumber();
+        dto.finalTowerLevel = engine.isFinalTowerLevel();
+        dto.state = toDto(engine);
+        return dto;
+    }
+
+    /**
+     * Rebuilds a playable engine from a resumable level save, restoring the
+     * floor's tower-level configuration.
+     */
+    public GameEngine fromLevelSave(LevelSaveDto levelSave) throws SaveGameException {
+        if (levelSave == null || levelSave.state == null) {
+            throw new SaveGameException("Level save is empty.");
+        }
+        SaveGameDto wrapper = new SaveGameDto();
+        wrapper.gameState = levelSave.state;
+        wrapper.towerLevelNumber = levelSave.levelNumber;
+        wrapper.finalTowerLevel = levelSave.finalTowerLevel;
+        return toEngine(wrapper);
+    }
+
+    /**
+     * Restores the persistent carry-over hero from a scenario state's hero DTO,
+     * independently of any map (used when loading a scenario save before a floor
+     * is entered).
+     */
+    public Hero toPersistentHero(HeroDto heroDto) throws SaveGameException {
+        if (heroDto == null) {
+            throw new SaveGameException("Save file is missing hero data.");
+        }
+        return restoreHero(heroDto, new RestoreContext());
     }
 
     public GameEngine toEngine(SaveGameDto saveGame) throws SaveGameException {

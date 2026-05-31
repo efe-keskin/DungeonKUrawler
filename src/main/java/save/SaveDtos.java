@@ -35,6 +35,25 @@ public final class SaveDtos {
         public String missionTargetSprite;
         /** Null for saves created before tower mode; restored to a default in that case. */
         public TowerProgressDto towerProgress;
+        /**
+         * Per-level resumable saves nested inside the long-term scenario state.
+         * Empty for a non-scenario {@code CUSTOM_GAME} or a level snapshot's own
+         * nested state (which never recurses). See {@link LevelSaveDto}.
+         */
+        public List<LevelSaveDto> levelSpecificSaves = new ArrayList<>();
+    }
+
+    /**
+     * A resumable in-floor snapshot stored inside the scenario save's
+     * {@link GameStateDto#levelSpecificSaves}. The {@link #state} is an ordinary
+     * in-floor snapshot (map + hero + mission) whose own {@code towerProgress}
+     * and {@code levelSpecificSaves} are left null, so it round-trips through the
+     * same mapper used for any single game session.
+     */
+    public static final class LevelSaveDto {
+        public int levelNumber;
+        public boolean finalTowerLevel;
+        public GameStateDto state;
     }
 
     public static final class TowerProgressDto {
@@ -205,11 +224,8 @@ public final class SaveDtos {
         }
 
         public String getDisplayLabel() {
-            if (saveType == SaveGameType.SCENARIO_CHECKPOINT && towerLevelNumber > 0) {
-                return saveName + " - Floor " + towerLevelNumber + " (" + getShortSavedAt() + ")";
-            }
-            if (saveType == SaveGameType.SCENARIO_PROGRESS && highestUnlockedLevel > 0) {
-                return saveName + " - Tower Progress L" + highestUnlockedLevel
+            if (saveType == SaveGameType.SCENARIO && highestUnlockedLevel > 0) {
+                return saveName + " - Tower L" + highestUnlockedLevel
                         + " (" + getShortSavedAt() + ")";
             }
             return saveName + " (" + getShortSavedAt() + ")";

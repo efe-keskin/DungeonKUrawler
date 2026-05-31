@@ -109,42 +109,74 @@ class SaveGameServiceTest {
     }
 
     @Test
-    void saveTypesSeparateScenarioCheckpointsFromCustomGames() throws Exception {
+    void scenarioSaveRoundTripsProgressAndLevelSaves() throws Exception {
         SaveGameService service = new SaveGameService(
                 new SaveFileRepository(tempDir, new GsonSaveSerializer()),
                 new GameStateMapper());
         GameEngine custom = new GameEngine();
-        GameEngine scenario = new GameEngine();
-        GameEngine loadedScenario = null;
+        GameEngine floor = new GameEngine();
+        GameEngine restoredFloor = null;
         try {
-            scenario.configureTowerLevel(3, false);
+            floor.configureTowerLevel(3, false);
+            floor.updateHeroPosition(2, 1);
             TowerProgress progress = TowerProgress.defaultProgress(10);
             progress.completeLevel(1);
             progress.completeLevel(2);
 
             SaveDescriptor customSave = service.saveCustomGame(custom, "custom map run");
-            SaveDescriptor scenarioSave = service.saveScenarioCheckpoint(scenario, progress, "floor three");
-
             assertEquals(SaveGameType.CUSTOM_GAME, customSave.getSaveType());
-            assertEquals(SaveGameType.SCENARIO_CHECKPOINT, scenarioSave.getSaveType());
+
+            // A resumable per-level save captured from the active floor.
+            SaveDtos.LevelSaveDto levelSave = service.captureLevel(floor);
+            assertEquals(3, levelSave.levelNumber);
+
+            SaveDescriptor scenarioSave = service.saveScenario(null, "main run",
+                    floor.getHero(), progress, List.of(levelSave));
+
+            assertEquals(SaveGameType.SCENARIO, scenarioSave.getSaveType());
             assertEquals(1, service.listSaves(SaveGameType.CUSTOM_GAME).size());
-            assertEquals(1, service.listSaves(SaveGameType.SCENARIO_CHECKPOINT).size());
+            assertEquals(1, service.listSaves(SaveGameType.SCENARIO).size());
 
-            SaveDescriptor progressSave = service.updateSave(scenarioSave, scenario, progress);
-            assertEquals(SaveGameType.SCENARIO_PROGRESS, progressSave.getSaveType());
-            assertEquals(0, service.listSaves(SaveGameType.SCENARIO_CHECKPOINT).size());
-
-            LoadedGame loaded = service.loadGameWithProgress(progressSave);
-            loadedScenario = loaded.engine();
-            assertTrue(loadedScenario.isTowerLevel());
-            assertEquals(3, loadedScenario.getTowerLevelNumber());
+            LoadedScenario loaded = service.loadScenario(scenarioSave);
             assertEquals(3, loaded.towerProgress().highestUnlockedLevel());
+            assertEquals(1, loaded.levelSaves().size());
+
+            restoredFloor = service.restoreLevel(loaded.levelSaves().get(0));
+            assertTrue(restoredFloor.isTowerLevel());
+            assertEquals(3, restoredFloor.getTowerLevelNumber());
+            assertEquals(2, restoredFloor.getHero().getX());
+            assertEquals(1, restoredFloor.getHero().getY());
         } finally {
             custom.shutdown();
-            scenario.shutdown();
-            if (loadedScenario != null) {
-                loadedScenario.shutdown();
+            floor.shutdown();
+            if (restoredFloor != null) {
+                restoredFloor.shutdown();
             }
+        }
+    }
+
+    @Test
+    void scenarioUpdateReusesSameFileWithoutConsumingSlot() throws Exception {
+        SaveGameService service = new SaveGameService(
+                new SaveFileRepository(tempDir, new GsonSaveSerializer()),
+                new GameStateMapper());
+        GameEngine floor = new GameEngine();
+        try {
+            floor.configureTowerLevel(2, false);
+            TowerProgress progress = TowerProgress.defaultProgress(10);
+
+            SaveDescriptor first = service.saveScenario(null, "run", floor.getHero(), progress, List.of());
+            int slotsAfterCreate = service.listSaves().size();
+
+            SaveDtos.LevelSaveDto levelSave = service.captureLevel(floor);
+            SaveDescriptor second = service.saveScenario(first, "run", floor.getHero(), progress,
+                    List.of(levelSave));
+
+            assertEquals(slotsAfterCreate, service.listSaves().size());
+            assertEquals(first.getPath(), second.getPath());
+            assertEquals(1, service.loadScenario(second).levelSaves().size());
+        } finally {
+            floor.shutdown();
         }
     }
 

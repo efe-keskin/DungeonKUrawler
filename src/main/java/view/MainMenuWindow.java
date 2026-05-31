@@ -13,7 +13,6 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 
 import javax.swing.ImageIcon;
@@ -30,6 +29,7 @@ import save.SaveDtos.SaveDescriptor;
 import save.SaveGameController;
 import save.SaveGameException;
 import save.SaveGameType;
+import save.SaveLimitExceededException;
 import view.assets.AssetId;
 import view.assets.AssetManager;
 
@@ -220,19 +220,15 @@ public class MainMenuWindow extends JFrame {
     }
 
     /**
-     * UC-T1: Start Game owns the scenario flow. A saved scenario checkpoint
-     * resumes directly in its floor; New Game opens the tower map with previous
-     * unlocks preserved.
+     * UC-T1: Start Game opens the scenario save selection. The player continues a
+     * named playthrough (loads its progress and enters the tower map) or starts a
+     * New Game, which prompts for a name and mints a fresh scenario save.
      */
     private void handleStartGame() {
         SaveGameController saveController = new SaveGameController();
-        List<SaveDescriptor> checkpoints;
         List<SaveDescriptor> scenarioSaves;
         try {
-            checkpoints = saveController.listSaves(SaveGameType.SCENARIO_CHECKPOINT);
-            scenarioSaves = saveController.listSaves().stream()
-                    .filter(save -> save.getSaveType().isScenario())
-                    .toList();
+            scenarioSaves = saveController.listSaves(SaveGameType.SCENARIO);
         } catch (SaveGameException ex) {
             ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
                     "Saved games could not be read.");
@@ -241,52 +237,32 @@ public class MainMenuWindow extends JFrame {
 
         TowerProgressController progress = new TowerProgressController(saveController);
 
-        if (checkpoints.isEmpty()) {
-            if (!scenarioSaves.isEmpty()) {
-                try {
-                    loadBestScenarioProgress(progress, scenarioSaves);
-                    openTowerMap(progress);
-                } catch (SaveGameException ex) {
-                    ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
-                            "This save file could not be loaded.");
-                }
-                return;
-            }
-            progress.startNewRun();
-            openTowerMap(progress);
+        if (scenarioSaves.isEmpty()) {
+            startNewScenario(progress);
             return;
         }
 
         while (true) {
-            LoadGameDialog.Result result = LoadGameDialog.showForStartGame(this, checkpoints);
+            LoadGameDialog.Result result = LoadGameDialog.showForStartGame(this, scenarioSaves);
             if (result.action() == LoadGameDialog.Action.CANCEL) {
                 return;
             }
+            if (result.action() == LoadGameDialog.Action.NEW_GAME) {
+                startNewScenario(progress);
+                return;
+            }
             try {
-                if (result.action() == LoadGameDialog.Action.NEW_GAME) {
-                    loadBestScenarioProgress(progress, scenarioSaves);
-                    openTowerMap(progress);
-                    return;
-                }
                 if (result.action() == LoadGameDialog.Action.DELETE) {
                     saveController.deleteSave(result.save());
-                    checkpoints = saveController.listSaves(SaveGameType.SCENARIO_CHECKPOINT);
-                    scenarioSaves = saveController.listSaves().stream()
-                            .filter(save -> save.getSaveType().isScenario())
-                            .toList();
-                    if (checkpoints.isEmpty()) {
-                        if (scenarioSaves.isEmpty()) {
-                            progress.startNewRun();
-                        } else {
-                            loadBestScenarioProgress(progress, scenarioSaves);
-                        }
-                        openTowerMap(progress);
+                    scenarioSaves = saveController.listSaves(SaveGameType.SCENARIO);
+                    if (scenarioSaves.isEmpty()) {
+                        startNewScenario(progress);
                         return;
                     }
                     continue;
                 }
                 progress.loadFromSave(result.save());
-                openScenarioCheckpoint(progress);
+                openTowerMap(progress);
                 return;
             } catch (SaveGameException ex) {
                 ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
@@ -295,18 +271,26 @@ public class MainMenuWindow extends JFrame {
         }
     }
 
-    private void loadBestScenarioProgress(TowerProgressController progress, List<SaveDescriptor> saves)
-            throws SaveGameException {
-        SaveDescriptor baseline = saves.stream()
-                .max(Comparator
-                        .comparingInt(SaveDescriptor::getHighestUnlockedLevel)
-                        .thenComparing(SaveDescriptor::getSavedAt,
-                                Comparator.nullsLast(String::compareTo)))
-                .orElse(null);
-        if (baseline == null) {
-            progress.startNewRun();
-        } else {
-            progress.loadFromSave(baseline);
+    /**
+     * New Game: prompts for a save name, creates a fresh scenario save (Level 1
+     * unlocked, no gold/inventory/pets), and opens the tower map. A cancelled
+     * prompt returns to the menu.
+     */
+    private void startNewScenario(TowerProgressController progress) {
+        String name = SaveGameDialog.showNamePrompt(this, "New Game",
+                "Enter a name for your new game");
+        if (name == null) {
+            return;
+        }
+        try {
+            progress.startNewRun(name);
+            openTowerMap(progress);
+        } catch (SaveLimitExceededException ex) {
+            ItemActionMenuDialog.showNotice(this, "New Game", "Save Limit",
+                    "You can keep at most 10 saved games. Delete an old save first.");
+        } catch (SaveGameException ex) {
+            ItemActionMenuDialog.showNotice(this, "New Game", "Save Failed",
+                    "Your new game could not be created.");
         }
     }
 
@@ -314,12 +298,6 @@ public class MainMenuWindow extends JFrame {
         AudioManager.shared().stopMenuMusic();
         dispose();
         TowerSessionController.startFrom(progress);
-    }
-
-    private void openScenarioCheckpoint(TowerProgressController progress) {
-        AudioManager.shared().stopMenuMusic();
-        dispose();
-        TowerSessionController.resumeFromCheckpoint(progress);
     }
 
     private void handleLoadCustomGame() {

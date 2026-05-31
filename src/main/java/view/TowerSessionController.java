@@ -4,7 +4,6 @@ import javax.swing.SwingUtilities;
 
 import engine.DungeonLevelFactory;
 import engine.GameEngine;
-import engine.GameStateSnapshot;
 import engine.LevelCompletionResult;
 import engine.PetController;
 import engine.ShopController;
@@ -16,7 +15,7 @@ import model.Hero;
 import model.ShopCatalog;
 import model.TowerScenario;
 import model.ValuableItem;
-import save.ScenarioCheckpointSaveStrategy;
+import save.ScenarioLevelSaveStrategy;
 import save.SaveGameException;
 
 /**
@@ -63,8 +62,8 @@ public final class TowerSessionController {
             mapWindow = null;
         }
         FullGameInventory fullInventory = new FullGameInventory();
-        if (progress.getActiveEngine() != null && progress.getActiveEngine().getHero() != null) {
-            fullInventory = progress.getActiveEngine().getHero().getFullInventory();
+        if (progress.getCarryOverHero() != null) {
+            fullInventory = progress.getCarryOverHero().getFullInventory();
         }
         ShopController shopController = new ShopController(fullInventory, new ShopCatalog());
         shopWindow = new ShopWindow(fullInventory, shopController, () -> {
@@ -83,8 +82,8 @@ public final class TowerSessionController {
         }
         FullGameInventory fullInventory = new FullGameInventory();
         PetController petController = null;
-        if (progress.getActiveEngine() != null && progress.getActiveEngine().getHero() != null) {
-            Hero hero = progress.getActiveEngine().getHero();
+        if (progress.getCarryOverHero() != null) {
+            Hero hero = progress.getCarryOverHero();
             fullInventory = hero.getFullInventory();
             petController = new PetController(hero);
         }
@@ -108,33 +107,40 @@ public final class TowerSessionController {
     /**
      * UC-T2: enters the chosen floor. The map already gates locked/hidden floors
      * (no ENTER button), but we re-check here as the authority before building a
-     * session. The persistent hero carries over from the active session.
+     * session. When the floor has a resumable per-level save, the player is asked
+     * whether to continue from it or start the level again; otherwise a fresh
+     * floor is generated with the persistent hero carried over.
      */
     private void enterLevel(int levelNumber) {
         if (!progress.canEnter(levelNumber)) {
             return;
         }
-        currentFloor = levelNumber;
-        DungeonLevel level = progress.getLevel(levelNumber);
-        GameStateSnapshot snapshot = GameStateSnapshot.of(progress.getActiveEngine());
-        GameEngine engine = levelFactory.createEngine(level, snapshot);
-
-        progress.setActiveEngine(engine);
-        engine.setLevelCompletionListener(progress);
-        progress.setOnLevelCompleted(result ->
-                SwingUtilities.invokeLater(() -> onFloorCleared(result)));
-
-        AudioManager.shared().stopMenuMusic();
-        if (mapWindow != null) {
-            mapWindow.dispose();
-            mapWindow = null;
+        GameEngine engine;
+        if (progress.hasLevelSave(levelNumber)) {
+            int choice = ItemActionMenuDialog.show(mapWindow, "Tower",
+                    "Floor " + levelNumber,
+                    "You have a saved state for this floor.\n"
+                            + "Do you want to continue from your last save?",
+                    "Continue", "Start Level Again");
+            if (choice < 0) {
+                return;
+            }
+            try {
+                if (choice == 0) {
+                    engine = progress.resumeLevelEngine(levelNumber);
+                } else {
+                    progress.clearLevelSave(levelNumber);
+                    engine = freshFloorEngine(levelNumber);
+                }
+            } catch (SaveGameException ex) {
+                ItemActionMenuDialog.showNotice(mapWindow, "Tower", "Load Failed",
+                        "Your saved floor could not be loaded.");
+                return;
+            }
+        } else {
+            engine = freshFloorEngine(levelNumber);
         }
-        gameWindow = new GameWindow(engine, new ScenarioCheckpointSaveStrategy(progress),
-                new TowerReturnStrategy(this::returnToTowerFromGameplay));
-        if (levelNumber == 5) {
-            showFearOfTheDarkIntro();
-        }
-        gameWindow.setVisible(true);
+        launchFloor(levelNumber, engine);
     }
 
     /**
@@ -149,11 +155,18 @@ public final class TowerSessionController {
             return;
         }
         System.err.println("[debug] Skipping to level " + levelNumber);
-        currentFloor = levelNumber;
-        DungeonLevel level = progress.getLevel(levelNumber);
-        GameStateSnapshot snapshot = GameStateSnapshot.of(progress.getActiveEngine());
-        GameEngine engine = levelFactory.createEngine(level, snapshot);
+        launchFloor(levelNumber, freshFloorEngine(levelNumber));
+    }
 
+    /** Generates a brand-new engine for a floor, carrying over the persistent hero. */
+    private GameEngine freshFloorEngine(int levelNumber) {
+        DungeonLevel level = progress.getLevel(levelNumber);
+        return levelFactory.createEngine(level, progress.getCarryOverSnapshot());
+    }
+
+    /** Adopts the engine as the active floor session and opens the gameplay window. */
+    private void launchFloor(int levelNumber, GameEngine engine) {
+        currentFloor = levelNumber;
         progress.setActiveEngine(engine);
         engine.setLevelCompletionListener(progress);
         progress.setOnLevelCompleted(result ->
@@ -164,31 +177,11 @@ public final class TowerSessionController {
             mapWindow.dispose();
             mapWindow = null;
         }
-        gameWindow = new GameWindow(engine, new ScenarioCheckpointSaveStrategy(progress),
+        gameWindow = new GameWindow(engine, new ScenarioLevelSaveStrategy(progress),
                 new TowerReturnStrategy(this::returnToTowerFromGameplay));
         if (levelNumber == 5) {
             showFearOfTheDarkIntro();
         }
-        gameWindow.setVisible(true);
-    }
-
-    /**
-     * Opens the loaded scenario checkpoint directly in gameplay. If the selected
-     * save has no in-floor checkpoint metadata, fall back to the tower map.
-     */
-    public void resumeCheckpoint() {
-        GameEngine engine = progress.getActiveEngine();
-        if (engine == null || !engine.isTowerLevel()) {
-            openTowerMap();
-            return;
-        }
-        currentFloor = engine.getTowerLevelNumber();
-        engine.setLevelCompletionListener(progress);
-        progress.setOnLevelCompleted(result ->
-                SwingUtilities.invokeLater(() -> onFloorCleared(result)));
-        AudioManager.shared().stopMenuMusic();
-        gameWindow = new GameWindow(engine, new ScenarioCheckpointSaveStrategy(progress),
-                new TowerReturnStrategy(this::returnToTowerFromGameplay));
         gameWindow.setVisible(true);
     }
 
@@ -253,11 +246,6 @@ public final class TowerSessionController {
     /** Convenience for the menu: build a session around loaded progress and show the map. */
     public static void startFrom(TowerProgressController progress) {
         new TowerSessionController(progress).openTowerMap();
-    }
-
-    /** Convenience for the menu: resume a loaded in-floor checkpoint directly. */
-    public static void resumeFromCheckpoint(TowerProgressController progress) {
-        new TowerSessionController(progress).resumeCheckpoint();
     }
 
     private void returnToMainMenu() {

@@ -5,8 +5,9 @@ package save;
  * game flow.
  */
 public enum SaveGameType {
-    SCENARIO_CHECKPOINT,
-    SCENARIO_PROGRESS,
+    /** A named scenario/tower playthrough: long-term progression plus embedded per-level saves. */
+    SCENARIO,
+    /** A standalone custom-map game, saved independently of scenario progression. */
     CUSTOM_GAME;
 
     public static SaveGameType from(String raw) {
@@ -18,9 +19,5 @@ public enum SaveGameType {
         } catch (IllegalArgumentException ex) {
             return null;
         }
-    }
-
-    public boolean isScenario() {
-        return this == SCENARIO_CHECKPOINT || this == SCENARIO_PROGRESS;
     }
 }

@@ -146,7 +146,7 @@ public final class SaveFileRepository {
         SaveGameType type = SaveGameType.from(dto.saveType);
         if (type == null) {
             type = dto.gameState != null && dto.gameState.towerProgress != null
-                    ? SaveGameType.SCENARIO_PROGRESS
+                    ? SaveGameType.SCENARIO
                     : SaveGameType.CUSTOM_GAME;
         }
         int highestUnlocked = dto.gameState == null || dto.gameState.towerProgress == null

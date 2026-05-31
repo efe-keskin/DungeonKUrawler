@@ -1,37 +1,46 @@
 package engine;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 import model.DungeonLevel;
+import model.Hero;
 import model.LevelStatus;
 import model.TowerProgress;
 import model.TowerScenario;
-import save.LoadedGame;
+import save.LoadedScenario;
 import save.SaveGameController;
 import save.SaveGameException;
+import save.SaveDtos.LevelSaveDto;
 import save.SaveDtos.SaveDescriptor;
 
 /**
- * GRASP Controller for the tower use cases: load a save's progress, decide
- * which floors can be entered, and complete a floor (apply rewards, unlock the
- * next floor, persist). Progression rules live in {@link TowerProgress}; this
- * controller orchestrates them with the save facade and the carry-over game
- * session, keeping that logic out of the Swing views.
+ * GRASP Controller for the tower use cases: own the named scenario save, decide
+ * which floors can be entered, carry the persistent hero across floors, and
+ * complete a floor (apply rewards, unlock the next floor, persist). Progression
+ * rules live in {@link TowerProgress}; this controller orchestrates them with
+ * the save facade so that logic stays out of the Swing views.
  *
- * <p>Per-level dungeon generation and the {@code GameWindow} hand-off are
- * intentionally not here yet; they arrive with {@code DungeonLevelFactory}
- * and the session controller. This class exposes the seams they will use
- * ({@link #setActiveEngine}, {@link #getActiveEngine}).
+ * <p>One scenario save = one named playthrough. Its long-term state (carry-over
+ * hero + {@link TowerProgress}) and its per-level resumable saves all live in a
+ * single file; this controller holds those pieces in memory and writes the whole
+ * aggregate back in place, so a per-level save never spawns a new file.
  */
 public final class TowerProgressController implements LevelCompletionListener {
 
     private final TowerScenario scenario;
     private final SaveGameController saveController;
+    private final DungeonLevelFactory levelFactory = new DungeonLevelFactory();
 
     private TowerProgress progress;
     private SaveDescriptor currentSave;
-    /** Carry-over session: holds the persistent hero/inventory/gold across floors. */
+    /** Persistent meta-state (inventory, gold, pets) carried between floors. */
+    private Hero persistentHero;
+    /** Per-level resumable saves embedded in this playthrough, keyed by floor. */
+    private final List<LevelSaveDto> levelSaves = new ArrayList<>();
+    /** Carry-over session: holds the hero currently being played on a floor. */
     private GameEngine activeEngine;
     /** Optional view hook fired after a completed floor is persisted (e.g. return to map). */
     private Consumer<LevelCompletionResult> onLevelCompleted;
@@ -48,27 +57,33 @@ public final class TowerProgressController implements LevelCompletionListener {
     }
 
     /**
-     * UC-T1: loads the selected save, initializing default tower progress when
-     * the save predates tower mode. The loaded session becomes the carry-over
-     * engine. Returns the progress so the caller can open the tower map.
+     * UC-T1 (New Game): creates a brand-new named playthrough with default
+     * progress (Level 1 unlocked), a fresh hero (no gold, empty inventory, no
+     * pets) and no per-level saves, and writes the save file immediately so it
+     * appears in the selection screen.
      */
-    public TowerProgress loadFromSave(SaveDescriptor descriptor) throws SaveGameException {
-        LoadedGame loaded = saveController.loadGameWithProgress(descriptor);
-        this.currentSave = descriptor;
-        this.activeEngine = loaded.engine();
-        this.progress = loaded.towerProgress();
+    public TowerProgress startNewRun(String saveName) throws SaveGameException {
+        this.progress = TowerProgress.defaultProgress(scenario.size());
+        this.persistentHero = levelFactory.defaultHero();
+        this.activeEngine = null;
+        this.levelSaves.clear();
+        this.currentSave = saveController.saveScenario(null, saveName, persistentHero, progress, levelSaves);
         return this.progress;
     }
 
     /**
-     * Begins a brand-new tower run with default progress (Level 1 unlocked) and
-     * no carry-over session; the factory mints a fresh hero on the first floor.
-     * The first completed floor creates a new save slot.
+     * UC-T1 (Continue): loads the selected scenario save into memory. The
+     * progression, carry-over hero and per-level saves are restored; no floor is
+     * active until the player enters one from the tower map.
      */
-    public TowerProgress startNewRun() {
-        this.currentSave = null;
+    public TowerProgress loadFromSave(SaveDescriptor descriptor) throws SaveGameException {
+        LoadedScenario loaded = saveController.loadScenario(descriptor);
+        this.currentSave = descriptor;
+        this.progress = loaded.towerProgress();
+        this.persistentHero = loaded.hero();
         this.activeEngine = null;
-        this.progress = TowerProgress.defaultProgress(scenario.size());
+        this.levelSaves.clear();
+        this.levelSaves.addAll(loaded.levelSaves());
         return this.progress;
     }
 
@@ -90,11 +105,32 @@ public final class TowerProgressController implements LevelCompletionListener {
 
     /**
      * Replaces the carry-over session with the engine the player is actively
-     * playing (set by the session controller when a floor launches). The hero
-     * inside it is the one whose progress gets persisted on completion.
+     * playing (set by the session controller when a floor launches).
      */
     public void setActiveEngine(GameEngine engine) {
         this.activeEngine = engine;
+    }
+
+    /**
+     * The hero/mission to seed the next floor with: the active floor's hero when
+     * one is in play, otherwise the persistent carry-over hero (e.g. the first
+     * floor of a freshly loaded or new run).
+     */
+    public GameStateSnapshot getCarryOverSnapshot() {
+        return new GameStateSnapshot(getCarryOverHero(), null);
+    }
+
+    /**
+     * The hero whose persistent state (inventory, gold, pets) the tower map's
+     * shop and inventory windows act on: the active floor's hero when one is in
+     * play, otherwise the persistent carry-over hero (e.g. right after loading a
+     * save, before entering a floor).
+     */
+    public Hero getCarryOverHero() {
+        if (activeEngine != null && activeEngine.getHero() != null) {
+            return activeEngine.getHero();
+        }
+        return persistentHero;
     }
 
     public LevelStatus statusOf(int levelNumber) {
@@ -109,14 +145,60 @@ public final class TowerProgressController implements LevelCompletionListener {
         return scenario.getLevel(levelNumber);
     }
 
+    /** Whether the given floor has a resumable per-level save in this playthrough. */
+    public boolean hasLevelSave(int levelNumber) {
+        return findLevelSave(levelNumber) != null;
+    }
+
+    /**
+     * Rebuilds and adopts the engine for the given floor's resumable save. The
+     * restored engine becomes the active session.
+     *
+     * @throws SaveGameException if the floor has no saved state or it cannot be read
+     */
+    public GameEngine resumeLevelEngine(int levelNumber) throws SaveGameException {
+        LevelSaveDto saved = findLevelSave(levelNumber);
+        if (saved == null) {
+            throw new SaveGameException("This floor has no saved state.");
+        }
+        this.activeEngine = saveController.restoreLevel(saved);
+        return this.activeEngine;
+    }
+
+    /**
+     * Discards the resumable save for a floor (e.g. the player chose to start it
+     * again) and persists the change. No-op when the floor has no saved state.
+     */
+    public void clearLevelSave(int levelNumber) throws SaveGameException {
+        if (levelSaves.removeIf(save -> save.levelNumber == levelNumber)) {
+            persistScenario();
+        }
+    }
+
+    /**
+     * Manual in-floor Save: captures the current floor state into this
+     * playthrough's per-level save for {@code levelNumber}, replacing any prior
+     * one, and writes the whole scenario aggregate back to the same file. The
+     * long-term hero and progression are untouched.
+     */
+    public SaveDescriptor saveLevelState(GameEngine engine, int levelNumber) throws SaveGameException {
+        if (progress == null) {
+            throw new SaveGameException("No scenario is loaded.");
+        }
+        this.activeEngine = engine;
+        LevelSaveDto captured = saveController.captureLevel(engine);
+        captured.levelNumber = levelNumber;
+        levelSaves.removeIf(save -> save.levelNumber == levelNumber);
+        levelSaves.add(captured);
+        persistScenario();
+        return currentSave;
+    }
+
     /**
      * UC-T3 / UC-T4: marks the floor completed, awards its reward gold exactly
-     * once, unlocks the next floor, and persists everything back into the save
-     * slot the player loaded from.
-     *
-     * @return the configuration of the completed floor
-     * @throws SaveGameException if persistence fails (progress is still updated
-     *         in memory so the caller can offer a retry)
+     * once, unlocks the next floor, refreshes the carry-over hero, drops this
+     * floor's now-stale resumable save, and persists everything back into the
+     * scenario file.
      */
     public DungeonLevel completeLevel(int levelNumber) throws SaveGameException {
         requireLoaded();
@@ -131,36 +213,40 @@ public final class TowerProgressController implements LevelCompletionListener {
             if (!alreadyCompleted) {
                 activeEngine.getHero().earnCoins(level.rewardGold());
             }
+            persistentHero = activeEngine.getHero();
         }
-
-        currentSave = saveController.updateSave(currentSave, activeEngine, progress);
+        levelSaves.removeIf(save -> save.levelNumber == levelNumber);
+        persistScenario();
         return level;
     }
 
     /**
-     * Persists the current carry-over session and progress into the existing
-     * save slot. Used for changes made outside floor completion (e.g. shop
-     * buy/sell). No-op when there is no loaded save slot yet — the changes stay
-     * in memory and are written on the next floor completion.
+     * Persists changes made outside floor completion (e.g. shop buy/sell, pet
+     * equip) into the scenario file. No-op when there is no loaded scenario.
      */
     public void saveActiveProgress() throws SaveGameException {
-        if (progress == null || currentSave == null || activeEngine == null) {
+        if (progress == null || currentSave == null) {
             return;
         }
-        currentSave = saveController.updateSave(currentSave, activeEngine, progress);
+        if (activeEngine != null && activeEngine.getHero() != null) {
+            persistentHero = activeEngine.getHero();
+        }
+        persistScenario();
     }
 
-    /**
-     * Persists the current in-floor scenario state as a checkpoint. This is the
-     * manual Save Game path while playing a tower floor.
-     */
-    public SaveDescriptor saveCheckpoint(GameEngine engine, String saveName) throws SaveGameException {
-        if (progress == null) {
-            progress = TowerProgress.defaultProgress(scenario.size());
+    private void persistScenario() throws SaveGameException {
+        String saveName = currentSave == null || currentSave.getSaveName() == null
+                ? "save" : currentSave.getSaveName();
+        currentSave = saveController.saveScenario(currentSave, saveName, persistentHero, progress, levelSaves);
+    }
+
+    private LevelSaveDto findLevelSave(int levelNumber) {
+        for (LevelSaveDto save : levelSaves) {
+            if (save.levelNumber == levelNumber) {
+                return save;
+            }
         }
-        activeEngine = engine;
-        currentSave = saveController.saveScenarioCheckpoint(engine, progress, saveName);
-        return currentSave;
+        return null;
     }
 
     /**

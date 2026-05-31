@@ -3,7 +3,9 @@ package save;
 import java.util.List;
 
 import engine.GameEngine;
+import model.Hero;
 import model.TowerProgress;
+import save.SaveDtos.LevelSaveDto;
 import save.SaveDtos.SaveDescriptor;
 
 /**
@@ -29,14 +31,21 @@ public final class SaveGameController {
         return service.saveCustomGame(engine, saveName);
     }
 
-    public SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName)
-            throws SaveGameException {
-        return service.saveGame(engine, towerProgress, saveName);
+    public SaveDescriptor saveScenario(SaveDescriptor existing, String saveName, Hero hero,
+            TowerProgress towerProgress, List<LevelSaveDto> levelSaves) throws SaveGameException {
+        return service.saveScenario(existing, saveName, hero, towerProgress, levelSaves);
     }
 
-    public SaveDescriptor saveScenarioCheckpoint(GameEngine engine, TowerProgress towerProgress, String saveName)
-            throws SaveGameException {
-        return service.saveScenarioCheckpoint(engine, towerProgress, saveName);
+    public LoadedScenario loadScenario(SaveDescriptor descriptor) throws SaveGameException {
+        return service.loadScenario(descriptor);
+    }
+
+    public LevelSaveDto captureLevel(GameEngine engine) throws SaveGameException {
+        return service.captureLevel(engine);
+    }
+
+    public GameEngine restoreLevel(LevelSaveDto levelSave) throws SaveGameException {
+        return service.restoreLevel(levelSave);
     }
 
     public List<SaveDescriptor> listSaves() throws SaveGameException {
@@ -49,15 +58,6 @@ public final class SaveGameController {
 
     public GameEngine loadGame(SaveDescriptor descriptor) throws SaveGameException {
         return service.loadGame(descriptor);
-    }
-
-    public LoadedGame loadGameWithProgress(SaveDescriptor descriptor) throws SaveGameException {
-        return service.loadGameWithProgress(descriptor);
-    }
-
-    public SaveDescriptor updateSave(SaveDescriptor descriptor, GameEngine engine, TowerProgress towerProgress)
-            throws SaveGameException {
-        return service.updateSave(descriptor, engine, towerProgress);
     }
 
     public void deleteSave(SaveDescriptor descriptor) throws SaveGameException {

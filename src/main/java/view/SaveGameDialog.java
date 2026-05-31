@@ -83,6 +83,118 @@ public final class SaveGameDialog {
         return result[0];
     }
 
+    /**
+     * Prompts the player to name something (e.g. a New Game playthrough),
+     * reusing the styled name field. Returns the trimmed, non-blank name, or
+     * {@code null} when cancelled.
+     */
+    public static String showNamePrompt(Component parent, String title, String prompt) {
+        Window owner = parent instanceof Window window ? window : SwingUtilities.getWindowAncestor(parent);
+        JDialog dialog = new JDialog(owner, Dialog.ModalityType.APPLICATION_MODAL);
+        String[] name = { null };
+
+        dialog.setUndecorated(true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setBackground(new Color(0, 0, 0, 0));
+        dialog.setContentPane(buildNameCard(dialog, name, title, prompt));
+        dialog.getRootPane().registerKeyboardAction(e -> {
+            name[0] = null;
+            dialog.dispose();
+        }, KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
+        return name[0];
+    }
+
+    private static JComponent buildNameCard(JDialog dialog, String[] name, String title, String prompt) {
+        CardPanel card = new CardPanel();
+        card.setLayout(new BorderLayout(0, 18));
+        card.setBorder(new EmptyBorder(30, 32, 28, 32));
+        card.setPreferredSize(new Dimension(WIDTH, HEIGHT));
+
+        JPanel content = transparentPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        JLabel categoryLabel = new JLabel("NEW GAME");
+        categoryLabel.setFont(font(RetroTheme.UI_MONO_SMALL, Font.PLAIN, 12f));
+        categoryLabel.setForeground(GOLD);
+        categoryLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel titleLabel = new JLabel(title == null ? "New Game" : title);
+        titleLabel.setFont(font(RetroTheme.UI_MONO, Font.PLAIN, 22f));
+        titleLabel.setForeground(TITLE);
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel promptLabel = new JLabel(prompt == null ? "Enter a name for your new game" : prompt);
+        promptLabel.setFont(font(RetroTheme.UI_MONO_SMALL, Font.PLAIN, 13f));
+        promptLabel.setForeground(DETAIL);
+        promptLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JTextField nameField = new JTextField();
+        nameField.setFont(font(RetroTheme.UI_MONO_SMALL, Font.PLAIN, 14f));
+        nameField.setForeground(TITLE);
+        nameField.setCaretColor(GOLD_BRIGHT);
+        nameField.setBackground(new Color(10, 10, 14));
+        nameField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(STONE_HIGHLIGHT, 2),
+                BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        nameField.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel errorLabel = new JLabel(" ");
+        errorLabel.setFont(font(RetroTheme.UI_MONO_SMALL, Font.PLAIN, 11f));
+        errorLabel.setForeground(ERROR);
+        errorLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        content.add(categoryLabel);
+        content.add(Box.createVerticalStrut(11));
+        content.add(titleLabel);
+        content.add(Box.createVerticalStrut(18));
+        content.add(promptLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(nameField);
+        content.add(Box.createVerticalStrut(6));
+        content.add(errorLabel);
+        card.add(content, BorderLayout.CENTER);
+
+        JPanel buttonRow = transparentPanel();
+        buttonRow.setLayout(new GridLayout(1, 2, 12, 0));
+
+        Runnable submit = () -> {
+            String entered = nameField.getText() == null ? "" : nameField.getText().trim();
+            if (entered.isBlank()) {
+                errorLabel.setText("Please enter a name.");
+                nameField.requestFocusInWindow();
+                return;
+            }
+            name[0] = entered;
+            dialog.dispose();
+        };
+
+        ActionButton create = new ActionButton("Create", ButtonTone.PRIMARY);
+        create.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            submit.run();
+        });
+
+        ActionButton cancel = new ActionButton("Cancel", ButtonTone.SECONDARY);
+        cancel.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            name[0] = null;
+            dialog.dispose();
+        });
+
+        buttonRow.add(create);
+        buttonRow.add(cancel);
+        card.add(buttonRow, BorderLayout.SOUTH);
+
+        nameField.addActionListener(e -> submit.run());
+        dialog.getRootPane().setDefaultButton(create);
+        SwingUtilities.invokeLater(nameField::requestFocusInWindow);
+        return card;
+    }
+
     private static JComponent buildCard(JDialog dialog, Result[] result) {
         CardPanel card = new CardPanel();
         card.setLayout(new BorderLayout(0, 18));
