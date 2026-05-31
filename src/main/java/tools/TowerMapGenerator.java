@@ -33,6 +33,7 @@ import model.KeyColor;
 import model.ManaPotion;
 import model.MissingBrick;
 import model.SearchableObject;
+import model.ShadowCloneScroll;
 import model.Vase;
 import model.WaterPipe;
 
@@ -247,6 +248,11 @@ public final class TowerMapGenerator {
                     : new Chest(label, 16, CHEST_DIR + CHEST_SPRITES.get(index));
             chest.addItem(index == 0 ? new HealPotion() : new ManaPotion());
             chest.addItem(new Coin(10 + level.number() * 3, "/items/golds_coins/20_coin_pile_gold.png"));
+            // Roughly a third of chests also stash a Shadow Clone Scroll, one of the
+            // few ways to obtain one now that it no longer spawns on the ground.
+            if (layoutRandom(level, 21000L + index).nextDouble() < 0.34) {
+                chest.addItem(new ShadowCloneScroll());
+            }
             addItem(map, chestSpot, chest);
             used.add(chestSpot);
         }
