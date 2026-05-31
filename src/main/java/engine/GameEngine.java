@@ -1478,6 +1478,8 @@ public class GameEngine {
 
         shadowCloneSpawnTimer = new Timer(SHADOW_CLONE_SPAWN_INTERVAL_MS, e -> {
             if (isPaused || isGameOver) return;
+            // 35% chance per tick: ~one scroll every ~130s on average.
+            if (random.nextDouble() >= 0.35) return;
             if (spawnShadowCloneOnGround()) {
                 notifyListeners();
             }
