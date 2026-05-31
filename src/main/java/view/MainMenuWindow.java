@@ -129,9 +129,7 @@ public class MainMenuWindow extends JFrame {
         help.setOpaque(false);
         help.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            ItemActionMenuDialog.showNotice(this, "Controls", "Help",
-                    "Build Mode - Arrow keys or WASD to move.\n"
-                            + "The engine handles all rules; UI only forwards input.");
+            new HelpDialog(this).setVisible(true);
         });
 
         JButton exit = new JButton("EXIT");
