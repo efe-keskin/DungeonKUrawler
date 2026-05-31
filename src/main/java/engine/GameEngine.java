@@ -2198,6 +2198,35 @@ public class GameEngine {
         return seeker == null ? hero : nearestHeroLikeTarget(seeker.getX(), seeker.getY());
     }
 
+    /**
+     * Returns the entity a knight should target: a nearby ShadowClone
+     * if any, otherwise the hero. Implements the aggro draw promised
+     * by the ShadowCloneScroll: clones pull enemy attention away from
+     * the hero. Only used for knight movement; sorcerer projectiles
+     * still target the hero (a deliberate scope decision).
+     */
+    private Entity preferredTargetFor(Entity attacker) {
+        ShadowClone bestClone = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell c = dungeonMap.getCell(x, y);
+                if (c == null) continue;
+                for (Entity e : c.getEntitiesView()) {
+                    if (e instanceof ShadowClone clone) {
+                        double d = chebyshevDistance(attacker.getX(), attacker.getY(),
+                                                    clone.getX(), clone.getY());
+                        if (d <= KNIGHT_VISION_RANGE && d < bestDist) {
+                            bestClone = clone;
+                            bestDist = d;
+                        }
+                    }
+                }
+            }
+        }
+        return bestClone != null ? bestClone : hero;
+    }
+
     private Entity nearestHeroLikeTarget(int x, int y) {
         Entity best = hero;
         double bestDistance = euclideanDistance(x, y, hero.getX(), hero.getY());
