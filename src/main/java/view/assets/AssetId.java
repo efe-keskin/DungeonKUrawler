@@ -67,7 +67,9 @@ public enum AssetId {
     INVENTORY_CHEST_ICON("/inventorychest.png"),
     CHEST_BACKGROUND("/inventorychest.png"),
     MAIN_MENU_BACKGROUND("/mainmenu_background.jpg"),
-    HELP_QUESTION_MARK("/questionmark_minecraft.png");
+    HELP_QUESTION_MARK("/questionmark_minecraft.png"),
+    AUDIO_ON("/audio_on.png"),
+    AUDIO_OFF("/audio_off.png");
 
     private final String resourcePath;
 

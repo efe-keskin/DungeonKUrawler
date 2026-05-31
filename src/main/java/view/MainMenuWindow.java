@@ -46,6 +46,7 @@ public class MainMenuWindow extends JFrame {
         setTitle("Dungeon KUrawler - Main Menu");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        getRootPane().putClientProperty("apple.awt.fullscreenable", Boolean.TRUE);
 
         FantasyMenuBackgroundPanel background = new FantasyMenuBackgroundPanel();
         background.setLayout(new BorderLayout());
@@ -175,6 +176,7 @@ public class MainMenuWindow extends JFrame {
         setContentPane(background);
         pack();
         setSize(PREF_W, PREF_H);
+        FullscreenSupport.install(this);
         setMinimumSize(getSize());
         setLocationRelativeTo(null);
     }
@@ -188,15 +190,33 @@ public class MainMenuWindow extends JFrame {
             return panel;
         }
 
-        JButton muteButton = new JButton(audio.isMusicMuted() ? "MUTE" : "SND");
+        BufferedImage onIcon = AssetManager.get().image(AssetId.AUDIO_ON);
+        BufferedImage offIcon = AssetManager.get().image(AssetId.AUDIO_OFF);
+
+        JButton muteButton = new JButton();
         muteButton.setFocusable(false);
+        muteButton.setBorderPainted(false);
+        muteButton.setContentAreaFilled(false);
         muteButton.setMargin(new Insets(4, 8, 4, 8));
         muteButton.setToolTipText("Toggle menu music");
-        RetroTheme.styleRetroButton(muteButton, new Color(54, 41, 30));
-        muteButton.setFont(new Font(Font.DIALOG, Font.PLAIN, 20));
+
+        Runnable refreshIcon = () -> {
+            BufferedImage src = audio.isMusicMuted() ? offIcon : onIcon;
+            if (src != null) {
+                muteButton.setIcon(new ImageIcon(src));
+                muteButton.setText("");
+            } else {
+                // Graceful fallback when icons fail to load.
+                muteButton.setIcon(null);
+                muteButton.setText(audio.isMusicMuted() ? "MUTE" : "SND");
+                muteButton.setFont(new Font(Font.DIALOG, Font.PLAIN, 20));
+            }
+        };
+        refreshIcon.run();
+
         muteButton.addActionListener(e -> {
             audio.toggleMusicMute();
-            muteButton.setText(audio.isMusicMuted() ? "MUTE" : "SND");
+            refreshIcon.run();
         });
         panel.add(muteButton);
         return panel;

@@ -115,6 +115,7 @@ public class DesignWindow extends JFrame {
         setTitle("Dungeon Krawler - Design Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        getRootPane().putClientProperty("apple.awt.fullscreenable", Boolean.TRUE);
         RetroTheme.styleFrameDark(this);
 
         canvas = new DesignCanvas();
@@ -129,6 +130,7 @@ public class DesignWindow extends JFrame {
         setContentPane(wrap);
 
         setSize(WINDOW_W, WINDOW_H);
+        FullscreenSupport.install(this);
         setLocationRelativeTo(null);
     }
 
