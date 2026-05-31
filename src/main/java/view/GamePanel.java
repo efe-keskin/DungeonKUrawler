@@ -216,6 +216,11 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                if (e.getKeyCode() == KeyEvent.VK_E) {
+                    handleEquipKeyPress();
+                    return;
+                }
+
                 if (e.getKeyCode() == KeyEvent.VK_O) {
                     handleOpenKeyPress();
                     return;
@@ -561,6 +566,20 @@ public class GamePanel extends JPanel implements GameStateListener {
                     getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL));
         }
 
+        requestFocusInWindow();
+    }
+
+    private void handleEquipKeyPress() {
+        GameEngine.GroundActionResult result = engine.equipItemOnGround();
+        switch (result.type()) {
+            case READ -> ItemActionMenuDialog.showNotice(this, "Readable Object",
+                    result.itemName(), result.readText());
+            case INVENTORY_FULL -> showTransientWarning("Cannot Take Item",
+                    getPickupFailureMessage(InventoryController.PickupResult.INVENTORY_FULL));
+            // TOOK / EQUIPPED / WORE: the map and hero stats are the feedback.
+            // NONE: nothing takable nearby — stay silent.
+            default -> { }
+        }
         requestFocusInWindow();
     }
 

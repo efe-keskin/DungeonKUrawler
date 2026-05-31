@@ -52,6 +52,7 @@ public final class HelpDialog extends JDialog {
                 "Use these controls while playing a map:\n\n"
                         + "WASD / Arrow Keys ---> move the hero\n"
                         + "T ---> take the first available nearby item\n"
+                        + "E ---> equip the nearest item: weapons are equipped, armor is worn, books are read, anything else is taken\n"
                         + "O ---> open a nearby chest, arch, container, or searchable object\n"
                         + "P ---> attack the nearest enemy; if no enemy can be attacked, break a nearby breakable object\n"
                         + "I ---> open the inventory\n"

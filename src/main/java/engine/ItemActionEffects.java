@@ -4,12 +4,12 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import model.Armor;
-import model.Book;
 import model.Container;
 import model.Hero;
 import model.Item;
 import model.ItemAction;
 import model.Potion;
+import model.Readable;
 import model.Ring;
 import model.Weapon;
 
@@ -95,7 +95,7 @@ public final class ItemActionEffects {
     static final class ReadEffect implements Effect {
         @Override
         public boolean apply(Hero hero, Item item) {
-            return item instanceof Book;
+            return item instanceof Readable;
         }
 
         @Override
@@ -171,7 +171,7 @@ public final class ItemActionEffects {
     static final class CastEffect implements Effect {
         @Override
         public boolean apply(Hero hero, Item item) {
-            return item instanceof Book;
+            return item instanceof Readable;
         }
 
         @Override

@@ -3,9 +3,11 @@ package model;
 import java.util.List;
 
 /**
- * Collectible readable object whose contents can be viewed from inventory.
+ * Collectible readable book. Used as the win-condition clue: a book is hidden
+ * on the map and its text points the hero toward where the target valuable is
+ * stashed. Distinct from {@link Scroll}; both share the {@link Readable} role.
  */
-public class Book extends Item {
+public class Book extends Item implements Readable {
 
     private final String text;
 
@@ -14,6 +16,7 @@ public class Book extends Item {
         this.text = text;
     }
 
+    @Override
     public String read() {
         return text;
     }

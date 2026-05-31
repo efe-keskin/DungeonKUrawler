@@ -45,6 +45,11 @@ public final class TargetItemMission {
         return target;
     }
 
+    /** The hiding place the target was stashed in, or {@code null} before start. */
+    public HidingPlace getHidingPlace() {
+        return hidingPlace;
+    }
+
     public boolean isStarted() {
         return started;
     }
