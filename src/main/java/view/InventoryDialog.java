@@ -36,7 +36,9 @@ import model.ItemAction;
 import model.Key;
 import model.Pet;
 import model.Potion;
+import model.Readable;
 import model.Ring;
+import model.Scroll;
 import model.Torch;
 import model.ValuableItem;
 import model.Weapon;
@@ -411,9 +413,8 @@ public class InventoryDialog extends JDialog {
             return;
         }
 
-        if (action == ItemAction.READ && item instanceof Book book) {
-            ItemActionMenuDialog.showNotice(this, "Readable Object", item.getName(), book.read());
-            return;
+        if (action == ItemAction.READ && item instanceof Readable readable) {
+            ItemActionMenuDialog.showNotice(this, "Readable Object", item.getName(), readable.read());
         }
 
         if (action == ItemAction.WEAR || action == ItemAction.EQUIP || action == ItemAction.REMOVE) {
@@ -535,7 +536,7 @@ public class InventoryDialog extends JDialog {
         if (item instanceof Key) {
             return "Used automatically when opening a matching locked chest.";
         }
-        if (item instanceof Book) {
+        if (item instanceof Readable) {
             return "A readable object.";
         }
         return "A collectible valuable object.";
@@ -569,6 +570,9 @@ public class InventoryDialog extends JDialog {
         if (item instanceof Ring) {
             return "RNG";
         }
+        if (item instanceof Scroll) {
+            return "SCR";
+        }
         if (item instanceof Book) {
             return "BK";
         }
@@ -593,6 +597,9 @@ public class InventoryDialog extends JDialog {
         }
         if (item instanceof Ring) {
             return new Color(130, 95, 35);
+        }
+        if (item instanceof Scroll) {
+            return new Color(150, 120, 70);
         }
         if (item instanceof Book) {
             return new Color(120, 45, 35);

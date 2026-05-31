@@ -9,6 +9,7 @@ import java.util.Map;
 import model.Chest;
 import model.Coin;
 import model.Book;
+import model.Scroll;
 import model.ShadowCloneScroll;
 import model.BossEnemy;
 import model.DefeatedEnemyMarker;
@@ -76,6 +77,7 @@ public final class SpriteRegistry {
         registerItem(Coin.class, AssetId.COIN_PILE);
         registerItem(Ring.class, AssetId.RING_RED_GEM);
         registerItem(Book.class, AssetId.BOOK_RED);
+        registerItem(Scroll.class, AssetId.SHADOW_CLONE_SCROLL);
         registerItem(ShadowCloneScroll.class, AssetId.SHADOW_CLONE_SCROLL);
         registerItem(ValuableItem.class, AssetId.GEM_WHITE);
         registerItem(DefeatedEnemyMarker.class, AssetId.DEFEATED_ENEMY_MARKER);

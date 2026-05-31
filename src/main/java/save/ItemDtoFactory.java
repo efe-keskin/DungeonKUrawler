@@ -25,9 +25,12 @@ import model.PenguinPet;
 import model.Pet;
 import model.PetState;
 import model.Pool;
+import model.Readable;
 import model.Ring;
 import model.RingEffectType;
+import model.Scroll;
 import model.SearchableObject;
+import model.ShadowCloneScroll;
 import model.ValuableItem;
 import model.Vase;
 import model.WaterPipe;
@@ -63,6 +66,8 @@ final class ItemDtoFactory {
     private static final String PEDESTAL = "PEDESTAL";
     private static final String POOL = "POOL";
     private static final String RING = "RING";
+    private static final String SCROLL = "SCROLL";
+    private static final String SHADOW_CLONE_SCROLL = "SHADOW_CLONE_SCROLL";
     private static final String SEARCHABLE = "SEARCHABLE";
     private static final String VALUABLE = "VALUABLE";
     private static final String VASE = "VASE";
@@ -99,8 +104,8 @@ final class ItemDtoFactory {
             dto.weaponCategory = type.category();
             dto.weaponBaseAttack = type.baseAttack();
             dto.weaponRanged = type.ranged();
-        } else if (item instanceof Book book) {
-            dto.bookText = book.read();
+        } else if (item instanceof Readable readable) {
+            dto.bookText = readable.read();
         } else if (item instanceof Container container) {
             dto.capacity = container.getCapacity();
             dto.locked = container.isLocked();
@@ -146,6 +151,9 @@ final class ItemDtoFactory {
             case ARMOR -> new Armor(fallback(dto.name, "Armor"), dto.defModifier);
             case WEAPON -> new Weapon(resolveWeaponType(dto));
             case BOOK -> new Book(fallback(dto.name, "Book"), fallback(dto.bookText, ""));
+            case SHADOW_CLONE_SCROLL -> new ShadowCloneScroll(
+                    fallback(dto.name, "Shadow Clone Scroll"), fallback(dto.bookText, ""));
+            case SCROLL -> new Scroll(fallback(dto.name, "Scroll"), fallback(dto.bookText, ""));
             case CHEST -> restoreContainer(
                     new Chest(fallback(dto.name, "Chest"), positive(dto.capacity, 1), dto.spriteResource),
                     dto, context);
@@ -218,6 +226,12 @@ final class ItemDtoFactory {
         }
         if (item instanceof Weapon) {
             return WEAPON;
+        }
+        if (item instanceof ShadowCloneScroll) {
+            return SHADOW_CLONE_SCROLL;
+        }
+        if (item instanceof Scroll) {
+            return SCROLL;
         }
         if (item instanceof Book) {
             return BOOK;

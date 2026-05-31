@@ -48,6 +48,7 @@ import model.DragonPet;
 import model.Gargoyle;
 import model.Grill;
 import model.HeroProjectileStyle;
+import model.HidingPlace;
 import model.Hole;
 import model.Knight;
 import model.MissingBrick;
@@ -317,7 +318,56 @@ public class GameEngine {
         if (!targetMission.start(provider, dungeonMap, random, target)
                 && (!seedMissionChest() || !targetMission.start(provider, dungeonMap, random, target))) {
             System.out.println("[mission] no hiding place available - mission inactive");
+            return;
         }
+        placeClueBook(provider);
+    }
+
+    /**
+     * Hides a {@link Book} in a hiding place other than the one holding the
+     * target valuable. Reading the book reveals where the win-condition treasure
+     * is stashed, so the book acts as a discoverable clue rather than sitting on
+     * top of the treasure.
+     */
+    private void placeClueBook(HidingPlaceProvider provider) {
+        ValuableItem target = targetMission.getTarget();
+        HidingPlace targetPlace = targetMission.getHidingPlace();
+        String where = targetMission.hidingPlaceDescription();
+        if (target == null || where == null) {
+            return;
+        }
+
+        Book clue = new Book("Cartographer's Note",
+                "Scrawled in a hurried hand: the " + target.getName()
+                        + " lies hidden in the " + where + ". Seek it out before you flee.");
+
+        List<HidingPlace> candidates = new ArrayList<>();
+        for (HidingPlace place : provider.collectHidingPlaces(dungeonMap)) {
+            // collectHidingPlaces builds a fresh adapter per scan, so exclude by
+            // the underlying holder rather than adapter identity.
+            if (!sameHolder(place, targetPlace) && place.canHide(clue)) {
+                candidates.add(place);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return;
+        }
+        HidingPlace pick = candidates.get(random.nextInt(candidates.size()));
+        if (pick.hide(clue)) {
+            System.out.println("[mission] clue book hidden in " + pick.describe());
+        }
+    }
+
+    /** True when two hiding places wrap the same container or searchable fixture. */
+    private boolean sameHolder(HidingPlace a, HidingPlace b) {
+        if (a instanceof model.ContainerHidingPlace ca && b instanceof model.ContainerHidingPlace cb) {
+            return ca.getContainer() == cb.getContainer();
+        }
+        if (a instanceof model.SearchableObjectHidingPlace sa
+                && b instanceof model.SearchableObjectHidingPlace sb) {
+            return sa.getSearchableObject() == sb.getSearchableObject();
+        }
+        return false;
     }
 
     private boolean seedMissionChest() {
@@ -327,7 +377,7 @@ public class GameEngine {
                 if (cell != null && cell.isWalkable()
                         && cell.getItemsView().isEmpty()
                         && cell.getEntitiesView().isEmpty()) {
-                    cell.getItems().add(new Chest("Mission Chest", 16,
+                    cell.getItems().add(new Chest("Blue-Trimmed Chest", 16,
                             "/items/chests/01_chest_closed_blue_trim.png"));
                     return true;
                 }
@@ -624,16 +674,18 @@ public class GameEngine {
         placeRandomly(map, new Ring("Protective Ring", 2));
         placeRandomly(map, new Weapon(WeaponCatalog.get().byId("W002")));
 
-        // Wooden Chest (locked with olive key) gets a guaranteed cell before keys land.
-        Chest wooden = Chest.locked("Wooden Chest", 16, "olive");
+        // Red ornate chest (locked with olive key) gets a guaranteed cell before keys land.
+        Chest wooden = Chest.locked("Ornate Red Chest", 16, "olive",
+                "/items/chests/08_ornate_chest_gold_red.png");
         wooden.addItem(new HealPotion());
         wooden.addItem(new Key("silver", KeyColor.SILVER));
         wooden.addItem(new Book("Explorer's Journal",
-                "The old silver chest protects equipment for anyone brave enough to unlock it."));
+                "The gold-trimmed chest protects equipment for anyone brave enough to unlock it."));
         placeRandomly(map, wooden);
 
-        // Silver Chest with the gold key + leather armor.
-        Chest silver = Chest.locked("Silver Chest", 16, "silver");
+        // Gold-trimmed chest with the gold key + leather armor.
+        Chest silver = Chest.locked("Gold-Trimmed Chest", 16, "silver",
+                "/items/chests/02_chest_closed_gold_trim.png");
         silver.addItem(new EnergyPotion());
         silver.addItem(new Key("gold", KeyColor.GOLD));
         silver.addItem(new Armor("Leather Armor", 3));
@@ -1137,6 +1189,77 @@ public class GameEngine {
             }
         }
         return false;
+    }
+
+    /** Outcome of the EQUIP ("E") action on the nearest ground item. */
+    public enum GroundActionType { NONE, TOOK, EQUIPPED, WORE, READ, INVENTORY_FULL }
+
+    /**
+     * Result of {@link #equipItemOnGround()}: what happened and, for readables,
+     * the text revealed so the view can display it.
+     */
+    public record GroundActionResult(GroundActionType type, String itemName, String readText) {
+        static GroundActionResult none() {
+            return new GroundActionResult(GroundActionType.NONE, null, null);
+        }
+    }
+
+    /**
+     * Picks up the nearest takable item (current tile or 8-adjacent) and applies
+     * a type-specific action: weapons are equipped (swapping out the current
+     * weapon), armor is worn, readables are read and kept, and everything else is
+     * simply taken into the inventory.
+     */
+    public GroundActionResult equipItemOnGround() {
+        Hero hero = getHero();
+        int hx = hero.getX();
+        int hy = hero.getY();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int tx = hx + dx;
+                int ty = hy + dy;
+                GridCell cell = dungeonMap.getCell(tx, ty);
+                if (cell == null || cell.getItems().isEmpty()) {
+                    continue;
+                }
+                for (Item item : cell.getItems()) {
+                    if (!item.isTakable()) {
+                        continue;
+                    }
+                    boolean canCollect = item instanceof Coin || item instanceof ValuableItem
+                            || hero.getInventory().hasFreeSlot();
+                    if (!canCollect) {
+                        return new GroundActionResult(GroundActionType.INVENTORY_FULL, item.getName(), null);
+                    }
+                    return applyGroundEquip(item, tx, ty);
+                }
+            }
+        }
+        return GroundActionResult.none();
+    }
+
+    private GroundActionResult applyGroundEquip(Item item, int x, int y) {
+        String name = item.getName();
+        String readText = item instanceof model.Readable readable ? readable.read() : null;
+        if (!takeItem(item, x, y)) {
+            return new GroundActionResult(GroundActionType.INVENTORY_FULL, name, null);
+        }
+        // Coins and valuables never enter the inventory; nothing to equip or read.
+        if (item instanceof Coin || item instanceof ValuableItem) {
+            return new GroundActionResult(GroundActionType.TOOK, name, null);
+        }
+        if (item instanceof Weapon) {
+            performInventoryAction(item, ItemAction.EQUIP);
+            return new GroundActionResult(GroundActionType.EQUIPPED, name, null);
+        }
+        if (item instanceof Armor) {
+            performInventoryAction(item, ItemAction.WEAR);
+            return new GroundActionResult(GroundActionType.WORE, name, null);
+        }
+        if (readText != null) {
+            return new GroundActionResult(GroundActionType.READ, name, readText);
+        }
+        return new GroundActionResult(GroundActionType.TOOK, name, null);
     }
 
     /**

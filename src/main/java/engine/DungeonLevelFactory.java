@@ -162,7 +162,8 @@ public final class DungeonLevelFactory {
         // A loot chest in the far corner gives the floor something to find.
         GridCell chestCell = walkableCell(map, w - 3, h - 3);
         if (chestCell != null) {
-            Chest chest = new Chest("Floor Cache", 16);
+            Chest chest = new Chest("Orange Strongbox", 16,
+                    "/items/chests/10_orange_chest_closed_frame1.png");
             chest.addItem(new HealPotion());
             chest.addItem(new Coin(10));
             chestCell.getItems().add(chest);

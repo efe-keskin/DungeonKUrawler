@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * Collectible readable scroll that summons a shadow clone when read.
  */
-public class ShadowCloneScroll extends Book {
+public class ShadowCloneScroll extends Scroll {
 
     public ShadowCloneScroll(String name, String text) {
         super(name, text);
