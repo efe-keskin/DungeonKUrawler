@@ -2,10 +2,13 @@ package engine;
 
 import model.Armor;
 import model.Hero;
+import model.HeroProjectileStyle;
 import model.Knight;
 import model.Ring;
+import model.RingEffectType;
 import model.Sorcerer;
 import model.Weapon;
+import model.WeaponCatalog;
 import model.WeaponType;
 
 import org.junit.jupiter.api.Test;
@@ -87,6 +90,55 @@ class CombatManagerTest {
     }
 
     @Test
+    void powerRingIncreasesHeroStrength() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        Ring powerRing = new Ring("Power Ring", RingEffectType.STRENGTH, 3);
+        hero.getInventory().tryAdd(powerRing);
+
+        hero.wearRing(powerRing);
+
+        assertEquals(13, hero.getStr());
+        assertEquals(10, hero.getBaseStr());
+    }
+
+    @Test
+    void manaAndEnergyRingsIncreaseCaps() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        Ring manaRing = new Ring("Mana Ring", RingEffectType.MANA, 6);
+        Ring energyRing = new Ring("Energy Ring", RingEffectType.ENERGY, 6);
+        hero.getInventory().tryAdd(manaRing);
+        hero.getInventory().tryAdd(energyRing);
+
+        hero.wearRing(manaRing);
+        assertEquals(86, hero.getMaxMana());
+        assertEquals(100, hero.getMaxEnergy());
+
+        hero.wearRing(energyRing);
+        assertEquals(80, hero.getMaxMana());
+        assertEquals(106, hero.getMaxEnergy());
+    }
+
+    @Test
+    void ringAndWeaponCanBeEquippedTogetherButOnlyOneWeaponStaysEquipped() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        Ring powerRing = new Ring("Power Ring", RingEffectType.STRENGTH, 3);
+        Weapon sword = new Weapon(new WeaponType("TEST_SWORD", "Sword", "swords", null, 3, false));
+        Weapon axe = new Weapon(new WeaponType("TEST_AXE", "Axe", "axes", null, 4, false));
+        hero.getInventory().tryAdd(powerRing);
+        hero.getInventory().tryAdd(sword);
+        hero.getInventory().tryAdd(axe);
+
+        hero.wearRing(powerRing);
+        hero.equipWeapon(sword);
+        hero.equipWeapon(axe);
+
+        assertEquals(powerRing, hero.getEquippedRing());
+        assertEquals(axe, hero.getEquippedWeapon());
+        assertTrue(hero.isEquipped(powerRing));
+        assertTrue(hero.isEquipped(axe));
+    }
+
+    @Test
     void sorcererProjectileSpendsManaAndThenFizzlesWhenEmpty() {
         Sorcerer sorcerer = new Sorcerer(1, 0, "Sorcerer", 10, 5, 0, false);
         Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
@@ -102,13 +154,13 @@ class CombatManagerTest {
     }
 
     @Test
-    void heroRangedPrepRequiresManaAndRangedWeapon() {
+    void heroRangedWandRequiresMana() {
         Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
         hero.setMana(4);
         Knight knight = new Knight(3, 0, "Knight", 20, 0, 0, 5);
-        Weapon spellBook = new Weapon(new WeaponType("TEST_STAFF", "Spell Book", "staves", null, 5, true));
-        hero.getInventory().tryAdd(spellBook);
-        hero.equipWeapon(spellBook);
+        Weapon wand = new Weapon(WeaponCatalog.get().byId("B23_WAND"));
+        hero.getInventory().tryAdd(wand);
+        hero.equipWeapon(wand);
 
         assertNull(combatManager.prepareHeroRangedProjectile(hero, knight));
 
@@ -116,6 +168,26 @@ class CombatManagerTest {
         CombatManager.HeroProjectilePrep prep = combatManager.prepareHeroRangedProjectile(hero, knight);
         assertTrue(prep.damageReceived > 0);
         assertEquals(0, hero.getMana());
+        assertEquals(100, hero.getEnergy());
+    }
+
+    @Test
+    void heroRangedBowSpendsEnergyNotMana() {
+        Hero hero = new Hero(0, 0, "Hero", 100, 10, 80, 2, 100);
+        hero.setEnergy(2);
+        Knight knight = new Knight(3, 0, "Knight", 20, 0, 0, 5);
+        Weapon bow = new Weapon(WeaponCatalog.get().byId("B23_BOW"));
+        hero.getInventory().tryAdd(bow);
+        hero.equipWeapon(bow);
+
+        assertNull(combatManager.prepareHeroRangedProjectile(hero, knight));
+
+        hero.setEnergy(3);
+        CombatManager.HeroProjectilePrep prep = combatManager.prepareHeroRangedProjectile(hero, knight);
+        assertTrue(prep.damageReceived > 0);
+        assertEquals(0, hero.getEnergy());
+        assertEquals(80, hero.getMana());
+        assertEquals(HeroProjectileStyle.ARROW, prep.projectileStyle);
     }
 
     @Test

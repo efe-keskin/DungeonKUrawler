@@ -65,6 +65,7 @@ public final class WeaponCatalog {
 
     private WeaponCatalog() {
         loadFromCsv();
+        registerB23RangedWeapons();
     }
 
     public WeaponType byId(String id) {
@@ -135,6 +136,38 @@ public final class WeaponCatalog {
         CategoryStats stats = STATS_BY_CATEGORY.getOrDefault(category, DEFAULT_STATS);
         return new WeaponType(id, titleCase(label), category, spritePath,
                 stats.baseAttack(), stats.ranged());
+    }
+
+    /** B23 hero ranged weapons with explicit resource costs and projectile styles. */
+    private void registerB23RangedWeapons() {
+        registerWeapon(new WeaponType(
+                "B23_BOW",
+                "Wooden Bow",
+                "bows",
+                "/weapons/bows/058_curved_bow.png",
+                6,
+                true,
+                4,
+                RangedCostType.ENERGY,
+                3,
+                HeroProjectileStyle.ARROW));
+        registerWeapon(new WeaponType(
+                "B23_WAND",
+                "Magic Wand",
+                "staves",
+                "/weapons/staves/012_long_wooden_pole.png",
+                8,
+                true,
+                4,
+                RangedCostType.MANA,
+                5,
+                HeroProjectileStyle.ICE_BOLT));
+    }
+
+    private void registerWeapon(WeaponType type) {
+        byId.put(type.id(), type);
+        byCategory.computeIfAbsent(type.category(), k -> new ArrayList<>()).add(type);
+        all.add(type);
     }
 
     private static String titleCase(String raw) {

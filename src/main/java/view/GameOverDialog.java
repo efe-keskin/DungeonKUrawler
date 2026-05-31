@@ -13,11 +13,10 @@ public final class GameOverDialog {
 
     public static void show(Component parent) {
         // Uses the same visual language as MissionSplashDialog/ItemActionMenuDialog.
-        show(parent, "DEFEAT", "Your HP reached 0.");
+        ItemActionMenuDialog.show(parent, "Game Over", "DEFEAT", "Your HP reached 0.", "Return to Menu");
     }
 
     public static void show(Component parent, String heading, String message) {
-        // Uses the same visual language as MissionSplashDialog/ItemActionMenuDialog.
         ItemActionMenuDialog.show(parent, "Game Over", heading, message, "Return to Menu");
     }
 }

@@ -140,7 +140,11 @@ public final class GameStateMapper {
         if (target == null && state.missionTargetName != null && !state.missionTargetName.isBlank()) {
             target = new ValuableItem(state.missionTargetName, state.missionTargetSprite);
         }
-        return new GameEngine(map, hero, target, state.missionStarted, state.missionWon);
+        GameEngine engine = new GameEngine(map, hero, target, state.missionStarted, state.missionWon);
+        if (saveGame.towerLevelNumber > 0) {
+            engine.configureTowerLevel(saveGame.towerLevelNumber, saveGame.finalTowerLevel);
+        }
+        return engine;
     }
 
     private MapDto mapToDto(DungeonMap map, ValuableItem missionTarget) throws SaveGameException {
@@ -192,12 +196,12 @@ public final class GameStateMapper {
         dto.name = hero.getName();
         dto.hp = hero.getHp();
         dto.maxHp = hero.getMaxHp();
-        dto.str = hero.getStr();
+        dto.str = hero.getBaseStr();
         dto.mana = hero.getMana();
-        dto.maxMana = hero.getMaxMana();
+        dto.maxMana = hero.getBaseMaxMana();
         dto.baseDef = hero.getBaseDef();
         dto.energy = hero.getEnergy();
-        dto.maxEnergy = hero.getMaxEnergy();
+        dto.maxEnergy = hero.getBaseMaxEnergy();
         dto.coinBalance = hero.getCoinBalance();
 
         int index = 0;

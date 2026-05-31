@@ -65,7 +65,7 @@ public final class SaveFileRepository {
             try {
                 Files.writeString(temp, serializer.serialize(saveGame), StandardCharsets.UTF_8);
                 moveIntoPlace(temp, destination);
-                return new SaveDescriptor(saveGame.saveName, saveGame.savedAt, destination);
+                return descriptorFor(saveGame, destination);
             } catch (IOException | SaveGameException ex) {
                 Files.deleteIfExists(temp);
                 throw ex;
@@ -126,10 +126,33 @@ public final class SaveFileRepository {
             String savedAt = dto.savedAt == null || dto.savedAt.isBlank()
                     ? "unknown date"
                     : dto.savedAt;
-            return new SaveDescriptor(name, savedAt, path);
+            return descriptorFor(dto, name, savedAt, path);
         } catch (IOException | SaveGameException ignored) {
             return null;
         }
+    }
+
+    private static SaveDescriptor descriptorFor(SaveGameDto dto, Path path) {
+        String name = dto.saveName == null || dto.saveName.isBlank()
+                ? path.getFileName().toString()
+                : dto.saveName;
+        String savedAt = dto.savedAt == null || dto.savedAt.isBlank()
+                ? "unknown date"
+                : dto.savedAt;
+        return descriptorFor(dto, name, savedAt, path);
+    }
+
+    private static SaveDescriptor descriptorFor(SaveGameDto dto, String name, String savedAt, Path path) {
+        SaveGameType type = SaveGameType.from(dto.saveType);
+        if (type == null) {
+            type = dto.gameState != null && dto.gameState.towerProgress != null
+                    ? SaveGameType.SCENARIO_PROGRESS
+                    : SaveGameType.CUSTOM_GAME;
+        }
+        int highestUnlocked = dto.gameState == null || dto.gameState.towerProgress == null
+                ? 0
+                : dto.gameState.towerProgress.highestUnlockedLevel;
+        return new SaveDescriptor(name, savedAt, path, type, dto.towerLevelNumber, highestUnlocked);
     }
 
     private Path nextPath(String saveName) {

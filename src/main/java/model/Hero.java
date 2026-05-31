@@ -20,6 +20,7 @@ public class Hero extends Entity {
     private Armor equippedArmor;
     private Weapon equippedWeapon;
     private Ring equippedRing;
+    private long lastAttackTimeMs;
     /** Active companion (persistent; lives in {@link #fullInventory}). */
     private Pet equippedPet;
 
@@ -41,6 +42,11 @@ public class Hero extends Entity {
     }
 
     public int getMaxEnergy() {
+        int ringBonus = equippedRing == null ? 0 : equippedRing.getEnergyBonus();
+        return maxEnergy + ringBonus;
+    }
+
+    public int getBaseMaxEnergy() {
         return maxEnergy;
     }
 
@@ -53,6 +59,11 @@ public class Hero extends Entity {
     }
 
     public int getStr() {
+        int ringBonus = equippedRing == null ? 0 : equippedRing.getStrBonus();
+        return str + ringBonus;
+    }
+
+    public int getBaseStr() {
         return str;
     }
 
@@ -65,6 +76,11 @@ public class Hero extends Entity {
     }
 
     public int getMaxMana() {
+        int ringBonus = equippedRing == null ? 0 : equippedRing.getManaBonus();
+        return maxMana + ringBonus;
+    }
+
+    public int getBaseMaxMana() {
         return maxMana;
     }
 
@@ -147,6 +163,9 @@ public class Hero extends Entity {
         if (weapon == null || !inventory.getItems().contains(weapon)) {
             return false;
         }
+        if (equippedWeapon != null && equippedWeapon != weapon) {
+            equippedWeapon = null;
+        }
         equippedWeapon = weapon;
         return true;
     }
@@ -155,7 +174,10 @@ public class Hero extends Entity {
         if (ring == null || !inventory.getItems().contains(ring)) {
             return false;
         }
+        int oldMaxMana = getMaxMana();
+        int oldMaxEnergy = getMaxEnergy();
         equippedRing = ring;
+        clampLoweredResourceCaps(oldMaxMana, oldMaxEnergy);
         return true;
     }
 
@@ -173,10 +195,22 @@ public class Hero extends Entity {
             return true;
         }
         if (item == equippedRing) {
+            int oldMaxMana = getMaxMana();
+            int oldMaxEnergy = getMaxEnergy();
             equippedRing = null;
+            clampLoweredResourceCaps(oldMaxMana, oldMaxEnergy);
             return true;
         }
         return false;
+    }
+
+    private void clampLoweredResourceCaps(int oldMaxMana, int oldMaxEnergy) {
+        if (getMaxMana() < oldMaxMana) {
+            mana = Math.min(mana, getMaxMana());
+        }
+        if (getMaxEnergy() < oldMaxEnergy) {
+            energy = Math.min(energy, getMaxEnergy());
+        }
     }
 
     public int getCoinBalance() {
@@ -235,6 +269,22 @@ public class Hero extends Entity {
         }
         this.mana -= amount;
         return true;
+    }
+
+    public boolean spendEnergy(int amount) {
+        if (amount <= 0 || this.energy < amount) {
+            return false;
+        }
+        this.energy -= amount;
+        return true;
+    }
+
+    public long getLastAttackTimeMs() {
+        return lastAttackTimeMs;
+    }
+
+    public void setLastAttackTimeMs(long lastAttackTimeMs) {
+        this.lastAttackTimeMs = lastAttackTimeMs;
     }
     
 }

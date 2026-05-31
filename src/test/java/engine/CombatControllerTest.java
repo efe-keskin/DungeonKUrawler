@@ -1,8 +1,11 @@
 package engine;
 
 import model.GridCell;
+import model.Hero;
 import model.Knight;
 import model.Sorcerer;
+import model.Weapon;
+import model.WeaponCatalog;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,21 +105,53 @@ class CombatControllerTest {
     }
 
     @Test
-    void sorcererBelowHalfHpRemainsOnTileWhenHitAgain() {
+    void secondAttackWithinPacingWindowIsIgnored() {
         GridCell targetCell = engine.getDungeonMap().getCell(2, 1);
         targetCell.getEntities().clear();
-        Sorcerer sorcerer = new Sorcerer(2, 1, "Sorcerer", 10, 30, 0, false);
-        sorcerer.setHp(4);
-        targetCell.getEntities().add(sorcerer);
+        Knight knight = new Knight(2, 1, "Knight", 20, 8, 4, 5);
+        targetCell.getEntities().add(knight);
 
-        int startX = sorcerer.getX();
-        int startY = sorcerer.getY();
+        assertNotNull(combatController.attackAt(2, 1));
+        int hpAfterFirst = knight.getHp();
 
-        CombatManager.AttackResult result = combatController.attackAt(startX, startY);
+        assertNull(combatController.attackAt(2, 1));
+        assertEquals(hpAfterFirst, knight.getHp());
+    }
 
-        assertNotNull(result);
-        assertEquals(startX, sorcerer.getX());
-        assertEquals(startY, sorcerer.getY());
-        assertTrue(targetCell.getEntities().contains(sorcerer));
+    @Test
+    void attackAllowedAfterPacingWindowElapses() {
+        GridCell targetCell = engine.getDungeonMap().getCell(2, 1);
+        targetCell.getEntities().clear();
+        Knight knight = new Knight(2, 1, "Knight", 20, 8, 4, 5);
+        targetCell.getEntities().add(knight);
+
+        assertNotNull(combatController.attackAt(2, 1));
+        engine.getHero().setLastAttackTimeMs(
+                System.currentTimeMillis() - GameConstants.GLOBAL_ACTION_TICK_MS);
+
+        assertNotNull(combatController.attackAt(2, 1));
+        assertTrue(knight.getHp() < 20);
+    }
+
+    @Test
+    void autoAimUsesWeaponMaxRangeNotTwoTiles() {
+        Hero hero = engine.getHero();
+        hero.updatePosition(5, 1);
+        hero.setEnergy(100);
+
+        Weapon bow = new Weapon(WeaponCatalog.get().byId("B23_BOW"));
+        hero.getInventory().tryAdd(bow);
+        hero.equipWeapon(bow);
+        assertEquals(4, bow.getMaxRange());
+
+        GridCell farCell = engine.getDungeonMap().getCell(9, 1);
+        farCell.getEntities().clear();
+        farCell.getEntities().add(new Knight(9, 1, "Far", 20, 0, 0, 5));
+
+        assertTrue(engine.canHeroShootAt(9, 1));
+        CombatController.TargetedAttack attack = combatController.autoAimRangedAttack();
+        assertNotNull(attack);
+        assertEquals(9, attack.x());
+        assertEquals(1, attack.y());
     }
 }

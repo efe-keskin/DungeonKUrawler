@@ -62,6 +62,7 @@ public final class LoadGameDialog {
 
     public enum Action {
         CONTINUE,
+        NEW_GAME,
         DELETE,
         CANCEL
     }
@@ -73,6 +74,15 @@ public final class LoadGameDialog {
     }
 
     public static Result show(Component parent, List<SaveDescriptor> saves) {
+        return show(parent, saves, "Load Game", "Choose a saved game", false);
+    }
+
+    public static Result showForStartGame(Component parent, List<SaveDescriptor> saves) {
+        return show(parent, saves, "Start Game", "Continue a saved floor or start from the tower map", true);
+    }
+
+    public static Result show(Component parent, List<SaveDescriptor> saves,
+            String title, String prompt, boolean allowNewGame) {
         Window owner = parent instanceof Window window ? window : SwingUtilities.getWindowAncestor(parent);
         JDialog dialog = new JDialog(owner, Dialog.ModalityType.APPLICATION_MODAL);
         Result[] result = { Result.cancelled() };
@@ -80,7 +90,7 @@ public final class LoadGameDialog {
         dialog.setUndecorated(true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setBackground(new Color(0, 0, 0, 0));
-        dialog.setContentPane(buildCard(dialog, result, saves));
+        dialog.setContentPane(buildCard(dialog, result, saves, title, prompt, allowNewGame));
         dialog.getRootPane().registerKeyboardAction(e -> {
             result[0] = Result.cancelled();
             dialog.dispose();
@@ -91,7 +101,8 @@ public final class LoadGameDialog {
         return result[0];
     }
 
-    private static JComponent buildCard(JDialog dialog, Result[] result, List<SaveDescriptor> saves) {
+    private static JComponent buildCard(JDialog dialog, Result[] result, List<SaveDescriptor> saves,
+            String title, String prompt, boolean allowNewGame) {
         CardPanel card = new CardPanel();
         card.setLayout(new BorderLayout(0, 18));
         card.setBorder(new EmptyBorder(30, 32, 28, 32));
@@ -105,12 +116,12 @@ public final class LoadGameDialog {
         categoryLabel.setForeground(GOLD);
         categoryLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel titleLabel = new JLabel("Load Game");
+        JLabel titleLabel = new JLabel(title == null ? "Load Game" : title);
         titleLabel.setFont(font(RetroTheme.UI_MONO, Font.PLAIN, 22f));
         titleLabel.setForeground(TITLE);
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel promptLabel = new JLabel("Choose a saved game");
+        JLabel promptLabel = new JLabel(prompt == null ? "Choose a saved game" : prompt);
         promptLabel.setFont(font(RetroTheme.UI_MONO_SMALL, Font.PLAIN, 13f));
         promptLabel.setForeground(DETAIL);
         promptLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -159,7 +170,7 @@ public final class LoadGameDialog {
         card.add(content, BorderLayout.CENTER);
 
         JPanel buttonRow = transparentPanel();
-        buttonRow.setLayout(new GridLayout(1, 3, 12, 0));
+        buttonRow.setLayout(new GridLayout(1, allowNewGame ? 4 : 3, 12, 0));
 
         Consumer<Action> submit = action -> {
             SaveDescriptor selected = saveList.getSelectedValue();
@@ -183,6 +194,13 @@ public final class LoadGameDialog {
             submit.accept(Action.DELETE);
         });
 
+        ActionButton newGameButton = new ActionButton("New Game", ButtonTone.SECONDARY);
+        newGameButton.addActionListener(e -> {
+            AudioManager.shared().play("button_click");
+            result[0] = new Result(Action.NEW_GAME, null);
+            dialog.dispose();
+        });
+
         ActionButton cancelButton = new ActionButton("Cancel", ButtonTone.SECONDARY);
         cancelButton.addActionListener(e -> {
             AudioManager.shared().play("button_click");
@@ -191,6 +209,9 @@ public final class LoadGameDialog {
         });
 
         buttonRow.add(continueButton);
+        if (allowNewGame) {
+            buttonRow.add(newGameButton);
+        }
         buttonRow.add(deleteButton);
         buttonRow.add(cancelButton);
         card.add(buttonRow, BorderLayout.SOUTH);

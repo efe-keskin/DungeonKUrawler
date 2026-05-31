@@ -14,8 +14,8 @@ import java.util.List;
  */
 public final class Arch extends StaticObject {
 
-    public static final String CLOSED_SPRITE = "/background_floor/assets/15_door_closed_wood.png";
-    public static final String OPEN_SPRITE = "/background_floor/assets/17_arch_open_stone.png";
+    public static final String CLOSED_SPRITE = "/background_floor/assets/doors/15_door_closed_wood.png";
+    public static final String OPEN_SPRITE = "/background_floor/assets/doors/17_door_open_wood.png";
 
     private boolean open;
 

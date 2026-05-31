@@ -17,8 +17,12 @@ public final class SaveDtos {
     }
 
     public static final class SaveGameDto {
+        public String saveType;
         public String saveName;
         public String savedAt;
+        /** 1-based tower floor for scenario checkpoint saves; 0 otherwise. */
+        public int towerLevelNumber;
+        public boolean finalTowerLevel;
         public GameStateDto gameState;
     }
 
@@ -92,6 +96,8 @@ public final class SaveDtos {
         public String keyId;
         public String keyColor;
         public boolean singleUse;
+        public String ringEffectType;
+        public int ringBonus;
         public int defBonus;
         public int defModifier;
         public String weaponId;
@@ -111,6 +117,7 @@ public final class SaveDtos {
 
         public boolean blocking;
         public ItemDto hiddenItem;
+        public boolean searched;
 
         public int petHp;
         public int petMaxHp;
@@ -140,11 +147,22 @@ public final class SaveDtos {
         private final String saveName;
         private final String savedAt;
         private final Path path;
+        private final SaveGameType saveType;
+        private final int towerLevelNumber;
+        private final int highestUnlockedLevel;
 
         public SaveDescriptor(String saveName, String savedAt, Path path) {
+            this(saveName, savedAt, path, SaveGameType.CUSTOM_GAME, 0, 0);
+        }
+
+        public SaveDescriptor(String saveName, String savedAt, Path path,
+                SaveGameType saveType, int towerLevelNumber, int highestUnlockedLevel) {
             this.saveName = saveName;
             this.savedAt = savedAt;
             this.path = path;
+            this.saveType = saveType == null ? SaveGameType.CUSTOM_GAME : saveType;
+            this.towerLevelNumber = Math.max(0, towerLevelNumber);
+            this.highestUnlockedLevel = Math.max(0, highestUnlockedLevel);
         }
 
         public String getSaveName() {
@@ -157,6 +175,18 @@ public final class SaveDtos {
 
         public Path getPath() {
             return path;
+        }
+
+        public SaveGameType getSaveType() {
+            return saveType;
+        }
+
+        public int getTowerLevelNumber() {
+            return towerLevelNumber;
+        }
+
+        public int getHighestUnlockedLevel() {
+            return highestUnlockedLevel;
         }
 
         public String getShortSavedAt() {
@@ -175,6 +205,13 @@ public final class SaveDtos {
         }
 
         public String getDisplayLabel() {
+            if (saveType == SaveGameType.SCENARIO_CHECKPOINT && towerLevelNumber > 0) {
+                return saveName + " - Floor " + towerLevelNumber + " (" + getShortSavedAt() + ")";
+            }
+            if (saveType == SaveGameType.SCENARIO_PROGRESS && highestUnlockedLevel > 0) {
+                return saveName + " - Tower Progress L" + highestUnlockedLevel
+                        + " (" + getShortSavedAt() + ")";
+            }
             return saveName + " (" + getShortSavedAt() + ")";
         }
 

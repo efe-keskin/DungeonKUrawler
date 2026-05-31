@@ -13,6 +13,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.swing.ImageIcon;
@@ -28,6 +29,7 @@ import engine.audio.AudioManager;
 import save.SaveDtos.SaveDescriptor;
 import save.SaveGameController;
 import save.SaveGameException;
+import save.SaveGameType;
 import view.assets.AssetId;
 import view.assets.AssetManager;
 
@@ -41,7 +43,7 @@ public class MainMenuWindow extends JFrame {
     private static final int PREF_H = 560;
 
     public MainMenuWindow() {
-        setTitle("Dungeon KUrawler — Main Menu");
+        setTitle("Dungeon KUrawler - Main Menu");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
 
@@ -91,11 +93,11 @@ public class MainMenuWindow extends JFrame {
             handleStartGame();
         });
 
-        JButton load = new JButton("LOAD GAME");
+        JButton load = new JButton("LOAD CUSTOM GAME");
         RetroTheme.styleRetroButton(load, new Color(118, 72, 142));
         load.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            handleLoadGame();
+            handleLoadCustomGame();
         });
 
         JButton loadMap = new JButton("LOAD MAP");
@@ -129,9 +131,10 @@ public class MainMenuWindow extends JFrame {
         help.setOpaque(false);
         help.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            ItemActionMenuDialog.showNotice(this, "Controls", "Help",
-                    "Build Mode - Arrow keys or WASD to move.\n"
-                            + "The engine handles all rules; UI only forwards input.");
+
+            new HelpDialog(this).setVisible(true);
+
+
         });
 
         JButton exit = new JButton("EXIT");
@@ -185,7 +188,7 @@ public class MainMenuWindow extends JFrame {
             return panel;
         }
 
-        JButton muteButton = new JButton(audio.isMusicMuted() ? "🔇" : "🔊");
+        JButton muteButton = new JButton(audio.isMusicMuted() ? "MUTE" : "SND");
         muteButton.setFocusable(false);
         muteButton.setMargin(new Insets(4, 8, 4, 8));
         muteButton.setToolTipText("Toggle menu music");
@@ -193,7 +196,7 @@ public class MainMenuWindow extends JFrame {
         muteButton.setFont(new Font(Font.DIALOG, Font.PLAIN, 20));
         muteButton.addActionListener(e -> {
             audio.toggleMusicMute();
-            muteButton.setText(audio.isMusicMuted() ? "🔇" : "🔊");
+            muteButton.setText(audio.isMusicMuted() ? "MUTE" : "SND");
         });
         panel.add(muteButton);
         return panel;
@@ -217,16 +220,19 @@ public class MainMenuWindow extends JFrame {
     }
 
     /**
-     * UC-T1: Start Game routes through the Tower Scenario Map. If saves exist,
-     * the player picks one and its tower progress is loaded; with no saves, a
-     * fresh tower run begins (Level 1 unlocked). No dungeon starts until the
-     * player chooses an unlocked floor on the map.
+     * UC-T1: Start Game owns the scenario flow. A saved scenario checkpoint
+     * resumes directly in its floor; New Game opens the tower map with previous
+     * unlocks preserved.
      */
     private void handleStartGame() {
         SaveGameController saveController = new SaveGameController();
-        List<SaveDescriptor> saves;
+        List<SaveDescriptor> checkpoints;
+        List<SaveDescriptor> scenarioSaves;
         try {
-            saves = saveController.listSaves();
+            checkpoints = saveController.listSaves(SaveGameType.SCENARIO_CHECKPOINT);
+            scenarioSaves = saveController.listSaves().stream()
+                    .filter(save -> save.getSaveType().isScenario())
+                    .toList();
         } catch (SaveGameException ex) {
             ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
                     "Saved games could not be read.");
@@ -235,35 +241,72 @@ public class MainMenuWindow extends JFrame {
 
         TowerProgressController progress = new TowerProgressController(saveController);
 
-        if (saves.isEmpty()) {
+        if (checkpoints.isEmpty()) {
+            if (!scenarioSaves.isEmpty()) {
+                try {
+                    loadBestScenarioProgress(progress, scenarioSaves);
+                    openTowerMap(progress);
+                } catch (SaveGameException ex) {
+                    ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
+                            "This save file could not be loaded.");
+                }
+                return;
+            }
             progress.startNewRun();
             openTowerMap(progress);
             return;
         }
 
         while (true) {
-            LoadGameDialog.Result result = LoadGameDialog.show(this, saves);
+            LoadGameDialog.Result result = LoadGameDialog.showForStartGame(this, checkpoints);
             if (result.action() == LoadGameDialog.Action.CANCEL) {
                 return;
             }
             try {
+                if (result.action() == LoadGameDialog.Action.NEW_GAME) {
+                    loadBestScenarioProgress(progress, scenarioSaves);
+                    openTowerMap(progress);
+                    return;
+                }
                 if (result.action() == LoadGameDialog.Action.DELETE) {
                     saveController.deleteSave(result.save());
-                    saves = saveController.listSaves();
-                    if (saves.isEmpty()) {
-                        progress.startNewRun();
+                    checkpoints = saveController.listSaves(SaveGameType.SCENARIO_CHECKPOINT);
+                    scenarioSaves = saveController.listSaves().stream()
+                            .filter(save -> save.getSaveType().isScenario())
+                            .toList();
+                    if (checkpoints.isEmpty()) {
+                        if (scenarioSaves.isEmpty()) {
+                            progress.startNewRun();
+                        } else {
+                            loadBestScenarioProgress(progress, scenarioSaves);
+                        }
                         openTowerMap(progress);
                         return;
                     }
                     continue;
                 }
                 progress.loadFromSave(result.save());
-                openTowerMap(progress);
+                openScenarioCheckpoint(progress);
                 return;
             } catch (SaveGameException ex) {
                 ItemActionMenuDialog.showNotice(this, "Start Game", "Load Failed",
                         "This save file could not be loaded.");
             }
+        }
+    }
+
+    private void loadBestScenarioProgress(TowerProgressController progress, List<SaveDescriptor> saves)
+            throws SaveGameException {
+        SaveDescriptor baseline = saves.stream()
+                .max(Comparator
+                        .comparingInt(SaveDescriptor::getHighestUnlockedLevel)
+                        .thenComparing(SaveDescriptor::getSavedAt,
+                                Comparator.nullsLast(String::compareTo)))
+                .orElse(null);
+        if (baseline == null) {
+            progress.startNewRun();
+        } else {
+            progress.loadFromSave(baseline);
         }
     }
 
@@ -273,24 +316,31 @@ public class MainMenuWindow extends JFrame {
         TowerSessionController.startFrom(progress);
     }
 
-    private void handleLoadGame() {
+    private void openScenarioCheckpoint(TowerProgressController progress) {
+        AudioManager.shared().stopMenuMusic();
+        dispose();
+        TowerSessionController.resumeFromCheckpoint(progress);
+    }
+
+    private void handleLoadCustomGame() {
         SaveGameController controller = new SaveGameController();
         while (true) {
             List<SaveDescriptor> saves;
             try {
-                saves = controller.listSaves();
+                saves = controller.listSaves(SaveGameType.CUSTOM_GAME);
             } catch (SaveGameException ex) {
-                ItemActionMenuDialog.showNotice(this, "Load Game", "Load Failed",
+                ItemActionMenuDialog.showNotice(this, "Load Custom Game", "Load Failed",
                         "This save file could not be loaded.");
                 return;
             }
             if (saves.isEmpty()) {
-                ItemActionMenuDialog.showNotice(this, "Load Game", "No Saves",
-                        "No saved games found.");
+                ItemActionMenuDialog.showNotice(this, "Load Custom Game", "No Saves",
+                        "No custom game saves found.");
                 return;
             }
 
-            LoadGameDialog.Result result = LoadGameDialog.show(this, saves);
+            LoadGameDialog.Result result = LoadGameDialog.show(this, saves,
+                    "Load Custom Game", "Choose a saved custom game", false);
             if (result.action() == LoadGameDialog.Action.CANCEL) {
                 return;
             }
@@ -298,7 +348,7 @@ public class MainMenuWindow extends JFrame {
             try {
                 if (result.action() == LoadGameDialog.Action.DELETE) {
                     controller.deleteSave(result.save());
-                    ItemActionMenuDialog.showNotice(this, "Load Game", "Deleted",
+                    ItemActionMenuDialog.showNotice(this, "Load Custom Game", "Deleted",
                             "Saved game deleted.");
                     continue;
                 }
@@ -308,7 +358,7 @@ public class MainMenuWindow extends JFrame {
                 new GameWindow(engine).setVisible(true);
                 return;
             } catch (SaveGameException ex) {
-                ItemActionMenuDialog.showNotice(this, "Load Game", "Load Failed",
+                ItemActionMenuDialog.showNotice(this, "Load Custom Game", "Load Failed",
                         "This save file could not be loaded.");
             }
         }

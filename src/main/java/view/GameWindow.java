@@ -28,6 +28,8 @@ import engine.InteractionController;
 import engine.GameStateListener;
 import engine.audio.AudioManager;
 import model.ValuableItem;
+import save.CustomGameSaveStrategy;
+import save.GameSaveStrategy;
 import view.assets.AssetId;
 import view.assets.AssetManager;
 
@@ -46,12 +48,26 @@ public class GameWindow extends JFrame implements GameStateListener {
 
     private final GameEngine engine;
     private final AudioManager audioManager;
+    private final GameSaveStrategy saveStrategy;
+    private final GameReturnStrategy returnStrategy;
     private boolean gameOverDialogShown;
 
     public GameWindow(GameEngine engine) {
+        this(engine, new CustomGameSaveStrategy(), new MainMenuReturnStrategy());
+    }
+
+    public GameWindow(GameEngine engine, GameSaveStrategy saveStrategy) {
+        this(engine, saveStrategy, new MainMenuReturnStrategy());
+    }
+
+    public GameWindow(GameEngine engine, GameSaveStrategy saveStrategy,
+            GameReturnStrategy returnStrategy) {
         this.engine = engine;
+        this.saveStrategy = saveStrategy == null ? new CustomGameSaveStrategy() : saveStrategy;
+        this.returnStrategy = returnStrategy == null ? new MainMenuReturnStrategy() : returnStrategy;
         this.audioManager = AudioManager.shared();
         engine.addGameEventListener(audioManager);
+        engine.getTargetMission().addListener(audioManager);
         setTitle("Dungeon Krawler - Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -59,7 +75,8 @@ public class GameWindow extends JFrame implements GameStateListener {
 
         PlayerModeController playerModeController = new PlayerModeController(engine);
         InteractionController interactionController = new InteractionController(engine);
-        GamePanel panel = new GamePanel(engine, playerModeController, interactionController);
+        GamePanel panel = new GamePanel(engine, playerModeController, interactionController,
+                this.saveStrategy, this.returnStrategy);
 
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         controlPanel.setBackground(CONTROL_BACKGROUND);
@@ -74,8 +91,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         pauseButton.setFocusable(false);
         pauseButton.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            panel.showInGameMenu();
-            panel.requestFocusInWindow();
+            panel.showPauseMenu();
         });
         controlPanel.add(pauseButton);
 
@@ -140,6 +156,7 @@ public class GameWindow extends JFrame implements GameStateListener {
             public void windowClosed(WindowEvent e) {
                 engine.removeGameStateListener(GameWindow.this);
                 engine.removeGameEventListener(audioManager);
+                engine.getTargetMission().removeListener(audioManager);
                 engine.shutdown();
             }
         });
@@ -163,8 +180,13 @@ public class GameWindow extends JFrame implements GameStateListener {
         if (engine.isGameOver() && !gameOverDialogShown) {
             gameOverDialogShown = true;
             SwingUtilities.invokeLater(() -> {
-                GameOverDialog.show(GameWindow.this,
-                        engine.getGameOverTitle(), engine.getGameOverMessage());
+                if (engine.isMissionVictory()) {
+                    MissionSplashDialog.showVictory(GameWindow.this,
+                            engine.getTargetMission().getTarget());
+                } else {
+                    GameOverDialog.show(GameWindow.this,
+                            engine.getGameOverTitle(), engine.getGameOverMessage());
+                }
                 dispose();
                 SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
             });

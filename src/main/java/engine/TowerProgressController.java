@@ -151,6 +151,19 @@ public final class TowerProgressController implements LevelCompletionListener {
     }
 
     /**
+     * Persists the current in-floor scenario state as a checkpoint. This is the
+     * manual Save Game path while playing a tower floor.
+     */
+    public SaveDescriptor saveCheckpoint(GameEngine engine, String saveName) throws SaveGameException {
+        if (progress == null) {
+            progress = TowerProgress.defaultProgress(scenario.size());
+        }
+        activeEngine = engine;
+        currentSave = saveController.saveScenarioCheckpoint(engine, progress, saveName);
+        return currentSave;
+    }
+
+    /**
      * Observer entry point: invoked by {@link GameEngine} when the active floor
      * is completed. Advances and persists progress, recording any save failure
      * (a listener cannot throw checked exceptions), then notifies the optional

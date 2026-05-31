@@ -3,11 +3,11 @@ package model;
 public class Pool extends SearchableObject {
 
     public static final String CYAN_DRIP_SPRITE =
-            "/background_floor/assets/searchable assets/28_wall_detail_drip_cyan_left.png";
+            "/background_floor/assets/searchable assets/gargoyle_blue.png";
     public static final String GREEN_DRIP_SPRITE =
-            "/background_floor/assets/searchable assets/30_wall_detail_drip_green_mid.png";
+            "/background_floor/assets/searchable assets/gargoyle_green.png";
     public static final String RED_DRIP_SPRITE =
-            "/background_floor/assets/searchable assets/29_wall_detail_drip_red_mid.png";
+            "/background_floor/assets/searchable assets/gargoyle_red.png";
 
     public Pool() {
         this(null);

@@ -32,6 +32,9 @@ public class CombatController {
         if (!engine.canHeroAct()) {
             return null;
         }
+        if (engine.isHeroAttackOnCooldown()) {
+            return null;
+        }
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         if (weapon != null && weapon.isRanged()) {
@@ -67,6 +70,7 @@ public class CombatController {
         if (result.isDefenderDefeated()) {
             cell.getEntities().remove(target);
         }
+        engine.recordHeroAttackPacing();
         engine.fireHeroAttack(result);
         if (result.isDefenderDefeated()) {
             engine.fireEnemyDefeated(target);
@@ -93,7 +97,7 @@ public class CombatController {
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         if (weapon != null && weapon.isRanged()) {
-            return attackNearestEnemyInRangedRange();
+            return attackNearestEnemyInRangedRange(Integer.MAX_VALUE);
         }
 
         DungeonMap map = engine.getDungeonMap();
@@ -116,7 +120,21 @@ public class CombatController {
         return null;
     }
 
-    private TargetedAttack attackNearestEnemyInRangedRange() {
+    /**
+     * Auto-aim ranged attack for the {@code P} shortcut: picks the nearest shootable
+     * enemy within the equipped weapon's max range (Chebyshev).
+     */
+    public TargetedAttack autoAimRangedAttack() {
+        Hero hero = engine.getHero();
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon == null || !weapon.isRanged()) {
+            return null;
+        }
+        // Test mode: let auto-aim use the same temporary unlimited range as GameEngine.
+        return attackNearestEnemyInRangedRange(Integer.MAX_VALUE);
+    }
+
+    private TargetedAttack attackNearestEnemyInRangedRange(int maxChebyshevDistance) {
         Hero hero = engine.getHero();
         DungeonMap map = engine.getDungeonMap();
         int hx = hero.getX();
@@ -130,6 +148,9 @@ public class CombatController {
                     continue;
                 }
                 int dist = Math.max(Math.abs(x - hx), Math.abs(y - hy));
+                if (dist > maxChebyshevDistance) {
+                    continue;
+                }
                 if (dist < bestChebyshev) {
                     bestChebyshev = dist;
                     bestX = x;

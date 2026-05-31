@@ -1,6 +1,8 @@
 package view;
 
 import java.awt.Color;
+import java.awt.AlphaComposite;
+import java.awt.Composite;
 import java.awt.Dimension;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
@@ -37,14 +39,18 @@ import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
 import model.Hero;
+import model.HeroProjectileStyle;
 import model.Item;
 import model.Knight;
 import model.PetEntity;
 import model.Potion;
 import model.Projectile;
 import model.SearchableObject;
+import model.ShadowClone;
 import model.Sorcerer;
-import save.SaveGameController;
+import model.Weapon;
+import save.CustomGameSaveStrategy;
+import save.GameSaveStrategy;
 import save.SaveGameException;
 import save.SaveLimitExceededException;
 import view.assets.SpriteRegistry;
@@ -104,7 +110,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final PlayerModeController playerModeController;
     private final InteractionController interactionController;
     private final CombatController combatController;
-    private final SaveGameController saveGameController = new SaveGameController();
+    private final GameSaveStrategy saveStrategy;
+    private final GameReturnStrategy returnStrategy;
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
@@ -130,9 +137,23 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
+        this(engine, playerModeController, interactionController,
+                new CustomGameSaveStrategy(), new MainMenuReturnStrategy());
+    }
+
+    public GamePanel(GameEngine engine, PlayerModeController playerModeController,
+            InteractionController interactionController, GameSaveStrategy saveStrategy) {
+        this(engine, playerModeController, interactionController, saveStrategy, new MainMenuReturnStrategy());
+    }
+
+    public GamePanel(GameEngine engine, PlayerModeController playerModeController,
+            InteractionController interactionController, GameSaveStrategy saveStrategy,
+            GameReturnStrategy returnStrategy) {
         this.engine = engine;
         this.playerModeController = playerModeController;
         this.interactionController = interactionController;
+        this.saveStrategy = saveStrategy == null ? new CustomGameSaveStrategy() : saveStrategy;
+        this.returnStrategy = returnStrategy == null ? new MainMenuReturnStrategy() : returnStrategy;
         this.combatController = new CombatController(engine);
 
         Hero hero = engine.getHero();
@@ -183,14 +204,8 @@ public class GamePanel extends JPanel implements GameStateListener {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                    showInGameMenu();
-                    return;
-                }
-
                 if (e.getKeyCode() == KeyEvent.VK_R) {
-                    engine.togglePause();
-                    applyPauseState();
+                    showPauseMenu();
                     return;
                 }
                 if (engine.isGameOver() || engine.isPaused()) {
@@ -267,7 +282,6 @@ public class GamePanel extends JPanel implements GameStateListener {
                 if (!isContentVisible(map, gridX, gridY)) {
                     return;
                 }
-                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
                 if (attackResult != null) {
@@ -281,6 +295,7 @@ public class GamePanel extends JPanel implements GameStateListener {
                     return;
                 }
 
+                Window parent = SwingUtilities.getWindowAncestor(GamePanel.this);
                 for (int i = 0; i < interactions.size(); i++) {
                     InteractionController.ItemInteraction interaction = interactions.get(i);
                     boolean handled = presentItemInteraction(parent, interaction, i, interactions.size());
@@ -349,7 +364,10 @@ public class GamePanel extends JPanel implements GameStateListener {
             }
         } else if (picked.getInventoryAction() == model.ItemAction.SEARCH
                 && interaction.getItem() instanceof SearchableObject searchableObject) {
-            showSearchResult(parent, interactionController.search(searchableObject));
+            showSearchResult(interactionController.search(searchableObject));
+        } else if (picked.getInventoryAction() == model.ItemAction.BREAK) {
+            showBreakResult(interactionController.breakObjectAt(interaction.getItem(),
+                    interaction.getX(), interaction.getY()));
         } else if (!interactionController.applyGroundAction(interaction.getItem(),
                 interaction.getX(), interaction.getY(), picked.getInventoryAction())) {
             showTransientWarning("Cannot Use Item",
@@ -358,7 +376,20 @@ public class GamePanel extends JPanel implements GameStateListener {
         return true;
     }
 
-    public void showInGameMenu() {
+    public void showPauseMenu() {
+        if (!engine.isPaused() && !engine.isGameOver()) {
+            engine.togglePause();
+            applyPauseState();
+        }
+
+        boolean returnToGameplay = showInGameMenu();
+        if (returnToGameplay && engine.isPaused() && !engine.isGameOver()) {
+            engine.togglePause();
+            applyPauseState();
+        }
+    }
+
+    private boolean showInGameMenu() {
         currentMovementDirection = null;
         if (continuousMoveTimer != null) {
             continuousMoveTimer.stop();
@@ -366,57 +397,61 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         Window parent = SwingUtilities.getWindowAncestor(this);
         int choice = ItemActionMenuDialog.show(parent, "Menu", "Game Menu",
-                "Choose an action.", "Continue", "Save Game", "Menu");
+                "Choose an action.", "Continue", "Save Game", returnStrategy.menuLabel());
         switch (choice) {
-            case 1 -> handleSaveGame(parent);
-            case 2 -> returnToMainMenu(parent);
-            default -> requestFocusInWindow();
+            case 1:
+                return handleSaveGame(parent);
+            case 2:
+                returnStrategy.returnFrom(parent);
+                return false;
+            default:
+                requestFocusInWindow();
+                return true;
         }
     }
 
-    private void handleSaveGame(Window parent) {
+    private boolean handleSaveGame(Window parent) {
         SaveGameDialog.Result result = SaveGameDialog.show(parent);
         if (result.action() == SaveGameDialog.Action.CANCEL) {
             requestFocusInWindow();
-            return;
+            return true;
         }
         try {
-            saveGameController.saveGame(engine, result.saveName());
+            saveStrategy.save(engine, result.saveName());
             if (result.action() == SaveGameDialog.Action.SAVE_AND_EXIT) {
-                returnToMainMenu(parent);
+                returnStrategy.returnFrom(parent);
+                return false;
             } else {
                 ItemActionMenuDialog.showNotice(parent, "Save Game", "Saved",
                         "Game saved successfully.");
                 requestFocusInWindow();
+                return true;
             }
         } catch (SaveLimitExceededException ex) {
             ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Limit",
                     "You can keep at most 10 saved games. Delete an old save first.");
             requestFocusInWindow();
+            return true;
         } catch (SaveGameException ex) {
             ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
                     "Game could not be saved. Please try again.");
             requestFocusInWindow();
+            return true;
         }
     }
 
-    private void returnToMainMenu(Window parent) {
-        if (parent != null) {
-            parent.dispose();
-        }
-        SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
-    }
-
-    private void showSearchResult(Window parent, GameEngine.SearchResult result) {
+    private void showSearchResult(GameEngine.SearchResult result) {
         switch (result.getOutcome()) {
-            case FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Found",
-                    "You have found a " + result.getFoundItem().getName() + ".");
-            case NOTHING_FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Nothing Found",
-                    "you couldn't found anything");
+            case FOUND -> {
+                // Successful search already gives visual feedback by revealing the
+                // item on the ground, so no blocking popup is needed here.
+            }
+            case NOTHING_FOUND -> showTransientWarning("Nothing Found",
+                    "You couldn't find anything.");
             case INVENTORY_FULL -> showTransientWarning("Inventory Full",
                     "You found a " + result.getFoundItem().getName()
-                            + " but your inventory is full.");
-            case NOT_SEARCHABLE -> ItemActionMenuDialog.showNotice(parent, "Search", "Cannot Search",
+                            + ", but your inventory is full.");
+            case NOT_SEARCHABLE -> showTransientWarning("Cannot Search",
                     "This location cannot be searched.");
         }
     }
@@ -443,7 +478,10 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         Container container = engine.findContainerNearHero();
         if (container == null) {
-            // No container in reach; stay silent rather than nagging.
+            SearchableObject searchableObject = engine.findSearchableNearHero();
+            if (searchableObject != null) {
+                showSearchResult(interactionController.search(searchableObject));
+            }
             requestFocusInWindow();
             return;
         }
@@ -481,7 +519,11 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private void handleHitKeyPress() {
-        CombatController.TargetedAttack attack = combatController.attackNearestEnemy();
+        Hero hero = engine.getHero();
+        Weapon weapon = hero.getEquippedWeapon();
+        CombatController.TargetedAttack attack = weapon != null && weapon.isRanged()
+                ? combatController.autoAimRangedAttack()
+                : combatController.attackNearestEnemy();
         if (attack != null) {
             requestFocusInWindow();
             return;
@@ -490,12 +532,25 @@ public class GamePanel extends JPanel implements GameStateListener {
         // No enemy in reach; try to break a nearby breakable object instead.
         InteractionController.BreakResult breakResult = interactionController.breakNearestObject();
         // Nothing breakable in reach (breakResult == null): stay silent.
-        if (breakResult != null && !breakResult.broken()) {
-            Window parent = SwingUtilities.getWindowAncestor(this);
-            ItemActionMenuDialog.showNotice(parent, "Too Strong", "Cannot Break",
-                    "You are not strong enough to break the " + breakResult.objectName() + ".");
-        }
+        showBreakResult(breakResult);
         requestFocusInWindow();
+    }
+
+    private void showBreakResult(InteractionController.BreakResult result) {
+        if (result == null || result.broken()) {
+            // Successful break removes the object and drops loot directly on the
+            // tile, so the map itself is the feedback.
+            return;
+        }
+        if (result.outcome() == InteractionController.BreakOutcome.NOT_ENOUGH_ENERGY) {
+            showTransientWarning("Not Enough Energy",
+                    "Breaking the " + result.objectName() + " requires "
+                            + result.energyCost() + " energy.");
+            return;
+        }
+        int chancePercent = Math.round((float) (result.successChance() * 100));
+        showTransientWarning("Break Failed",
+                "Not strong enough this time. Success chance was " + chancePercent + "%.");
     }
 
     private void handleTakeKeyPress() {
@@ -651,12 +706,18 @@ private void handleInventoryKeyPress() {
 
                     if (contentVisible && !cell.getItemsView().isEmpty()) {
                         Item first = cell.getItemsView().get(0);
-                        BufferedImage sprite = spriteFor(first);
-                        if (sprite != null) {
-                            drawItemSprite(g2, first, sprite, px, py, cellW, cellH, y == map.getHeight() - 1);
+                        if (first instanceof Weapon weapon && isWoodenBow(weapon)) {
+                            drawGroundBowPixelArt(g2, px, py, cellW, cellH);
+                        } else if (first instanceof Weapon weapon && isMagicWand(weapon)) {
+                            drawGroundWandPixelArt(g2, px, py, cellW, cellH);
                         } else {
-                            Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
-                            drawItemMarker(g2, px, py, cellW, cellH, itemColor);
+                            BufferedImage sprite = spriteFor(first);
+                            if (sprite != null) {
+                                drawItemSprite(g2, first, sprite, px, py, cellW, cellH, y == map.getHeight() - 1);
+                            } else {
+                                Color itemColor = first instanceof Potion p ? p.getColor() : ITEM;
+                                drawItemMarker(g2, px, py, cellW, cellH, itemColor);
+                            }
                         }
                     }
 
@@ -665,6 +726,10 @@ private void handleInventoryKeyPress() {
                     }
                     for (Entity ent : cell.getEntitiesView()) {
                         if (ent instanceof Hero) {
+                            continue;
+                        }
+                        if (ent instanceof ShadowClone) {
+                            drawShadowClone(g2, px, py, cellW, cellH);
                             continue;
                         }
                         EnemyDrawPosition enemyDrawPosition = enemyDrawPosition(ent, px, py, tileSize);
@@ -856,7 +921,7 @@ private void handleInventoryKeyPress() {
         int inset = Math.max(1, Math.min(cellW, cellH) / 6);
         int boxW = Math.max(1, cellW - inset * 2);
         int boxH = Math.max(1, cellH - inset * 2);
-        if (item instanceof SearchableObject) {
+        if (item instanceof SearchableObject || item instanceof model.BreakableObject) {
             double scale = Math.min(boxW / (double) sprite.getWidth(), boxH / (double) sprite.getHeight());
             int drawW = Math.max(1, (int) Math.round(sprite.getWidth() * scale));
             int drawH = Math.max(1, (int) Math.round(sprite.getHeight() * scale));
@@ -883,12 +948,104 @@ private void handleInventoryKeyPress() {
             g2.drawImage(sprite, px, py, cellW, cellH, null);
             return;
         }
+        if (item instanceof model.DecorativeObject) {
+            g2.drawImage(sprite, px, py, cellW, cellH, null);
+            return;
+        }
         g2.drawImage(sprite, px + inset, py + inset, boxW, boxH, null);
+    }
+
+    private void drawShadowClone(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        BufferedImage sprite = SpriteRegistry.heroFrame(heroFrame);
+        if (sprite == null) {
+            g2.setColor(new Color(HERO.getRed(), HERO.getGreen(), HERO.getBlue(), 128));
+            int inset = Math.max(1, Math.min(cellW, cellH) / 5);
+            g2.fillRect(px + inset, py + inset, cellW - inset * 2, cellH - inset * 2);
+            return;
+        }
+
+        int spriteW = Math.round(sprite.getWidth() * HERO_SPRITE_SCALE);
+        int spriteH = Math.round(sprite.getHeight() * HERO_SPRITE_SCALE);
+        int drawX = px + (cellW - spriteW) / 2;
+        int drawY = py + (cellH - spriteH) / 2;
+        Composite originalComposite = g2.getComposite();
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        g2.drawImage(sprite, drawX, drawY, spriteW, spriteH, null);
+        g2.setComposite(originalComposite);
+    }
+
+    private void drawGroundBowPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        int size = Math.min(cellW, cellH);
+        int pixel = Math.max(2, size / 14);
+        int x = px + (cellW - size) / 2;
+        int y = py + (cellH - size) / 2;
+        int centerY = y + size / 2;
+        int arrowLeft = x + pixel * 4;
+        int arrowRight = x + size - pixel * 3;
+        int bowTopX = x + size - pixel * 8;
+        int bowMidX = x + size - pixel * 5;
+        int bowBotX = x + size - pixel * 8;
+        int topY = y + pixel * 4;
+        int bottomY = y + size - pixel * 4;
+
+        g2.setColor(new Color(222, 216, 196));
+        drawPixelLine(g2, arrowLeft, centerY, bowTopX, topY, pixel);
+        drawPixelLine(g2, arrowLeft, centerY, bowBotX, bottomY, pixel);
+        g2.setColor(new Color(74, 38, 18));
+        drawPixelLine(g2, bowTopX + pixel, topY, bowMidX + pixel, centerY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + pixel, centerY - pixel * 2, bowMidX + pixel, centerY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + pixel, centerY + pixel * 2, bowBotX + pixel, bottomY, pixel);
+        g2.setColor(new Color(205, 132, 62));
+        drawPixelLine(g2, bowTopX, topY, bowMidX, centerY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, centerY - pixel * 2, bowMidX, centerY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, centerY + pixel * 2, bowBotX, bottomY, pixel);
+        g2.setColor(new Color(92, 52, 24));
+        g2.fillRect(arrowLeft, centerY - pixel, arrowRight - arrowLeft - pixel * 3, pixel * 2);
+        g2.setColor(new Color(201, 130, 62));
+        g2.fillRect(arrowLeft, centerY - pixel / 2, arrowRight - arrowLeft - pixel * 3, pixel);
+        g2.setColor(new Color(220, 220, 220));
+        g2.fillRect(arrowRight - pixel * 3, centerY - pixel * 2, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel * 2, centerY - pixel, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel, centerY, pixel, pixel);
+        g2.fillRect(arrowRight - pixel * 2, centerY + pixel, pixel * 2, pixel);
+        g2.fillRect(arrowRight - pixel * 3, centerY + pixel * 2, pixel * 2, pixel);
+    }
+
+    private void drawGroundWandPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        int size = Math.min(cellW, cellH);
+        int pixel = Math.max(2, size / 14);
+        int x = px + (cellW - size) / 2;
+        int y = py + (cellH - size) / 2;
+        int baseX = x + size / 2 - pixel;
+        int baseY = y + size - pixel * 4;
+        int tipX = x + size / 2 + pixel * 3;
+        int tipY = y + pixel * 3;
+
+        g2.setColor(new Color(45, 27, 18));
+        drawPixelLine(g2, baseX - pixel, baseY + pixel, tipX - pixel, tipY + pixel, pixel);
+        g2.setColor(new Color(118, 73, 43));
+        drawPixelLine(g2, baseX, baseY, tipX, tipY, pixel);
+        g2.setColor(new Color(170, 230, 255));
+        g2.fillRect(tipX + pixel, tipY - pixel, pixel, pixel);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(tipX + pixel * 2, tipY - pixel, pixel, pixel);
+    }
+
+    private void drawGroundArmorPixelArt(Graphics2D g2, int px, int py, int cellW, int cellH) {
+        if (HeroArmorPixelArt.armorImage == null) {
+            return;
+        }
+        int bodyW = Math.round(16 * HERO_SPRITE_SCALE);
+        int bodyH = Math.round(32 * HERO_SPRITE_SCALE);
+        int x = px + (cellW - bodyW) / 2;
+        int y = py + (cellH - bodyH) / 2;
+        g2.drawImage(HeroArmorPixelArt.armorImage, x, y, bodyW, bodyH, null);
     }
 
     private boolean isWallDripSearchable(Item item) {
         String resource = item == null ? null : item.spriteResource();
-        return resource != null && resource.contains("wall_detail_drip_");
+        return resource != null
+                && (resource.contains("wall_detail_drip_") || resource.contains("gargoyle_"));
     }
 
     private void drawItemMarker(Graphics2D g2, int px, int py, int cellW, int cellH, Color color) {
@@ -1026,41 +1183,127 @@ private void handleInventoryKeyPress() {
             }
             int px = offsetX + projectile.getX() * tileSize;
             int py = offsetY + projectile.getY() * tileSize;
-            drawProjectilePixelArt(g2, px, py, tileSize, projectile.isHeroOwned(), projectile.isBossOwned());
+            drawProjectilePixelArt(g2, px, py, tileSize, projectile);
         }
     }
 
-    /**
-     * 8-bit projectile: sorcerer fireball (red/orange/yellow) or hero ice bolt (blue/cyan/white).
-     */
-    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize,
-            boolean heroOwned, boolean bossOwned) {
+    private void drawProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, Projectile projectile) {
+        if (projectile.isHeroOwned()) {
+            HeroProjectileStyle style = projectile.getHeroStyle();
+            if (style == HeroProjectileStyle.ARROW) {
+                drawHeroArrowPixelArt(g2, tileX, tileY, tileSize, projectile.getDx(), projectile.getDy());
+                return;
+            }
+            if (style == HeroProjectileStyle.FIRE_BALL) {
+                drawFireballPixelArt(g2, tileX, tileY, tileSize);
+                return;
+            }
+            drawIceBoltPixelArt(g2, tileX, tileY, tileSize);
+            return;
+        }
+        if (projectile.isBossOwned()) {
+            drawBossProjectilePixelArt(g2, tileX, tileY, tileSize);
+        } else {
+            drawFireballPixelArt(g2, tileX, tileY, tileSize);
+        }
+    }
+
+    private void drawIceBoltPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize) {
         int pixel = Math.max(2, tileSize / 7);
         int size = pixel * 5;
         int left = tileX + (tileSize - size) / 2;
         int top = tileY + (tileSize - size) / 2;
+        g2.setColor(Color.BLUE);
+        g2.fillRect(left, top, size, size);
+        g2.setColor(Color.CYAN);
+        g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    }
 
-        if (heroOwned) {
-            g2.setColor(Color.BLUE);
-            g2.fillRect(left, top, size, size);
-            g2.setColor(Color.CYAN);
-            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
-            g2.setColor(Color.WHITE);
-            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
-        } else if (bossOwned) {
-            g2.setColor(new Color(70, 20, 120));
-            g2.fillRect(left, top, size, size);
-            g2.setColor(new Color(160, 60, 230));
-            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
-            g2.setColor(new Color(235, 170, 255));
-            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    private void drawFireballPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize) {
+        int pixel = Math.max(2, tileSize / 7);
+        int size = pixel * 5;
+        int left = tileX + (tileSize - size) / 2;
+        int top = tileY + (tileSize - size) / 2;
+        g2.setColor(Color.RED);
+        g2.fillRect(left, top, size, size);
+        g2.setColor(Color.ORANGE);
+        g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+        g2.setColor(Color.YELLOW);
+        g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    }
+
+    private void drawBossProjectilePixelArt(Graphics2D g2, int tileX, int tileY, int tileSize) {
+        int pixel = Math.max(2, tileSize / 7);
+        int size = pixel * 5;
+        int left = tileX + (tileSize - size) / 2;
+        int top = tileY + (tileSize - size) / 2;
+        g2.setColor(new Color(70, 20, 120));
+        g2.fillRect(left, top, size, size);
+        g2.setColor(new Color(160, 60, 230));
+        g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
+        g2.setColor(new Color(235, 170, 255));
+        g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+    }
+
+    /** Fills a rectangle with non-negative width and height (Graphics2D ignores negative sizes). */
+    private static void fillRectPositive(Graphics2D g2, int x, int y, int width, int height) {
+        if (width < 0) {
+            x += width;
+            width = -width;
+        }
+        if (height < 0) {
+            y += height;
+            height = -height;
+        }
+        if (width > 0 && height > 0) {
+            g2.fillRect(x, y, width, height);
+        }
+    }
+
+    /** Brown 8-bit arrow oriented along travel direction. */
+    private void drawHeroArrowPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, int dx, int dy) {
+        int pixel = Math.max(2, tileSize / 7);
+        int cx = tileX + tileSize / 2;
+        int cy = tileY + tileSize / 2;
+        Color shaft = new Color(101, 67, 33);
+        Color head = new Color(210, 210, 210);
+        Color fletch = new Color(139, 90, 43);
+
+        if (dx != 0 && dy == 0) {
+            g2.setColor(shaft);
+            fillRectPositive(g2, cx - pixel * 2, cy - pixel / 2, pixel * 4, pixel);
+            g2.setColor(head);
+            if (dx > 0) {
+                fillRectPositive(g2, cx + pixel * 2, cy - pixel, pixel, pixel * 2);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx - pixel * 3, cy - pixel, pixel, pixel * 2);
+            } else {
+                fillRectPositive(g2, cx - pixel * 3, cy - pixel, pixel, pixel * 2);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx + pixel * 2, cy - pixel, pixel, pixel * 2);
+            }
+        } else if (dy != 0 && dx == 0) {
+            g2.setColor(shaft);
+            fillRectPositive(g2, cx - pixel / 2, cy - pixel * 2, pixel, pixel * 4);
+            g2.setColor(head);
+            if (dy > 0) {
+                fillRectPositive(g2, cx - pixel, cy + pixel * 2, pixel * 2, pixel);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx - pixel, cy - pixel * 3, pixel * 2, pixel);
+            } else {
+                fillRectPositive(g2, cx - pixel, cy - pixel * 3, pixel * 2, pixel);
+                g2.setColor(fletch);
+                fillRectPositive(g2, cx - pixel, cy + pixel * 2, pixel * 2, pixel);
+            }
         } else {
-            g2.setColor(Color.RED);
-            g2.fillRect(left, top, size, size);
-            g2.setColor(Color.ORANGE);
-            g2.fillRect(left + pixel, top + pixel, size - pixel * 2, size - pixel * 2);
-            g2.setColor(Color.YELLOW);
-            g2.fillRect(left + pixel * 2, top + pixel * 2, pixel, pixel);
+            g2.setColor(shaft);
+            fillRectPositive(g2, cx - pixel, cy - pixel, pixel * 2, pixel * 2);
+            g2.setColor(head);
+            fillRectPositive(g2, cx + dx * pixel, cy + dy * pixel, pixel, pixel);
+            g2.setColor(fletch);
+            fillRectPositive(g2, cx - dx * pixel, cy - dy * pixel, pixel, pixel);
         }
     }
 
@@ -1101,6 +1344,129 @@ private void handleInventoryKeyPress() {
         } else {
             g2.drawImage(heroSprite, drawX, drawY, spriteW, spriteH, null);
         }
+        drawEquippedArmorOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
+        drawEquippedWeaponOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
+    }
+
+    private void drawEquippedArmorOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
+            int spriteH) {
+        if (hero.getEquippedArmor() == null) {
+            return;
+        }
+        HeroArmorPixelArt.paintEquipped(g2, drawX, drawY, spriteW, spriteH, heroFacingLeft);
+    }
+
+    private void drawEquippedWeaponOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
+            int spriteH) {
+        Weapon weapon = hero.getEquippedWeapon();
+        if (weapon == null) {
+            return;
+        }
+        int handX = heroFacingLeft ? drawX + spriteW / 4 : drawX + spriteW * 3 / 4;
+        int handY = drawY + spriteH / 2;
+        int pixel = Math.max(2, spriteW / 12);
+        HeroProjectileStyle style = weapon.getProjectileStyle();
+        if (isWoodenBow(weapon)) {
+            drawEquippedBowPixelArt(g2, handX, handY, pixel);
+        } else if (style == HeroProjectileStyle.FIRE_BALL) {
+            g2.setColor(new Color(220, 80, 40));
+            g2.fillRect(handX, handY - pixel, pixel * 2, pixel * 2);
+            g2.setColor(new Color(255, 180, 60));
+            g2.fillRect(handX + pixel / 2, handY - pixel / 2, pixel, pixel);
+        } else if (isMagicWand(weapon)) {
+            drawEquippedWandPixelArt(g2, handX, handY, pixel);
+        } else if (weapon.isRanged()) {
+            g2.setColor(new Color(70, 140, 220));
+            g2.fillRect(handX, handY - pixel, pixel * 2, pixel * 3);
+            g2.setColor(Color.CYAN);
+            g2.fillRect(handX + pixel / 2, handY - pixel * 2, pixel, pixel);
+        } else {
+            g2.setColor(new Color(190, 190, 200));
+            g2.fillRect(handX, handY - pixel * 2, pixel, pixel * 4);
+        }
+    }
+
+    private static boolean isMagicWand(Weapon weapon) {
+        if (weapon == null) {
+            return false;
+        }
+        return "B23_WAND".equals(weapon.getType().id())
+                || "staves".equals(weapon.getType().category())
+                || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("wand");
+    }
+
+    private static boolean isWoodenBow(Weapon weapon) {
+        if (weapon == null) {
+            return false;
+        }
+        return "B23_BOW".equals(weapon.getType().id())
+                || "bows".equals(weapon.getType().category())
+                || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("bow");
+    }
+
+    private void drawEquippedBowPixelArt(Graphics2D g2, int handX, int handY, int pixel) {
+        int dir = heroFacingLeft ? -1 : 1;
+        int shaftStartX = handX - dir * pixel * 2;
+        int shaftEndX = handX + dir * pixel * 6;
+        int bowTopX = handX + dir * pixel * 3;
+        int bowMidX = handX + dir * pixel * 5;
+        int bowBotX = handX + dir * pixel * 3;
+        int topY = handY - pixel * 4;
+        int bottomY = handY + pixel * 4;
+
+        g2.setColor(new Color(222, 216, 196));
+        drawPixelLine(g2, shaftStartX, handY, bowTopX, topY, pixel);
+        drawPixelLine(g2, shaftStartX, handY, bowBotX, bottomY, pixel);
+
+        g2.setColor(new Color(74, 38, 18));
+        drawPixelLine(g2, bowTopX + dir * pixel, topY, bowMidX + dir * pixel, handY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + dir * pixel, handY - pixel * 2,
+                bowMidX + dir * pixel, handY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX + dir * pixel, handY + pixel * 2,
+                bowBotX + dir * pixel, bottomY, pixel);
+        g2.setColor(new Color(205, 132, 62));
+        drawPixelLine(g2, bowTopX, topY, bowMidX, handY - pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, handY - pixel * 2, bowMidX, handY + pixel * 2, pixel);
+        drawPixelLine(g2, bowMidX, handY + pixel * 2, bowBotX, bottomY, pixel);
+
+        g2.setColor(new Color(92, 52, 24));
+        fillRectPositive(g2, shaftStartX, handY - pixel, shaftEndX - shaftStartX, pixel * 2);
+        g2.setColor(new Color(201, 130, 62));
+        fillRectPositive(g2, shaftStartX, handY - pixel / 2, shaftEndX - shaftStartX, pixel);
+        g2.setColor(new Color(220, 220, 220));
+        fillRectPositive(g2, shaftEndX - dir * pixel * 2, handY - pixel * 2, dir * pixel * 2, pixel);
+        fillRectPositive(g2, shaftEndX - dir * pixel, handY - pixel, dir * pixel * 2, pixel);
+        fillRectPositive(g2, shaftEndX, handY, dir * pixel, pixel);
+        fillRectPositive(g2, shaftEndX - dir * pixel, handY + pixel, dir * pixel * 2, pixel);
+        fillRectPositive(g2, shaftEndX - dir * pixel * 2, handY + pixel * 2, dir * pixel * 2, pixel);
+        g2.setColor(new Color(244, 205, 103));
+        g2.fillRect(handX - pixel, handY - pixel, pixel * 3, pixel * 2);
+    }
+
+    private void drawEquippedWandPixelArt(Graphics2D g2, int handX, int handY, int pixel) {
+        int dir = heroFacingLeft ? -1 : 1;
+        int baseX = handX - dir * pixel;
+        int baseY = handY + pixel * 2;
+        int tipX = handX + dir * pixel * 4;
+        int tipY = handY - pixel * 3;
+        g2.setColor(new Color(45, 27, 18));
+        drawPixelLine(g2, baseX - dir * pixel, baseY + pixel, tipX - dir * pixel, tipY + pixel, pixel);
+        g2.setColor(new Color(118, 73, 43));
+        drawPixelLine(g2, baseX, baseY, tipX, tipY, pixel);
+        g2.setColor(new Color(170, 230, 255));
+        g2.fillRect(tipX, tipY - pixel, pixel, pixel);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(tipX + dir * pixel, tipY - pixel * 2, pixel, pixel);
+    }
+
+    private static void drawPixelLine(Graphics2D g2, int x1, int y1, int x2, int y2, int pixel) {
+        int steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) / Math.max(1, pixel);
+        steps = Math.max(1, steps);
+        for (int i = 0; i <= steps; i++) {
+            int x = x1 + Math.round((x2 - x1) * (i / (float) steps));
+            int y = y1 + Math.round((y2 - y1) * (i / (float) steps));
+            g2.fillRect(x, y, pixel, pixel);
+        }
     }
 
     private void drawHud(Graphics2D g2) {
@@ -1111,7 +1477,7 @@ private void handleInventoryKeyPress() {
         int x = 10;
         int y = 10;
         int w = 176;
-        int h = 198; 
+        int h = 216;
 
         g2.setColor(new Color(0, 0, 0, 120));
         g2.fillRect(x + 6, y + 7, w - 4, h - 4);
@@ -1143,24 +1509,39 @@ private void handleInventoryKeyPress() {
         drawHudStat(g2, x, y + 127, HUD_DEF, "DEF", Integer.toString(hero.getDef()));
         drawHudStat(g2, x, y + 145, HUD_MANA, "MANA", Integer.toString(hero.getMana()));
 
+        Weapon equipped = hero.getEquippedWeapon();
+        String weaponLabel = equipped == null ? "Unarmed" : equipped.getName();
+        drawHudCombinedStat(g2, x, y + 163, HUD_GOLD, "WEAPON: " + weaponLabel);
+
         long elapsedSeconds = (System.currentTimeMillis() - playStartTime) / 1000;
         long minutes = elapsedSeconds / 60;
         long seconds = elapsedSeconds % 60;
         String timeText = String.format("%02d:%02d", minutes, seconds);
-        
-        drawHudStat(g2, x, y + 163, Color.LIGHT_GRAY, "TIME", timeText);
+
+        drawHudStat(g2, x, y + 181, Color.LIGHT_GRAY, "TIME", timeText);
     }
 
     private void drawHudStat(Graphics2D g2, int panelX, int rowY, Color marker, String label, String value) {
-        g2.setColor(HUD_STONE_OUTLINE);
-        g2.fillRect(panelX + 25, rowY + 2, 11, 11);
-        g2.setColor(marker);
-        g2.fillRect(panelX + 27, rowY + 4, 7, 7);
+        drawHudMarker(g2, panelX, rowY, marker);
         g2.setColor(HUD_TEXT);
         g2.drawString(label, panelX + 44, rowY + 12);
         g2.setColor(HUD_TITLE);
         int valueX = panelX + 145 - g2.getFontMetrics().stringWidth(value);
         g2.drawString(value, valueX, rowY + 12);
+    }
+
+    /** Single-line HUD row (e.g. {@code WEAPON: Bow}) so label and value do not overlap. */
+    private void drawHudCombinedStat(Graphics2D g2, int panelX, int rowY, Color marker, String text) {
+        drawHudMarker(g2, panelX, rowY, marker);
+        g2.setColor(HUD_TITLE);
+        g2.drawString(text, panelX + 44, rowY + 12);
+    }
+
+    private void drawHudMarker(Graphics2D g2, int panelX, int rowY, Color marker) {
+        g2.setColor(HUD_STONE_OUTLINE);
+        g2.fillRect(panelX + 25, rowY + 2, 11, 11);
+        g2.setColor(marker);
+        g2.fillRect(panelX + 27, rowY + 4, 7, 7);
     }
 
     private java.awt.Font retroHudFont(float size) {

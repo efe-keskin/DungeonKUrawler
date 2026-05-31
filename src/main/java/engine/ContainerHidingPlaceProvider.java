@@ -11,8 +11,8 @@ import model.HidingPlace;
 import model.Item;
 
 /**
- * Walks every cell on the map and reports each {@link Container} (chest,
- * crate, ...) as a candidate {@link HidingPlace}.
+ * Walks every cell on the map and reports each {@link Container} as a
+ * candidate {@link HidingPlace}.
  */
 public final class ContainerHidingPlaceProvider implements HidingPlaceProvider {
 

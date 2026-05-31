@@ -21,6 +21,34 @@ public final class StandardBuildPlacementStrategy implements BuildPlacementStrat
             return false;
         }
 
+        if (tool.isHorizontalWallSearch()) {
+            if (isLeftOrRightBorder(map, x) || !isTopOrBottomBorder(map, y)) {
+                return false;
+            }
+            forceWall(cell);
+            placeSingleItem(cell, tool);
+            return true;
+        }
+
+        if (tool.isWallBrush()) {
+            forceWall(cell);
+            cell.getItems().clear();
+            return true;
+        }
+
+        if (tool.isWallObject()) {
+            forceWall(cell);
+            placeSingleItem(cell, tool);
+            return true;
+        }
+
+        if (tool.isDoorObject()) {
+            placeSingleItem(cell, tool);
+            Item door = cell.getItemsView().isEmpty() ? null : cell.getItemsView().get(0);
+            cell.setPassable(door == null || !door.isBlocking());
+            return true;
+        }
+
         if (isLeftOrRightBorder(map, x)) {
             forceWall(cell);
             return true;
@@ -28,22 +56,11 @@ public final class StandardBuildPlacementStrategy implements BuildPlacementStrat
 
         if (isTopOrBottomBorder(map, y)) {
             forceWall(cell);
-            if (tool.isHorizontalWallSearch()) {
-                placeSingleItem(cell, tool);
-            } else if (tool.isWallBrush()) {
-                cell.getItems().clear();
-            }
             return true;
         }
 
-        if (tool.isHorizontalWallSearch()) {
-            return false;
-        }
-
         cell.getItems().clear();
-        if (tool.isWallBrush()) {
-            cell.setPassable(false);
-        } else if (tool.isFloorBrush()) {
+        if (tool.isFloorBrush()) {
             cell.setPassable(true);
         } else {
             cell.setPassable(true);

@@ -7,6 +7,7 @@ import java.util.Random;
 import model.DungeonMap;
 import model.GridCell;
 import model.Item;
+import model.Key;
 import model.SearchableObject;
 
 
@@ -23,8 +24,10 @@ public final class BuildRandomItemPlacer {
     private static final List<String> VISIBLE_ITEM_TOOL_IDS = List.of(
             "HEAL", "ENERGY", "MANA", "KEY", "WEAPON", "ARMOR", "RING", "VALUABLE");
     private static final List<String> HIDDEN_ITEM_TOOL_IDS = VISIBLE_ITEM_TOOL_IDS;
-    private static final List<String> FLOOR_SEARCHABLE_TOOL_IDS = List.of("CRATE", "PEDESTAL");
-    private static final List<String> WALL_SEARCHABLE_TOOL_IDS = List.of("POOL", "GARGOYLE", "MISSING_BRICK");
+    private static final List<String> WALL_SEARCHABLE_TOOL_IDS = List.of(
+            "CRATE", "CRATE_WOOD_RIGHT", "CRATE_ORANGE", "HOLE", "HOLE_2", "HOLE_3",
+            "GRILL", "GRILL_2", "GARGOYLE", "GARGOYLE_GREEN",
+            "GARGOYLE_BLUE", "MISSING_BRICK", "MISSING_BRICK_2");
 
     private final BuildToolCatalog catalog;
     private final BuildPlacementStrategy placementStrategy;
@@ -70,7 +73,7 @@ public final class BuildRandomItemPlacer {
             return false;
         }
 
-        SearchableObject emptySearchable = randomSearchable(map, true);
+        SearchableObject emptySearchable = randomHorizontalWallSearchable(map, true);
         if (emptySearchable != null) {
             emptySearchable.setHiddenItem(hiddenItem);
             return true;
@@ -80,7 +83,7 @@ public final class BuildRandomItemPlacer {
             return true;
         }
 
-        SearchableObject anySearchable = randomSearchable(map, false);
+        SearchableObject anySearchable = randomHorizontalWallSearchable(map, false);
         if (anySearchable != null) {
             anySearchable.setHiddenItem(hiddenItem);
             return true;
@@ -90,15 +93,6 @@ public final class BuildRandomItemPlacer {
 
     private boolean placeNewSearchableWithHiddenItem(DungeonMap map, Item hiddenItem) {
         List<SearchablePlacement> candidates = new ArrayList<>();
-
-        for (CellSpot spot : collectEmptyInteriorFloorSpots(map)) {
-            for (String toolId : FLOOR_SEARCHABLE_TOOL_IDS) {
-                BuildTool tool = catalog.findById(toolId);
-                if (tool != null) {
-                    candidates.add(new SearchablePlacement(spot.x(), spot.y(), tool));
-                }
-            }
-        }
 
         for (int x = 1; x < map.getWidth() - 1; x++) {
             collectHorizontalWallSearchableCandidate(map, candidates, x, 0);
@@ -149,13 +143,14 @@ public final class BuildRandomItemPlacer {
         return spots;
     }
 
-    private SearchableObject randomSearchable(DungeonMap map, boolean requireEmptyHiddenSlot) {
+    private SearchableObject randomHorizontalWallSearchable(DungeonMap map, boolean requireEmptyHiddenSlot) {
         List<SearchableObject> searchables = new ArrayList<>();
-        for (int y = 0; y < map.getHeight(); y++) {
-            for (int x = 0; x < map.getWidth(); x++) {
+        for (int y : List.of(0, map.getHeight() - 1)) {
+            for (int x = 1; x < map.getWidth() - 1; x++) {
                 SearchableObject searchableObject = searchableAt(map, x, y);
                 if (searchableObject != null
-                        && (!requireEmptyHiddenSlot || searchableObject.getHiddenItem() == null)) {
+                        && (!requireEmptyHiddenSlot || searchableObject.getHiddenItem() == null)
+                        && !(searchableObject.getHiddenItem() instanceof Key)) {
                     searchables.add(searchableObject);
                 }
             }
