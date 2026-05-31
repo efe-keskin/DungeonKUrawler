@@ -13,6 +13,7 @@ import model.KeyColor;
 import model.ManaPotion;
 import model.Ring;
 import model.RingEffectType;
+import model.ShadowCloneScroll;
 import model.Weapon;
 import model.WeaponCatalog;
 import model.WeaponType;
@@ -23,6 +24,13 @@ import model.WeaponType;
 final class ObjectLootTable {
 
     static final double RANDOM_LOOT_CHANCE = 0.75;
+
+    /**
+     * Chance that a reward roll yields a Shadow Clone Scroll instead of the usual
+     * table. The scroll no longer spawns on the ground, so breakables, chests, and
+     * searchables are the only ways to find one.
+     */
+    static final double SHADOW_SCROLL_CHANCE = 0.08;
 
     enum LootTier {
         DEFAULT,
@@ -58,6 +66,11 @@ final class ObjectLootTable {
     static Item randomLoot(Random random, LootTier tier) {
         Random rng = safeRandom(random);
         LootTier safeTier = tier == null ? LootTier.DEFAULT : tier;
+        // Roll the rare scroll first so it sits across every tier uniformly without
+        // disturbing the relative weights of the main table below.
+        if (rng.nextDouble() < SHADOW_SCROLL_CHANCE) {
+            return new ShadowCloneScroll();
+        }
         double roll = rng.nextDouble();
         if (roll < coinLimit(safeTier)) {
             return new Coin(10);
