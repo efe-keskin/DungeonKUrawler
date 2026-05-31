@@ -413,9 +413,9 @@ public class GamePanel extends JPanel implements GameStateListener {
                     "You have found a " + result.getFoundItem().getName() + ".");
             case NOTHING_FOUND -> ItemActionMenuDialog.showNotice(parent, "Search", "Nothing Found",
                     "you couldn't found anything");
-            case INVENTORY_FULL -> ItemActionMenuDialog.showNotice(parent, "Search", "Inventory Full",
-                    "You have found a " + result.getFoundItem().getName()
-                            + ", but your inventory is full.");
+            case INVENTORY_FULL -> showTransientWarning("Inventory Full",
+                    "You found a " + result.getFoundItem().getName()
+                            + " but your inventory is full.");
             case NOT_SEARCHABLE -> ItemActionMenuDialog.showNotice(parent, "Search", "Cannot Search",
                     "This location cannot be searched.");
         }
