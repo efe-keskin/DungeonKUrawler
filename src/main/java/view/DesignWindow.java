@@ -70,6 +70,7 @@ public class DesignWindow extends JFrame {
 
     private static final int WINDOW_W = 920;
     private static final int WINDOW_H = 620;
+    private static final int PALETTE_PANEL_H = 184;
 
     private static final Color CONTROL_BACKGROUND = new Color(18, 17, 22);
     private static final Color CONTROL_BORDER = new Color(103, 91, 75);
@@ -137,7 +138,7 @@ public class DesignWindow extends JFrame {
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, CONTROL_BORDER),
                 new EmptyBorder(8, 12, 8, 12)));
-        panel.setPreferredSize(new Dimension(WINDOW_W, 156));
+        panel.setPreferredSize(new Dimension(WINDOW_W, PALETTE_PANEL_H));
 
         JLabel titleLabel = new JLabel(title, JLabel.LEFT);
         titleLabel.setForeground(GOLD);
@@ -167,7 +168,10 @@ public class DesignWindow extends JFrame {
         paletteTabs.setOpaque(false);
         paletteTabs.setBorder(BorderFactory.createEmptyBorder());
         paletteTabs.setUI(new PaletteTabbedPaneUI());
-        paletteTabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
+        // Keep every palette category visible. The scrolling tab layout adds
+        // tiny look-and-feel arrow buttons when categories overflow, which do
+        // not fit the editor's deliberate shelf treatment.
+        paletteTabs.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
 
         for (Map.Entry<String, List<BuildTool>> entry : paletteGroups.entrySet()) {
             JPanel carpet = new PaletteShelf();
@@ -880,6 +884,14 @@ public class DesignWindow extends JFrame {
     }
 
     private static final class PaletteTabbedPaneUI extends BasicTabbedPaneUI {
+        @Override
+        protected boolean shouldRotateTabRuns(int tabPlacement) {
+            // Wrapped rows should remain stable when the selected category
+            // changes. BasicTabbedPaneUI otherwise moves the active row down
+            // beside the shelf, which makes the palette categories jump.
+            return false;
+        }
+
         @Override
         protected void installDefaults() {
             super.installDefaults();
