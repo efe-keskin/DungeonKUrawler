@@ -70,8 +70,8 @@ public final class DungeonLevelFactory {
         placeExitArch(map);
         seedBoss(level, map);
         EnemySpawnPolicy spawnPolicy = spawnPolicyFor(level);
-        // The tower constructor hides the floor's target mission in the cache chest;
-        // reaching the exit door after finding it completes the floor.
+        // The tower constructor hides the floor's target mission in a chest or
+        // searchable; reaching the exit door after finding it completes the floor.
         GameEngine engine = new GameEngine(map, hero, spawnPolicy);
         engine.configureTowerLevel(level.levelNumber(), level.levelType() == LevelType.FINAL_BOSS);
         return engine;

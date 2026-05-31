@@ -1702,6 +1702,7 @@ public class GameEngine {
                 continue;
             }
             CombatManager.AttackResult result = combatManager.knightAttacksHero(knight, hero);
+            knight.markAttacked();
             if (result.damageReceived > 0) {
                 fireHeroTookDamage(result);
             }

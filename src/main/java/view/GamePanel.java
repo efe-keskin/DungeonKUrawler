@@ -10,6 +10,7 @@ import java.awt.Graphics2D;
 import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -63,7 +64,7 @@ import view.render.AmbienceRenderer;
  * only; movement rules
  * stay in the controller.
  */
-public class GamePanel extends JPanel implements GameStateListener {
+public class GamePanel extends JPanel implements GameStateListener, engine.GameEventListener {
 
     private static final int BASE_CELL = 28;
 
@@ -103,6 +104,14 @@ public class GamePanel extends JPanel implements GameStateListener {
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float ENEMY_ANIM_STEP = 0.25f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
+    /** How long the hero's weapon swing and the knight attack-tilt last. */
+    private static final long ATTACK_ANIM_DURATION_NANOS = 260_000_000L;
+    /** Peak forward swing of the held weapon during an attack. */
+    private static final double WEAPON_SWING_RADIANS = Math.toRadians(70);
+    /** Resting tilt of the held weapon so the hero looks like he's gripping it. */
+    private static final double WEAPON_REST_RADIANS = Math.toRadians(28);
+    /** Maximum lean of an attacking knight toward the hero. */
+    private static final double KNIGHT_TILT_RADIANS = Math.toRadians(15);
     private static final int KNIGHT_MAX_HP = 20;
     private static final int SORCERER_MAX_HP = 10;
 
@@ -132,6 +141,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     private float heroPixelOffsetX = 0f;
     private float heroPixelOffsetY = 0f;
     private boolean heroFacingLeft = false;
+    private long heroAttackAnimNanos = 0L;
+    private long enemyTiltEffectUntilNanos = 0L;
     private final Map<Entity, GridPosition> lastEnemyPositions = new IdentityHashMap<>();
     private final Map<Entity, EnemyMoveAnimation> enemyMoveAnimations = new IdentityHashMap<>();
 
@@ -163,6 +174,7 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
 
         engine.addGameStateListener(this);
+        engine.addGameEventListener(this);
         setBackground(ARENA_BACKDROP_BOTTOM);
         setOpaque(true);
         setFocusable(true);
@@ -182,6 +194,11 @@ public class GamePanel extends JPanel implements GameStateListener {
                 repaintNeeded = true;
             }
             if (advanceEnemyAnimations()) {
+                repaintNeeded = true;
+            }
+            long now = System.nanoTime();
+            if (now - heroAttackAnimNanos < ATTACK_ANIM_DURATION_NANOS
+                    || now < enemyTiltEffectUntilNanos) {
                 repaintNeeded = true;
             }
             if (repaintNeeded) {
@@ -290,6 +307,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
                 if (attackResult != null) {
+                    heroAttackAnimNanos = System.nanoTime();
                     GamePanel.this.requestFocusInWindow();
                     return;
                 }
@@ -524,6 +542,8 @@ public class GamePanel extends JPanel implements GameStateListener {
     }
 
     private void handleHitKeyPress() {
+        // Swing the held weapon on every attack press, hit or miss.
+        heroAttackAnimNanos = System.nanoTime();
         Hero hero = engine.getHero();
         Weapon weapon = hero.getEquippedWeapon();
         CombatController.TargetedAttack attack = weapon != null && weapon.isRanged()
@@ -608,7 +628,16 @@ private void handleInventoryKeyPress() {
         energyRefillTimer.stop();
         darknessShimmerTimer.stop();
         engine.removeGameStateListener(this);
+        engine.removeGameEventListener(this);
         super.removeNotify();
+    }
+
+    @Override
+    public void onHeroTookDamage(CombatManager.AttackResult result) {
+        // A knight just struck the hero; keep repainting so its attack tilt
+        // animates. The specific attacker is flagged on the model side.
+        enemyTiltEffectUntilNanos = System.nanoTime() + ATTACK_ANIM_DURATION_NANOS;
+        repaint();
     }
 
     @Override
@@ -758,8 +787,19 @@ private void handleInventoryKeyPress() {
                             int spriteH = Math.round(enemySprite.getHeight() * HERO_SPRITE_SCALE);    
                             int drawX = enemyDrawPosition.x + (cellW - spriteW) / 2;
                             int drawY = enemyDrawPosition.y + (cellH - spriteH) / 2;
-    
+
+                            // Lean an attacking knight toward the hero, pivoting at
+                            // its feet so it tilts in place without moving.
+                            double tilt = enemyTiltRadians(ent);
+                            AffineTransform savedEnemyTx = null;
+                            if (tilt != 0) {
+                                savedEnemyTx = g2.getTransform();
+                                g2.rotate(tilt, drawX + spriteW / 2.0, drawY + spriteH);
+                            }
                             g2.drawImage(enemySprite, drawX, drawY, spriteW, spriteH, null);
+                            if (savedEnemyTx != null) {
+                                g2.setTransform(savedEnemyTx);
+                            }
                         } else {
                             g2.setColor(ent instanceof Knight ? KNIGHT
                                     : ent instanceof Sorcerer || ent instanceof BossEnemy ? SORCERER
@@ -1375,6 +1415,36 @@ private void handleInventoryKeyPress() {
         HeroArmorPixelArt.paintEquipped(g2, drawX, drawY, spriteW, spriteH, heroFacingLeft);
     }
 
+    /**
+     * Current lean (radians) of an attacking knight toward the hero, or {@code 0}
+     * when it isn't mid-attack. Positive leans clockwise (top toward the right).
+     * The lean eases in and back out over the attack window.
+     */
+    private double enemyTiltRadians(Entity ent) {
+        if (!(ent instanceof Knight)) {
+            return 0;
+        }
+        long last = ent.getLastAttackNanos();
+        if (last == 0) {
+            return 0;
+        }
+        long elapsed = System.nanoTime() - last;
+        if (elapsed < 0 || elapsed >= ATTACK_ANIM_DURATION_NANOS) {
+            return 0;
+        }
+        Hero hero = engine.getHero();
+        if (hero == null) {
+            return 0;
+        }
+        int dx = hero.getX() - ent.getX();
+        if (dx == 0) {
+            return 0;
+        }
+        double progress = elapsed / (double) ATTACK_ANIM_DURATION_NANOS;
+        double magnitude = Math.sin(progress * Math.PI) * KNIGHT_TILT_RADIANS;
+        return dx < 0 ? -magnitude : magnitude;
+    }
+
     private void drawEquippedWeaponOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
             int spriteH) {
         Weapon weapon = hero.getEquippedWeapon();
@@ -1400,9 +1470,47 @@ private void handleInventoryKeyPress() {
             g2.setColor(Color.CYAN);
             g2.fillRect(handX + pixel / 2, handY - pixel * 2, pixel, pixel);
         } else {
+            drawHeldMeleeWeapon(g2, weapon, handX, handY, spriteH);
+        }
+    }
+
+    /**
+     * Draws the equipped melee weapon's actual sprite in the hero's hand: blade
+     * up, handle at the hand, tilted toward the facing direction so the hero
+     * visibly grips it. During an attack the blade swings forward and back.
+     */
+    private void drawHeldMeleeWeapon(Graphics2D g2, Weapon weapon, int handX, int handY, int heroSpriteH) {
+        BufferedImage sprite = SpriteRegistry.spriteFor(weapon);
+        if (sprite == null || sprite.getHeight() <= 0) {
+            // Fall back to the old neutral bar if the art is unavailable.
+            int pixel = Math.max(2, heroSpriteH / 12);
             g2.setColor(new Color(190, 190, 200));
             g2.fillRect(handX, handY - pixel * 2, pixel, pixel * 4);
+            return;
         }
+
+        int dir = heroFacingLeft ? -1 : 1;
+        int wpnH = Math.max(1, Math.round(heroSpriteH * 0.8f));
+        int wpnW = Math.max(1, Math.round(wpnH * (sprite.getWidth() / (float) sprite.getHeight())));
+
+        double swing = 0;
+        long elapsed = System.nanoTime() - heroAttackAnimNanos;
+        if (heroAttackAnimNanos != 0 && elapsed >= 0 && elapsed < ATTACK_ANIM_DURATION_NANOS) {
+            double progress = elapsed / (double) ATTACK_ANIM_DURATION_NANOS;
+            swing = Math.sin(progress * Math.PI) * WEAPON_SWING_RADIANS;
+        }
+        double angle = (WEAPON_REST_RADIANS + swing) * dir;
+
+        // Seat the grip lower so the sword sits in the hand rather than up by
+        // the torso.
+        int gripY = handY + Math.round(heroSpriteH * 0.25f);
+
+        AffineTransform saved = g2.getTransform();
+        g2.translate(handX, gripY);
+        g2.rotate(angle);
+        // Handle sits at the pivot (hand); blade extends upward from there.
+        g2.drawImage(sprite, -wpnW / 2, -wpnH, wpnW, wpnH, null);
+        g2.setTransform(saved);
     }
 
     private static boolean isMagicWand(Weapon weapon) {

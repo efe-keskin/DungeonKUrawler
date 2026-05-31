@@ -1569,7 +1569,7 @@
       "items": [
         {
           "type": "chest",
-          "name": "Floor 6 Cache",
+          "name": "Floor 6 Strongbox",
           "spriteResource": "/items/chests/01_chest_closed_blue_trim.png",
           "capacity": 16,
           "locked": false,
