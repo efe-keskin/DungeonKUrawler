@@ -77,7 +77,7 @@ public class GameEngine {
     private final TeamMatchAiController teamMatchAiController = new TeamMatchAiController();
     private final TeamMatchOutcomeEvaluator teamMatchOutcomeEvaluator = new TeamMatchOutcomeEvaluator();
     private final TargetItemMission targetMission = new TargetItemMission();
-    private final FogOfWarEngine fogEngine = new FogOfWarEngine();
+    private final FearOfTheDarkEngine fearOfTheDarkEngine = new FearOfTheDarkEngine();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private final List<GameEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
@@ -199,7 +199,7 @@ public class GameEngine {
         int[] heroStart = findHeroStart(this.dungeonMap);
         this.hero = new Hero(heroStart[0], heroStart[1], "Hero", 17, startingStr, 80, 2, 100);
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
@@ -220,7 +220,7 @@ public class GameEngine {
         this.dungeonMap = dungeonMap;
         this.hero = hero;
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         startTeamMatchTimers();
     }
 
@@ -265,7 +265,7 @@ public class GameEngine {
         this.hero = hero;
         this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         this.targetMission.restore(missionTarget, missionStarted, missionWon);
         startGameTimers();
     }
@@ -286,7 +286,7 @@ public class GameEngine {
         this.dungeonMap = map;
         this.hero = hero;
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
@@ -715,7 +715,7 @@ public class GameEngine {
         container.removeItem(item);
         targetMission.checkPickup(item);
         fireItemPickedUp(item);
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return true;
     }
@@ -755,7 +755,7 @@ public class GameEngine {
         }
         targetMission.checkPickup(found);
         fireItemPickedUp(found);
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return SearchResult.found(found);
     }
@@ -775,8 +775,8 @@ public class GameEngine {
         return hero;
     }
 
-    public FogOfWarEngine getFogEngine() {
-        return fogEngine;
+    public FearOfTheDarkEngine getFearOfTheDarkEngine() {
+        return fearOfTheDarkEngine;
     }
 
     public List<Projectile> getActiveProjectilesView() {
@@ -814,7 +814,7 @@ public class GameEngine {
         }
 
         lastMoveNanos = System.nanoTime();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         checkTowerExit(to);
     }
@@ -938,7 +938,7 @@ public class GameEngine {
         }
         boolean applied = effect.apply(hero, item);
         if (applied && effect.notifyAfterApply()) {
-            fogEngine.revealAround(dungeonMap, hero);
+            fearOfTheDarkEngine.revealAround(dungeonMap, hero);
             notifyListeners();
         }
         return applied;
@@ -1029,7 +1029,7 @@ public class GameEngine {
         dungeonMap.removeItemFromCell(item, x, y);
         targetMission.checkPickup(item);
         fireItemPickedUp(item);
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return true;
     }

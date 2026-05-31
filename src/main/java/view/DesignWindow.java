@@ -91,7 +91,7 @@ public class DesignWindow extends JFrame {
     private final DesignCanvas canvas;
     private final List<ToolButton> toolButtons = new ArrayList<>();
     private JLabel selectedLabel;
-    private JCheckBox fogToggle;
+    private JCheckBox fearOfTheDarkToggle;
     private Path lastMapPath;
 
     public DesignWindow() {
@@ -217,16 +217,16 @@ public class DesignWindow extends JFrame {
             SwingUtilities.invokeLater(() -> new MainMenuWindow().setVisible(true));
         });
 
-        fogToggle = new JCheckBox("Fear of the Dark");
-        fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
-        fogToggle.setFocusable(false);
-        fogToggle.setFont(controlFont(12f));
-        fogToggle.setForeground(new Color(218, 200, 158));
-        fogToggle.setBackground(CONTROL_BACKGROUND);
-        fogToggle.setOpaque(false);
-        fogToggle.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        fogToggle.addActionListener(e -> {
-            boolean enabled = fogToggle.isSelected();
+        fearOfTheDarkToggle = new JCheckBox("Fear of the Dark");
+        fearOfTheDarkToggle.setSelected(controller.getDesignMap().isFogEnabled());
+        fearOfTheDarkToggle.setFocusable(false);
+        fearOfTheDarkToggle.setFont(controlFont(12f));
+        fearOfTheDarkToggle.setForeground(new Color(218, 200, 158));
+        fearOfTheDarkToggle.setBackground(CONTROL_BACKGROUND);
+        fearOfTheDarkToggle.setOpaque(false);
+        fearOfTheDarkToggle.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        fearOfTheDarkToggle.addActionListener(e -> {
+            boolean enabled = fearOfTheDarkToggle.isSelected();
             controller.getDesignMap().setFogEnabled(enabled);
             if (engine.audio.AudioManager.shared() != null) {
                 if (enabled) {
@@ -240,7 +240,7 @@ public class DesignWindow extends JFrame {
         panel.add(save);
         panel.add(load);
         panel.add(clear);
-        panel.add(fogToggle);
+        panel.add(fearOfTheDarkToggle);
         panel.add(random);
         panel.add(run);
         panel.add(teamMatch);
@@ -277,8 +277,8 @@ public class DesignWindow extends JFrame {
                 controller.loadMap(path);
                 lastMapPath = path;
                 refreshSelectedLabel("Loaded " + path.getFileName());
-                if (fogToggle != null) {
-                    fogToggle.setSelected(controller.getDesignMap().isFogEnabled());
+                if (fearOfTheDarkToggle != null) {
+                    fearOfTheDarkToggle.setSelected(controller.getDesignMap().isFogEnabled());
                 }
                 canvas.repaint();
             } catch (IOException ex) {

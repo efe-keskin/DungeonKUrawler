@@ -9,7 +9,7 @@ import model.Torch;
 
 import org.junit.jupiter.api.Test;
 
-class FogOfWarEngineTest {
+class FearOfTheDarkEngineTest {
 
     @Test
     void circularVisibility_atDistanceZero_isVisible() {
@@ -37,7 +37,7 @@ class FogOfWarEngineTest {
         DungeonMap map = map(false);
         Hero hero = heroAt(5, 5);
 
-        new FogOfWarEngine().revealAround(map, hero);
+        new FearOfTheDarkEngine().revealAround(map, hero);
 
         assertFalse(map.getCell(5, 5).isDiscovered());
         assertFalse(map.getCell(8, 5).isDiscovered());
@@ -48,7 +48,7 @@ class FogOfWarEngineTest {
         DungeonMap map = map(true);
         Hero hero = heroAt(5, 5);
 
-        new FogOfWarEngine().revealAround(map, hero);
+        new FearOfTheDarkEngine().revealAround(map, hero);
 
         assertTrue(map.getCell(8, 5).isDiscovered());
         assertFalse(map.getCell(9, 5).isDiscovered());
@@ -59,11 +59,11 @@ class FogOfWarEngineTest {
         DungeonMap map = map(true);
         Hero hero = heroAt(5, 5);
 
-        new FogOfWarEngine().revealAround(map, hero);
+        new FearOfTheDarkEngine().revealAround(map, hero);
         assertFalse(map.getCell(9, 5).isDiscovered());
 
         hero.getInventory().tryAdd(new Torch());
-        new FogOfWarEngine().revealAround(map, hero);
+        new FearOfTheDarkEngine().revealAround(map, hero);
 
         assertTrue(map.getCell(9, 5).isDiscovered());
     }
@@ -72,18 +72,18 @@ class FogOfWarEngineTest {
     void heroAwareIsVisible_respectsTorchPresence() {
         DungeonMap map = map(true);
         Hero hero = heroAt(5, 5);
-        FogOfWarEngine fog = new FogOfWarEngine();
+        FearOfTheDarkEngine fear = new FearOfTheDarkEngine();
 
-        assertFalse(fog.isVisible(map, hero, 9, 5));
+        assertFalse(fear.isVisible(map, hero, 9, 5));
 
         hero.getInventory().tryAdd(new Torch());
 
-        assertTrue(fog.isVisible(map, hero, 9, 5));
+        assertTrue(fear.isVisible(map, hero, 9, 5));
     }
 
-    private DungeonMap map(boolean fogEnabled) {
+    private DungeonMap map(boolean fearOfTheDarkEnabled) {
         DungeonMap map = new DungeonMap("Fog Test", 12, 12);
-        map.setFogEnabled(fogEnabled);
+        map.setFogEnabled(fearOfTheDarkEnabled);
         return map;
     }
 

@@ -13,6 +13,11 @@ public record DungeonLevel(
         String levelName,
         LevelType levelType,
         Difficulty difficulty,
+        /**
+         * Controls whether this floor uses the Fear-of-the-Dark visibility fog.
+         * Kept as {@code fogHidden} because this record component is already
+         * shared across tower setup code.
+         */
         boolean fogHidden,
         boolean hasTrader,
         int rewardGold) {

@@ -55,10 +55,18 @@ public class DungeonMap {
         return cells;
     }
 
+    /**
+     * Legacy name retained for save-file compatibility; this controls the
+     * Fear-of-the-Dark visibility mechanic.
+     */
     public boolean isFogEnabled() {
         return fogEnabled;
     }
 
+    /**
+     * Legacy name retained for save-file compatibility; this controls the
+     * Fear-of-the-Dark visibility mechanic.
+     */
     public void setFogEnabled(boolean fogEnabled) {
         this.fogEnabled = fogEnabled;
     }
