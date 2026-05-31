@@ -99,7 +99,10 @@ public final class HelpDialog extends JDialog {
         scrollPane.getViewport().setBackground(RetroTheme.BG_PANEL);
         scrollPane.getVerticalScrollBar().setUnitIncrement(20);
         scrollPane.getVerticalScrollBar().setBlockIncrement(60);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
 
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         JButton close = new JButton("Close");
         RetroTheme.styleRetroButton(close, RetroTheme.BTN_ACCENT);
         close.addActionListener(e -> {
