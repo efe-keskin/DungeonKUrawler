@@ -14,6 +14,12 @@ public abstract class Entity {
     protected String name;
     /** Team affiliation; normal play entities default to no team. */
     private Team team = Team.NONE;
+    /**
+     * Wall-clock timestamp (nanos) of this entity's most recent melee strike.
+     * Transient animation hint for the view (e.g. the attack tilt); never
+     * persisted. {@code 0} means "has not attacked yet."
+     */
+    private long lastAttackNanos = 0L;
 
     public Entity(int x, int y, String name) {
         this.x = x;
@@ -43,6 +49,16 @@ public abstract class Entity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    /** Records that this entity struck just now (drives the view's attack tilt). */
+    public void markAttacked() {
+        this.lastAttackNanos = System.nanoTime();
+    }
+
+    /** Nanos timestamp of the last melee strike, or {@code 0} if none yet. */
+    public long getLastAttackNanos() {
+        return lastAttackNanos;
     }
 
     public Team getTeam() {

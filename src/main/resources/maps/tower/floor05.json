@@ -1669,7 +1669,7 @@
       "items": [
         {
           "type": "chest",
-          "name": "Floor 5 Cache",
+          "name": "Floor 5 Strongbox",
           "spriteResource": "/items/chests/02_chest_closed_gold_trim.png",
           "capacity": 16,
           "locked": false,
@@ -1783,7 +1783,7 @@
       "items": [
         {
           "type": "chest",
-          "name": "Floor 5 Cache",
+          "name": "Floor 5 Strongbox",
           "spriteResource": "/items/chests/01_chest_closed_blue_trim.png",
           "capacity": 16,
           "locked": false,

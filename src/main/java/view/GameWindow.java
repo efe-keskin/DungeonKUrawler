@@ -95,6 +95,12 @@ public class GameWindow extends JFrame implements GameStateListener {
         });
         controlPanel.add(pauseButton);
 
+        // No-input notices (e.g. "Inventory Full") surface here, beside PAUSE and
+        // off the map, instead of painting over the dungeon.
+        TransientNoticeBar noticeBar = new TransientNoticeBar();
+        panel.setNoticeBar(noticeBar);
+        controlPanel.add(noticeBar);
+
         // Bottom strip under the map for gameplay actions.
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
         bottomPanel.setBackground(CONTROL_BACKGROUND);

@@ -241,7 +241,7 @@ public final class TowerMapGenerator {
                     new Point(2 + index, level.height() - 3)), available(openCells, used));
             boolean locked = level.number() >= 6 && index == chestCount - 1;
             String keyId = level.number() >= 9 ? "orange" : "silver";
-            String label = locked ? "Locked Reward Chest" : "Floor " + level.number() + " Cache";
+            String label = locked ? "Locked Reward Chest" : "Floor " + level.number() + " Strongbox";
             Chest chest = locked
                     ? Chest.locked(label, 16, keyId, CHEST_DIR + CHEST_SPRITES.get(index))
                     : new Chest(label, 16, CHEST_DIR + CHEST_SPRITES.get(index));

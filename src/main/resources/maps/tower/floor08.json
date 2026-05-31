@@ -2013,7 +2013,7 @@
       "items": [
         {
           "type": "chest",
-          "name": "Floor 8 Cache",
+          "name": "Floor 8 Strongbox",
           "spriteResource": "/items/chests/01_chest_closed_blue_trim.png",
           "capacity": 16,
           "locked": false,
