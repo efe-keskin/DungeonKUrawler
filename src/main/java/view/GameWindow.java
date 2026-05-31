@@ -99,7 +99,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         // No-input notices (e.g. "Inventory Full") surface here, beside PAUSE and
         // off the map, instead of painting over the dungeon.
         TransientNoticeBar noticeBar = new TransientNoticeBar();
-        panel.setNoticeBar(noticeBar);
+        panel.setNoticeSink(noticeBar);
         controlPanel.add(noticeBar);
 
         // Bottom strip under the map for gameplay actions.
@@ -120,7 +120,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         inventoryButton.setFocusable(false);
         inventoryButton.addActionListener(e -> {
             AudioManager.shared().play("button_click");
-            InventoryDialog dialog = new InventoryDialog(this, engine);
+            InventoryDialog dialog = new InventoryDialog(this, engine, noticeBar);
             dialog.setVisible(true);
             // Keep keyboard movement controls on the map after popup closes.
             panel.requestFocusInWindow();
