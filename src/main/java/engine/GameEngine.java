@@ -110,7 +110,9 @@ public class GameEngine {
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
     private static final int DETECTION_TICK_MS = 300;
     private static final int KNIGHT_ACTION_TICK_MS = 800;
-    private static final int SORCERER_ATTACK_TICK_MS = 5000;
+    // 9s rather than the spec's 5s; multiple Sorcerers on screen
+    // can otherwise overwhelm the player with overlapping projectiles.
+    private static final int SORCERER_ATTACK_TICK_MS = 9000;
     private static final int BOSS_ATTACK_TICK_MS = 7500;
     private static final int SORCERER_SHOOT_RANGE = 5;
     private static final int BOSS_SHOOT_RANGE = 8;
