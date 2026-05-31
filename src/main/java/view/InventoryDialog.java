@@ -325,14 +325,19 @@ public class InventoryDialog extends JDialog {
             }
         }
 
-        String[] options = actions.stream().map(ItemAction::getLabel).toArray(String[]::new);
+        String[] options = new String[actions.size() + 1];
+        for (int i = 0; i < actions.size(); i++) {
+            options[i] = actions.get(i).getLabel();
+        }
+        options[options.length - 1] = "Cancel";
+
         int choice = ItemActionMenuDialog.show(
                 this,
                 "Inventory Object",
                 item.getName(),
                 itemDescription(item),
                 options);
-        if (choice < 0) {
+        if (choice < 0 || choice == options.length - 1) {
             return;
         }
 
