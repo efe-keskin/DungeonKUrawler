@@ -310,14 +310,15 @@ public class GamePanel extends JPanel implements GameStateListener {
     /**
      * Shows the action menu for one ground item and runs the user's choice.
      *
-     * @return {@code true} when the user picked a real action (caller should
-     *         stop iterating remaining items); {@code false} when the menu was
-     *         skipped/cancelled so the caller can move on to the next item.
+     * @return {@code true} when the user picked a real action or explicitly
+     *         clicked Close (caller should stop iterating); {@code false} when
+     *         the dialog was dismissed via the window controls so the next item
+     *         should be offered.
      */
     private boolean presentItemInteraction(Window parent,
             InteractionController.ItemInteraction interaction, int index, int total) {
         List<InteractionController.ActionOption> actions = interaction.getActions();
-        String dismissLabel = (index < total - 1) ? "Next Item" : "Close";
+        String dismissLabel = "Close";
         String[] labels = new String[actions.size() + 1];
         for (int i = 0; i < actions.size(); i++) {
             labels[i] = actions.get(i).getLabel();
@@ -336,8 +337,11 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         int choice = ItemActionMenuDialog.show(parent, "Nearby Object",
                 interaction.getItemName(), message, labels);
-        if (choice < 0 || choice == labels.length - 1) {
+        if (choice < 0) {
             return false;
+        }
+        if (choice == labels.length - 1) {
+            return true;
         }
 
         InteractionController.ActionOption picked = actions.get(choice);
