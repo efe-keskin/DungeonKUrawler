@@ -530,7 +530,7 @@ public class GameEngine {
 
         GridCell chestCell = map.getCell(4, 2);
         if (chestCell != null) {
-            Chest chest = new Chest("Wooden Chest", 16);
+            Chest chest = Chest.locked("Wooden Chest", 16, "olive");
             chest.addItem(new HealPotion());
             chest.addItem(new Key("silver", KeyColor.SILVER));
             chest.addItem(new Book("Explorer's Journal",
