@@ -145,6 +145,14 @@ public class AudioManager implements GameEventListener, MissionListener {
         }
     }
 
+    /** Halts the Fear of the Dark cue immediately if playing. */
+    public void stopFearOfTheDark() {
+        if (activeFearOfTheDarkClip != null) {
+            activeFearOfTheDarkClip.stop();
+            activeFearOfTheDarkClip = null;
+        }
+    }
+
     /** Starts the main menu theme on a loop. No-op if already playing or unavailable. */
     public void startMenuMusic() {
         if (musicClip == null || musicMuted || musicClip.isRunning()) {

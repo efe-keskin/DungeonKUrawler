@@ -228,8 +228,12 @@ public class DesignWindow extends JFrame {
         fogToggle.addActionListener(e -> {
             boolean enabled = fogToggle.isSelected();
             controller.getDesignMap().setFogEnabled(enabled);
-            if (enabled && engine.audio.AudioManager.shared() != null) {
-                engine.audio.AudioManager.shared().playFearOfTheDark();
+            if (engine.audio.AudioManager.shared() != null) {
+                if (enabled) {
+                    engine.audio.AudioManager.shared().playFearOfTheDark();
+                } else {
+                    engine.audio.AudioManager.shared().stopFearOfTheDark();
+                }
             }
         });
 
