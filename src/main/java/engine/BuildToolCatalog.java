@@ -53,6 +53,10 @@ public final class BuildToolCatalog {
     private static final String VALUABLE_SPRITE_DIR = "/items/valuable_items/";
     private static final String ITEM_DIR = "/items/";
     private static final String BACKGROUND_DIR = "/background_floor/assets/";
+    public static final String CLOSED_DOOR_SPRITE_RESOURCE =
+            BACKGROUND_DIR + "doors/15_door_closed_wood.png";
+    public static final String OPEN_DOOR_SPRITE_RESOURCE =
+            BACKGROUND_DIR + "doors/17_door_open_wood.png";
 
     private final List<BuildTool> tools;
     private final Map<String, BuildTool> byId;
@@ -78,9 +82,9 @@ public final class BuildToolCatalog {
                 wallDecor("WALL_ARCH_RIGHT", "Wall Arch Right",
                         BACKGROUND_DIR + "walls/18_wall_section_mid_arch_right.png"),
                 doorDecor("DOOR_CLOSED", "Door Closed", true,
-                        BACKGROUND_DIR + "doors/15_door_closed_wood.png"),
+                        CLOSED_DOOR_SPRITE_RESOURCE),
                 doorDecor("DOOR_OPEN", "Door Open", false,
-                        BACKGROUND_DIR + "doors/17_door_open_wood.png"),
+                        OPEN_DOOR_SPRITE_RESOURCE),
                 decor("RUG_ORANGE_LARGE_V", "Rug Orange Large V", false,
                         BACKGROUND_DIR + "rugs/41_rug_orange_large_vertical.png"),
                 decor("RUG_ORANGE_LARGE_H", "Rug Orange Large H", false,
@@ -265,6 +269,11 @@ public final class BuildToolCatalog {
 
     public BuildTool findById(String id) {
         return byId.get(id);
+    }
+
+    public static boolean isDoorSpriteResource(String spriteResource) {
+        return CLOSED_DOOR_SPRITE_RESOURCE.equals(spriteResource)
+                || OPEN_DOOR_SPRITE_RESOURCE.equals(spriteResource);
     }
 
     /**

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -147,7 +148,7 @@ class BuildModeControllerTest {
     }
 
     @Test
-    void doorToolsCanBePlacedOnEverySideAndInsideTheMap() {
+    void doorToolsCanOnlyBePlacedOnOuterSides() {
         BuildModeController controller = controller();
         DungeonMap map = controller.getDesignMap();
 
@@ -157,9 +158,47 @@ class BuildModeControllerTest {
                 assertDoorPlacement(controller, tool, map.getWidth() - 1, 3);
                 assertDoorPlacement(controller, tool, 3, 0);
                 assertDoorPlacement(controller, tool, 3, map.getHeight() - 1);
-                assertDoorPlacement(controller, tool, 3, 3);
+                assertFalse(controller.placeToolAt(3, 3, tool), tool.id());
+                assertTrue(map.getCell(3, 3).getItemsView().isEmpty(), tool.id());
+                assertEquals(BuildModeController.BORDER_DOOR_ONLY_MESSAGE,
+                        controller.getLastPlacementMessage(), tool.id());
             }
         }
+    }
+
+    @Test
+    void playModeRequiresClosedDoorOnOuterSide() {
+        BuildModeController controller = controller();
+        DungeonMap map = controller.getDesignMap();
+
+        assertEquals(BuildModeController.INVALID_DOOR_COUNT_MESSAGE,
+                controller.getPlayModeValidationError());
+
+        assertTrue(controller.placeToolAt(3, 0, controller.findTool("DOOR_OPEN")));
+        assertEquals(BuildModeController.INVALID_DOOR_COUNT_MESSAGE,
+                controller.getPlayModeValidationError());
+
+        assertTrue(controller.placeToolAt(0, 3, controller.findTool("DOOR_CLOSED")));
+        assertTrue(map.getCell(3, 0).getItemsView().isEmpty());
+        assertFalse(map.getCell(3, 0).isPassable());
+        assertTrue(controller.hasExactlyOneClosedBorderDoor());
+        assertNull(controller.getPlayModeValidationError());
+    }
+
+    @Test
+    void closedDoorRequirementSurvivesSaveLoadRoundTrip() throws IOException {
+        BuildModeController controller = controller();
+        assertTrue(controller.placeToolAt(0, 3, controller.findTool("DOOR_CLOSED")));
+
+        Path path = tempDir.resolve("closed-door.dkmap");
+        controller.saveMap(path);
+        controller.clearMap();
+        assertEquals(BuildModeController.INVALID_DOOR_COUNT_MESSAGE,
+                controller.getPlayModeValidationError());
+
+        controller.loadMap(path);
+        assertTrue(controller.hasExactlyOneClosedBorderDoor());
+        assertNull(controller.getPlayModeValidationError());
     }
 
     @Test

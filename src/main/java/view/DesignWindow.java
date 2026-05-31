@@ -244,6 +244,12 @@ public class DesignWindow extends JFrame {
 
         JButton run = new CommandButton("RUN IN PLAY MODE");
         run.addActionListener(e -> {
+            String validationError = controller.getPlayModeValidationError();
+            if (validationError != null) {
+                ItemActionMenuDialog.showNotice(this, "Build", "Closed Door Required",
+                        validationError);
+                return;
+            }
             GameEngine engine = new GameEngine(controller.getDesignMap());
             dispose();
             SwingUtilities.invokeLater(() -> new GameWindow(engine).setVisible(true));
@@ -382,11 +388,15 @@ public class DesignWindow extends JFrame {
             return;
         }
         int[] cell = cellAtPoint(point);
-        if (cell != null && controller.placeToolAt(cell[0], cell[1], tool)) {
-            String placementMessage = controller.getLastPlacementMessage();
-            if (placementMessage != null) {
-                refreshSelectedLabel(placementMessage);
-            }
+        if (cell == null) {
+            return;
+        }
+        boolean placed = controller.placeToolAt(cell[0], cell[1], tool);
+        String placementMessage = controller.getLastPlacementMessage();
+        if (placementMessage != null) {
+            refreshSelectedLabel(placementMessage);
+        }
+        if (placed) {
             canvas.repaint();
         }
     }
