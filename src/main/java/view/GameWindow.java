@@ -71,6 +71,7 @@ public class GameWindow extends JFrame implements GameStateListener {
         setTitle("Dungeon Krawler - Build Mode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        getRootPane().putClientProperty("apple.awt.fullscreenable", Boolean.TRUE);
         RetroTheme.styleFrameDark(this);
 
         PlayerModeController playerModeController = new PlayerModeController(engine);

@@ -46,6 +46,7 @@ public class MainMenuWindow extends JFrame {
         setTitle("Dungeon KUrawler - Main Menu");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        getRootPane().putClientProperty("apple.awt.fullscreenable", Boolean.TRUE);
 
         FantasyMenuBackgroundPanel background = new FantasyMenuBackgroundPanel();
         background.setLayout(new BorderLayout());

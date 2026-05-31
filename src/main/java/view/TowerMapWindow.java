@@ -202,6 +202,7 @@ public final class TowerMapWindow extends JFrame {
         setTitle("Dungeon KUrawler - Tower Map");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        getRootPane().putClientProperty("apple.awt.fullscreenable", Boolean.TRUE);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(BACKDROP);
