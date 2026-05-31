@@ -5,9 +5,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import model.Chest;
+import model.Coin;
 import model.DungeonMap;
+import model.EnergyPotion;
 import model.GridCell;
+import model.HealPotion;
 import model.Item;
+import model.ManaPotion;
+import model.Potion;
 import model.SearchableObject;
 
 /**
@@ -31,6 +37,7 @@ final class TowerFloorItemRandomizer {
         }
         randomizeLooseItems(map);
         randomizePreparedHiddenItems(map);
+        randomizeChestRewards(map);
     }
 
     /**
@@ -98,6 +105,63 @@ final class TowerFloorItemRandomizer {
         for (int i = 0; i < hiddenItems.size(); i++) {
             searchables.get(i).setHiddenItem(hiddenItems.get(i));
         }
+    }
+
+    /**
+     * Keeps each designed chest's reward pattern while varying the reward on
+     * every fresh floor. Potion slots remain potion slots, coin slots retain
+     * the level designer's increasing base value, and progression-critical
+     * contents such as keys stay untouched.
+     */
+    private void randomizeChestRewards(DungeonMap map) {
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                GridCell cell = map.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    if (item instanceof Chest chest) {
+                        randomizeChestRewards(chest);
+                    }
+                }
+            }
+        }
+    }
+
+    private void randomizeChestRewards(Chest chest) {
+        List<Item> replacements = new ArrayList<>();
+        for (Item content : new ArrayList<>(chest.getContents())) {
+            Item replacement = randomizedChestReward(content);
+            if (replacement != null && chest.removeItem(content)) {
+                replacements.add(replacement);
+            }
+        }
+        for (Item replacement : replacements) {
+            chest.addItem(replacement);
+        }
+    }
+
+    private Item randomizedChestReward(Item authoredReward) {
+        if (authoredReward instanceof Potion) {
+            return randomPotion();
+        }
+        if (authoredReward instanceof Coin coin) {
+            return new Coin(coin.getValue() + random.nextInt(3), coin.spriteResource());
+        }
+        return null;
+    }
+
+    /**
+     * Energy is intentionally common: bows and movement both spend it, so an
+     * energy potion occupies half of the chest-potion outcomes.
+     */
+    private Potion randomPotion() {
+        return switch (random.nextInt(4)) {
+            case 0 -> new HealPotion();
+            case 1 -> new ManaPotion();
+            default -> new EnergyPotion();
+        };
     }
 
     private List<GridCell> emptyFloorCells(DungeonMap map) {
