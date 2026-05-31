@@ -504,7 +504,7 @@ public class InventoryDialog extends JDialog {
             return "RNG";
         }
         if (item instanceof Book) {
-            return "BOK";
+            return "BK";
         }
         if (item instanceof Key) {
             return "KEY";
