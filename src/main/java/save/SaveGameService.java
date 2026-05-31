@@ -5,13 +5,19 @@ import java.util.List;
 import java.util.Objects;
 
 import engine.GameEngine;
+import model.Hero;
 import model.TowerProgress;
 import model.TowerScenario;
+import save.SaveDtos.GameStateDto;
+import save.SaveDtos.LevelSaveDto;
 import save.SaveDtos.SaveDescriptor;
 import save.SaveDtos.SaveGameDto;
 
 /**
- * Facade for the save/load use case.
+ * Facade for the save/load use case. Custom games persist a single session;
+ * scenario runs persist one named {@code ScenarioSave} per playthrough whose
+ * {@link GameStateDto} embeds the long-term progression and the per-level
+ * resumable saves (see {@link #saveScenario}).
  */
 public final class SaveGameService {
 
@@ -29,27 +35,13 @@ public final class SaveGameService {
         this.mapper = Objects.requireNonNull(mapper);
     }
 
+    // ----- Custom games -------------------------------------------------------
+
     public SaveDescriptor saveGame(GameEngine engine, String saveName) throws SaveGameException {
         return saveCustomGame(engine, saveName);
     }
 
-    public SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName)
-            throws SaveGameException {
-        SaveGameType type = towerProgress == null ? SaveGameType.CUSTOM_GAME : SaveGameType.SCENARIO_CHECKPOINT;
-        return saveGame(engine, towerProgress, saveName, type);
-    }
-
     public SaveDescriptor saveCustomGame(GameEngine engine, String saveName) throws SaveGameException {
-        return saveGame(engine, null, saveName, SaveGameType.CUSTOM_GAME);
-    }
-
-    public SaveDescriptor saveScenarioCheckpoint(GameEngine engine, TowerProgress towerProgress, String saveName)
-            throws SaveGameException {
-        return saveGame(engine, towerProgress, saveName, SaveGameType.SCENARIO_CHECKPOINT);
-    }
-
-    private SaveDescriptor saveGame(GameEngine engine, TowerProgress towerProgress, String saveName,
-            SaveGameType saveType) throws SaveGameException {
         if (saveName == null || saveName.isBlank()) {
             throw new SaveGameException("Save name is required.");
         }
@@ -57,33 +49,71 @@ public final class SaveGameService {
             throw new SaveLimitExceededException(MAX_SAVE_FILES);
         }
         SaveGameDto dto = new SaveGameDto();
-        dto.saveType = saveType.name();
+        dto.saveType = SaveGameType.CUSTOM_GAME.name();
         dto.saveName = saveName.trim();
         dto.savedAt = OffsetDateTime.now().toString();
         dto.towerLevelNumber = engine == null ? 0 : engine.getTowerLevelNumber();
         dto.finalTowerLevel = engine != null && engine.isFinalTowerLevel();
-        dto.gameState = mapper.toDto(engine, towerProgress);
+        dto.gameState = mapper.toDto(engine);
         return repository.write(dto);
     }
 
-    /**
-     * Persists the current session and tower progress back into an existing
-     * save slot (overwriting it in place) rather than creating a new file.
-     * Used by the tower flow after a level is completed.
-     */
-    public SaveDescriptor updateSave(SaveDescriptor descriptor, GameEngine engine, TowerProgress towerProgress)
-            throws SaveGameException {
-        SaveGameDto dto = new SaveGameDto();
-        SaveGameType type = towerProgress == null ? SaveGameType.CUSTOM_GAME : SaveGameType.SCENARIO_PROGRESS;
-        dto.saveType = type.name();
-        dto.saveName = descriptor == null || descriptor.getSaveName() == null
-                ? "save" : descriptor.getSaveName();
-        dto.savedAt = OffsetDateTime.now().toString();
-        dto.towerLevelNumber = engine == null ? 0 : engine.getTowerLevelNumber();
-        dto.finalTowerLevel = engine != null && engine.isFinalTowerLevel();
-        dto.gameState = mapper.toDto(engine, towerProgress);
-        return repository.overwrite(descriptor, dto);
+    public GameEngine loadGame(SaveDescriptor descriptor) throws SaveGameException {
+        return mapper.toEngine(repository.read(descriptor));
     }
+
+    // ----- Scenario runs ------------------------------------------------------
+
+    /**
+     * Persists a named scenario playthrough. With a {@code null} descriptor this
+     * creates a fresh save slot (subject to {@link #MAX_SAVE_FILES}); otherwise it
+     * overwrites the existing slot in place so the same file is reused across
+     * progression and per-level saves.
+     */
+    public SaveDescriptor saveScenario(SaveDescriptor existing, String saveName, Hero hero,
+            TowerProgress progress, List<LevelSaveDto> levelSaves) throws SaveGameException {
+        if (saveName == null || saveName.isBlank()) {
+            throw new SaveGameException("Save name is required.");
+        }
+        boolean creatingNew = existing == null || existing.getPath() == null;
+        if (creatingNew && repository.list().size() >= MAX_SAVE_FILES) {
+            throw new SaveLimitExceededException(MAX_SAVE_FILES);
+        }
+        SaveGameDto dto = new SaveGameDto();
+        dto.saveType = SaveGameType.SCENARIO.name();
+        dto.saveName = saveName.trim();
+        dto.savedAt = OffsetDateTime.now().toString();
+        dto.towerLevelNumber = 0;
+        dto.finalTowerLevel = false;
+        dto.gameState = mapper.toScenarioState(hero, progress, levelSaves);
+        return creatingNew ? repository.write(dto) : repository.overwrite(existing, dto);
+    }
+
+    /** Loads a scenario save into its in-memory pieces (hero, progress, level saves). */
+    public LoadedScenario loadScenario(SaveDescriptor descriptor) throws SaveGameException {
+        SaveGameDto saveGame = repository.read(descriptor);
+        if (saveGame == null || saveGame.gameState == null) {
+            throw new SaveGameException("Save file does not contain game state.");
+        }
+        GameStateDto state = saveGame.gameState;
+        Hero hero = mapper.toPersistentHero(state.hero);
+        TowerProgress progress = mapper.toTowerProgress(state.towerProgress, TowerScenario.LEVEL_COUNT);
+        List<LevelSaveDto> levelSaves = state.levelSpecificSaves == null
+                ? List.of() : List.copyOf(state.levelSpecificSaves);
+        return new LoadedScenario(hero, progress, levelSaves);
+    }
+
+    /** Captures the current in-floor session as a resumable level save. */
+    public LevelSaveDto captureLevel(GameEngine engine) throws SaveGameException {
+        return mapper.toLevelSave(engine);
+    }
+
+    /** Rebuilds a playable engine from a resumable level save. */
+    public GameEngine restoreLevel(LevelSaveDto levelSave) throws SaveGameException {
+        return mapper.fromLevelSave(levelSave);
+    }
+
+    // ----- Listing / deletion -------------------------------------------------
 
     public List<SaveDescriptor> listSaves() throws SaveGameException {
         return repository.list();
@@ -96,23 +126,6 @@ public final class SaveGameService {
         return repository.list().stream()
                 .filter(save -> save.getSaveType() == saveType)
                 .toList();
-    }
-
-    public GameEngine loadGame(SaveDescriptor descriptor) throws SaveGameException {
-        return mapper.toEngine(repository.read(descriptor));
-    }
-
-    /**
-     * Loads a save as both its game session and tower progress in a single
-     * read. Saves predating tower mode yield {@link TowerProgress#defaultProgress}.
-     */
-    public LoadedGame loadGameWithProgress(SaveDescriptor descriptor) throws SaveGameException {
-        SaveGameDto saveGame = repository.read(descriptor);
-        GameEngine engine = mapper.toEngine(saveGame);
-        TowerProgress progress = mapper.toTowerProgress(
-                saveGame.gameState == null ? null : saveGame.gameState.towerProgress,
-                TowerScenario.LEVEL_COUNT);
-        return new LoadedGame(engine, progress);
     }
 
     public void deleteSave(SaveDescriptor descriptor) throws SaveGameException {

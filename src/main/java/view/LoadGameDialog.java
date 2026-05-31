@@ -78,7 +78,7 @@ public final class LoadGameDialog {
     }
 
     public static Result showForStartGame(Component parent, List<SaveDescriptor> saves) {
-        return show(parent, saves, "Start Game", "Continue a saved floor or start from the tower map", true);
+        return show(parent, saves, "Start Game", "Continue a saved game or start a New Game", true);
     }
 
     public static Result show(Component parent, List<SaveDescriptor> saves,

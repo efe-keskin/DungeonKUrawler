@@ -443,6 +443,12 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
     }
 
     private boolean handleSaveGame(Window parent) {
+        return saveStrategy.requiresName()
+                ? handleNamedSave(parent)
+                : handleScenarioSave(parent);
+    }
+
+    private boolean handleNamedSave(Window parent) {
         SaveGameDialog.Result result = SaveGameDialog.show(parent);
         if (result.action() == SaveGameDialog.Action.CANCEL) {
             requestFocusInWindow();
@@ -467,6 +473,36 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
         } catch (SaveGameException ex) {
             ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
                     "Game could not be saved. Please try again.");
+            requestFocusInWindow();
+            return true;
+        }
+    }
+
+    /**
+     * Scenario floors save into the current playthrough without a name prompt:
+     * this floor's state is stored inside the active scenario save (UC Save).
+     */
+    private boolean handleScenarioSave(Window parent) {
+        int choice = ItemActionMenuDialog.show(parent, "Save Game", "Save Floor",
+                "Save this floor's progress inside your current game?",
+                "Save", "Save and Exit", "Cancel");
+        if (choice < 0 || choice == 2) {
+            requestFocusInWindow();
+            return true;
+        }
+        try {
+            saveStrategy.save(engine, null);
+            if (choice == 1) {
+                returnStrategy.returnFrom(parent);
+                return false;
+            }
+            ItemActionMenuDialog.showNotice(parent, "Save Game", "Saved",
+                    "This floor's progress was saved.");
+            requestFocusInWindow();
+            return true;
+        } catch (SaveGameException ex) {
+            ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
+                    "This floor could not be saved. Please try again.");
             requestFocusInWindow();
             return true;
         }

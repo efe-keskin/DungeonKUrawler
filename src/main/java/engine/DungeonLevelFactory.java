@@ -300,7 +300,12 @@ public final class DungeonLevelFactory {
                 && cell.getEntitiesView().isEmpty() && cell.getItemsView().isEmpty();
     }
 
-    private Hero defaultHero() {
+    /**
+     * Mints a brand-new hero with starting stats, no gold, an empty inventory and
+     * no pets. Used both for the first floor of a run and to seed a fresh
+     * scenario save when the player starts a New Game.
+     */
+    public Hero defaultHero() {
         int startingStr = 8 + random.nextInt(8);
         return new Hero(HERO_START_X, HERO_START_Y, "Hero", 17, startingStr, 80, 2, 100);
     }
