@@ -24,6 +24,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import engine.audio.AudioManager;
@@ -349,6 +350,20 @@ public class InventoryDialog extends JDialog {
         MouseAdapter actionOnClick = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                // Left-click performs an item's primary action directly: equip/
+                // dequip equipment, drink potions. Right-click (or any click on
+                // an item with no primary action) opens the full action menu, so
+                // discarding stays reachable.
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    if (isEquippable(item)) {
+                        toggleEquip(item);
+                        return;
+                    }
+                    if (item instanceof Potion) {
+                        performQuick(item, ItemAction.DRINK);
+                        return;
+                    }
+                }
                 showItemActions(item);
             }
         };
@@ -375,6 +390,40 @@ public class InventoryDialog extends JDialog {
                 extra.addMouseListener(hover);
             }
         }
+    }
+
+    /** Equippable = something that can be worn or wielded (weapon, armor, ring). */
+    private boolean isEquippable(Item item) {
+        List<ItemAction> actions = item.getInventoryActions();
+        return actions.contains(ItemAction.EQUIP) || actions.contains(ItemAction.WEAR);
+    }
+
+    /**
+     * Equips/wears an item, or removes it if it is already equipped. Keeps the
+     * inventory open and silently refreshes so left-clicking feels like a direct
+     * toggle rather than a menu interaction.
+     */
+    private void toggleEquip(Item item) {
+        ItemAction action;
+        if (engine.getHero().isEquipped(item)) {
+            action = ItemAction.REMOVE;
+        } else {
+            action = item.getInventoryActions().contains(ItemAction.EQUIP)
+                    ? ItemAction.EQUIP : ItemAction.WEAR;
+        }
+        performQuick(item, action);
+    }
+
+    /**
+     * Applies a single action straight away, warns if it is no longer valid, and
+     * refreshes the open inventory. Used by left-click shortcuts.
+     */
+    private void performQuick(Item item, ItemAction action) {
+        if (!engine.performInventoryAction(item, action)) {
+            ItemActionMenuDialog.showNotice(this, "Warning", "Cannot Use Item",
+                    "That action is no longer available.");
+        }
+        rebuildUi();
     }
 
     private void showItemActions(Item item) {
