@@ -449,20 +449,38 @@ public final class ShopWindow extends JFrame {
                 nameX = innerLeft + sw + Math.max(8, detailsRect.width / 40);
             }
 
-            g2.setFont(bodyFont(14f));
-            int baseY = midY + g2.getFontMetrics().getAscent() / 2 - 2;
-            g2.setColor(new Color(255, 238, 176));
-            g2.drawString(entry.title(), nameX, baseY);
-
             String sub = inventoryMode
                     ? (shopController == null ? null : "Sell: " + shopController.sellPriceOf((Item) entry.source()) + "g")
                     : entry.subtitle() == null ? null : "Price: " + entry.subtitle();
+            g2.setFont(bodyFont(13f));
+            int subW = sub == null ? 0 : g2.getFontMetrics().stringWidth(sub);
+            int maxNameW = Math.max(40, innerRight - nameX - subW - 16);
+
+            g2.setFont(bodyFont(14f));
+            int baseY = midY + g2.getFontMetrics().getAscent() / 2 - 2;
+            g2.setColor(new Color(255, 238, 176));
+            g2.drawString(fitText(g2, entry.title(), maxNameW), nameX, baseY);
+
             if (sub != null) {
                 g2.setColor(new Color(255, 218, 83));
                 g2.setFont(bodyFont(13f));
-                int subW = g2.getFontMetrics().stringWidth(sub);
                 g2.drawString(sub, innerRight - subW, baseY);
             }
+        }
+
+        private String fitText(Graphics2D g2, String text, int maxWidth) {
+            if (text == null || text.isEmpty()) {
+                return "";
+            }
+            if (g2.getFontMetrics().stringWidth(text) <= maxWidth) {
+                return text;
+            }
+            String ellipsis = "...";
+            int end = text.length();
+            while (end > 0 && g2.getFontMetrics().stringWidth(text.substring(0, end).trim() + ellipsis) > maxWidth) {
+                end--;
+            }
+            return end == 0 ? ellipsis : text.substring(0, end).trim() + ellipsis;
         }
 
         private int itemAt(int x, int y) {

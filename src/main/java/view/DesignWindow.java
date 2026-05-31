@@ -228,8 +228,12 @@ public class DesignWindow extends JFrame {
         randomItemsButton.addActionListener(e -> {
             BuildRandomItemPlacer.Result result = controller.addFiveRandomItems();
             refreshRandomItemsButton();
-            refreshSelectedLabel("Added " + result.visibleItemsPlaced()
-                    + " items" + (result.hiddenItemPlaced() ? " + hidden item" : ""));
+            if (result.visibleItemsPlaced() == 0 && !result.hiddenItemPlaced()) {
+                refreshSelectedLabel("Random item limit reached");
+            } else {
+                refreshSelectedLabel("Added " + result.visibleItemsPlaced()
+                        + " items" + (result.hiddenItemPlaced() ? " + hidden item" : ""));
+            }
             canvas.repaint();
         });
         refreshRandomItemsButton();
@@ -298,6 +302,9 @@ public class DesignWindow extends JFrame {
         randomItemsButton.setText(remaining > 0
                 ? "ADD 5 RANDOM ITEMS (" + remaining + " LEFT)"
                 : "RANDOM ITEMS LIMIT REACHED");
+        randomItemsButton.setToolTipText(remaining > 0
+                ? "You can use this " + remaining + " more time" + (remaining == 1 ? "" : "s") + "."
+                : "The random item limit for this build map has been reached.");
     }
 
     private void refreshFearOfTheDarkToggle() {

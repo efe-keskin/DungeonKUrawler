@@ -290,7 +290,9 @@ public class InventoryDialog extends JDialog {
             return slot;
         }
 
-        JLabel name = new JLabel(item.getName(), SwingConstants.CENTER);
+        JLabel name = new JLabel(fitText(item.getName(), uiFont(RetroTheme.UI_MONO_SMALL, 9f), SLOT_W - 14),
+                SwingConstants.CENTER);
+        name.setToolTipText(item.getName());
         name.setForeground(TITLE);
         name.setFont(uiFont(RetroTheme.UI_MONO_SMALL, 9f));
         name.setBounds(6, 17, SLOT_W - 12, 26);
@@ -312,6 +314,22 @@ public class InventoryDialog extends JDialog {
         return "B23_WAND".equals(weapon.getType().id())
                 || "staves".equals(weapon.getType().category())
                 || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("wand");
+    }
+
+    private String fitText(String text, Font font, int maxWidth) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        java.awt.FontMetrics metrics = getFontMetrics(font);
+        if (metrics.stringWidth(text) <= maxWidth) {
+            return text;
+        }
+        String ellipsis = "...";
+        int end = text.length();
+        while (end > 0 && metrics.stringWidth(text.substring(0, end).trim() + ellipsis) > maxWidth) {
+            end--;
+        }
+        return end == 0 ? ellipsis : text.substring(0, end).trim() + ellipsis;
     }
 
     private static boolean isWoodenBow(Item item) {
