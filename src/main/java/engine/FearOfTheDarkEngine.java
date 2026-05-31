@@ -35,6 +35,16 @@ public final class FearOfTheDarkEngine {
             new CircularVisibility(TORCH_VISION_RADIUS);
 
     /**
+     * Auxiliary light from a companion (the dragon pet): a square of Chebyshev
+     * radius {@link #auxLightRadius} centered on (auxLightX, auxLightY). Unlike
+     * the hero's vision this is a separate, moving light source that the engine
+     * keeps in sync. Inactive while {@code auxLightRadius < 0}.
+     */
+    private int auxLightX;
+    private int auxLightY;
+    private int auxLightRadius = -1;
+
+    /**
      * Hero-aware reveal: picks the strategy by checking the hero's
      * inventory, then marks all visible cells as discovered.
      * No-op when fog is disabled on the map or hero is null.
@@ -48,7 +58,7 @@ public final class FearOfTheDarkEngine {
         int hy = hero.getY();
         for (int x = 0; x < map.getWidth(); x++) {
             for (int y = 0; y < map.getHeight(); y++) {
-                if (strategy.isVisible(map, hx, hy, x, y)) {
+                if (strategy.isVisible(map, hx, hy, x, y) || auxLit(x, y)) {
                     GridCell cell = map.getCell(x, y);
                     if (cell != null) {
                         cell.setDiscovered(true);
@@ -68,7 +78,30 @@ public final class FearOfTheDarkEngine {
             return false;
         }
         return selectStrategy(hero).isVisible(
-                map, hero.getX(), hero.getY(), cellX, cellY);
+                map, hero.getX(), hero.getY(), cellX, cellY)
+                || auxLit(cellX, cellY);
+    }
+
+    /**
+     * Sets the companion light source as a square of the given Chebyshev radius
+     * (radius 1 = a 3x3 area) centered on the cell. The engine calls this each
+     * tick to track the dragon pet's position.
+     */
+    public void setAuxiliaryLight(int x, int y, int chebyshevRadius) {
+        this.auxLightX = x;
+        this.auxLightY = y;
+        this.auxLightRadius = chebyshevRadius;
+    }
+
+    /** Disables the companion light (e.g. when no dragon pet is present). */
+    public void clearAuxiliaryLight() {
+        this.auxLightRadius = -1;
+    }
+
+    private boolean auxLit(int cellX, int cellY) {
+        return auxLightRadius >= 0
+                && Math.abs(cellX - auxLightX) <= auxLightRadius
+                && Math.abs(cellY - auxLightY) <= auxLightRadius;
     }
 
     private VisibilityStrategy selectStrategy(Hero hero) {

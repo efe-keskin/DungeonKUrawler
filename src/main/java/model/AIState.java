@@ -1,7 +1,7 @@
 package model;
 
 /**
- * High-level AI mode for enemies — drives behavior selection and debug label rendering.
+ * High-level AI mode for enemies — drives behavior selection.
  */
 public enum AIState {
     ROAMING,

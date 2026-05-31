@@ -43,6 +43,7 @@ import model.Hero;
 import model.HeroProjectileStyle;
 import model.Item;
 import model.Knight;
+import model.PenguinPet;
 import model.PetEntity;
 import model.Potion;
 import model.Projectile;
@@ -73,6 +74,7 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
     private static final Color HERO = new Color(50, 130, 255);
     private static final Color KNIGHT = new Color(220, 55, 55);
     private static final Color SORCERER = new Color(160, 70, 220);
+    private static final Color FROZEN_TINT = new Color(140, 215, 255);
     private static final Color ITEM = new Color(255, 200, 40);
     private static final Color HUD_HP = new Color(220, 80, 80);
     private static final Color HUD_ENERGY = new Color(230, 200, 60);
@@ -147,6 +149,7 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
     private long enemyTiltEffectUntilNanos = 0L;
     private final Map<Entity, GridPosition> lastEnemyPositions = new IdentityHashMap<>();
     private final Map<Entity, EnemyMoveAnimation> enemyMoveAnimations = new IdentityHashMap<>();
+    private final Map<BufferedImage, BufferedImage> frozenTintCache = new IdentityHashMap<>();
 
     public GamePanel(GameEngine engine, PlayerModeController playerModeController,
             InteractionController interactionController) {
@@ -595,6 +598,10 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
                 ? combatController.autoAimRangedAttack()
                 : combatController.attackNearestEnemy();
         if (attack != null) {
+            // Face the struck enemy so the attack-tilt leans toward it.
+            if (attack.x() != hero.getX()) {
+                heroFacingLeft = attack.x() < hero.getX();
+            }
             requestFocusInWindow();
             return;
         }
@@ -688,6 +695,13 @@ private void handleInventoryKeyPress() {
     @Override
     public void onGameStateChanged() {
         applyPauseState();
+        // Keep the repaint loop alive so a penguin pet's attack-tilt animates out,
+        // mirroring how a knight strike is handled in onHeroTookDamage.
+        PetEntity pet = engine.getPetEntity();
+        if (pet != null && pet.getPet() instanceof PenguinPet
+                && System.nanoTime() - pet.getLastAttackNanos() < ATTACK_ANIM_DURATION_NANOS) {
+            enemyTiltEffectUntilNanos = System.nanoTime() + ATTACK_ANIM_DURATION_NANOS;
+        }
         Hero hero = engine.getHero();
         if (hero != null) {
             DungeonMap map = engine.getDungeonMap();
@@ -826,10 +840,11 @@ private void handleInventoryKeyPress() {
                             continue;
                         }
                         EnemyDrawPosition enemyDrawPosition = enemyDrawPosition(ent, px, py, tileSize);
+                        boolean frozen = engine.isEnemyFrozen(ent);
                         BufferedImage enemySprite = enemySpriteFor(ent);
-                        if (enemySprite != null) {    
+                        if (enemySprite != null) {
                             int spriteW = Math.round(enemySprite.getWidth() * HERO_SPRITE_SCALE);
-                            int spriteH = Math.round(enemySprite.getHeight() * HERO_SPRITE_SCALE);    
+                            int spriteH = Math.round(enemySprite.getHeight() * HERO_SPRITE_SCALE);
                             int drawX = enemyDrawPosition.x + (cellW - spriteW) / 2;
                             int drawY = enemyDrawPosition.y + (cellH - spriteH) / 2;
 
@@ -841,12 +856,15 @@ private void handleInventoryKeyPress() {
                                 savedEnemyTx = g2.getTransform();
                                 g2.rotate(tilt, drawX + spriteW / 2.0, drawY + spriteH);
                             }
-                            g2.drawImage(enemySprite, drawX, drawY, spriteW, spriteH, null);
+                            // A penguin-frozen enemy keeps a baby-blue hue over its sprite.
+                            BufferedImage toDraw = frozen ? frozenTinted(enemySprite) : enemySprite;
+                            g2.drawImage(toDraw, drawX, drawY, spriteW, spriteH, null);
                             if (savedEnemyTx != null) {
                                 g2.setTransform(savedEnemyTx);
                             }
                         } else {
-                            g2.setColor(ent instanceof Knight ? KNIGHT
+                            g2.setColor(frozen ? FROZEN_TINT
+                                    : ent instanceof Knight ? KNIGHT
                                     : ent instanceof Sorcerer || ent instanceof BossEnemy ? SORCERER
                                             : Color.LIGHT_GRAY);
                             int inset = Math.max(1, Math.min(cellW, cellH) / 5);
@@ -854,7 +872,6 @@ private void handleInventoryKeyPress() {
                             int entityH = Math.max(1, cellH - inset * 2);
                             g2.fillRect(enemyDrawPosition.x + inset, enemyDrawPosition.y + inset, entityW, entityH);
                         }
-                        drawAiStateLabel(g2, ent, enemyDrawPosition.x, enemyDrawPosition.y, cellW);
                         drawEnemyHpBar(g2, ent, enemyDrawPosition.x, enemyDrawPosition.y, cellW, cellH);
                     }
                 }
@@ -1456,6 +1473,14 @@ private void handleInventoryKeyPress() {
         int drawX = offsetX + Math.round(renderGridX * tileSize) + (tileSize - spriteW) / 2;
         int drawY = offsetY + Math.round(renderGridY * tileSize) + (tileSize - spriteH) / 2;
 
+        // Lean the hero toward his facing during an attack, pivoting at his feet so
+        // he tilts in place — the same effect as an attacking knight.
+        double heroTilt = heroTiltRadians();
+        AffineTransform savedHeroTx = null;
+        if (heroTilt != 0) {
+            savedHeroTx = g2.getTransform();
+            g2.rotate(heroTilt, drawX + spriteW / 2.0, drawY + spriteH);
+        }
         if (heroFacingLeft) {
             g2.drawImage(heroSprite, drawX + spriteW, drawY, -spriteW, spriteH, null);
         } else {
@@ -1463,6 +1488,26 @@ private void handleInventoryKeyPress() {
         }
         drawEquippedArmorOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
         drawEquippedWeaponOverlay(g2, hero, drawX, drawY, spriteW, spriteH);
+        if (savedHeroTx != null) {
+            g2.setTransform(savedHeroTx);
+        }
+    }
+
+    /**
+     * Current lean (radians) of the hero during his attack swing, easing in and
+     * back out over the attack window. Leans toward the direction he is facing.
+     */
+    private double heroTiltRadians() {
+        if (heroAttackAnimNanos == 0) {
+            return 0;
+        }
+        long elapsed = System.nanoTime() - heroAttackAnimNanos;
+        if (elapsed < 0 || elapsed >= ATTACK_ANIM_DURATION_NANOS) {
+            return 0;
+        }
+        double progress = elapsed / (double) ATTACK_ANIM_DURATION_NANOS;
+        double magnitude = Math.sin(progress * Math.PI) * KNIGHT_TILT_RADIANS;
+        return heroFacingLeft ? -magnitude : magnitude;
     }
 
     private void drawEquippedArmorOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
@@ -1479,9 +1524,6 @@ private void handleInventoryKeyPress() {
      * The lean eases in and back out over the attack window.
      */
     private double enemyTiltRadians(Entity ent) {
-        if (!(ent instanceof Knight)) {
-            return 0;
-        }
         long last = ent.getLastAttackNanos();
         if (last == 0) {
             return 0;
@@ -1490,17 +1532,58 @@ private void handleInventoryKeyPress() {
         if (elapsed < 0 || elapsed >= ATTACK_ANIM_DURATION_NANOS) {
             return 0;
         }
-        Hero hero = engine.getHero();
-        if (hero == null) {
+        // A knight leans toward the hero; the penguin pet leans toward the enemy it
+        // just touched. Everything else stays upright.
+        int dx;
+        if (ent instanceof Knight) {
+            Hero hero = engine.getHero();
+            if (hero == null) {
+                return 0;
+            }
+            dx = hero.getX() - ent.getX();
+        } else if (ent instanceof PetEntity pet && pet.getPet() instanceof PenguinPet) {
+            Entity target = nearestEnemyTo(ent);
+            if (target == null) {
+                return 0;
+            }
+            dx = target.getX() - ent.getX();
+        } else {
             return 0;
         }
-        int dx = hero.getX() - ent.getX();
         if (dx == 0) {
             return 0;
         }
         double progress = elapsed / (double) ATTACK_ANIM_DURATION_NANOS;
         double magnitude = Math.sin(progress * Math.PI) * KNIGHT_TILT_RADIANS;
         return dx < 0 ? -magnitude : magnitude;
+    }
+
+    /** Nearest hostile enemy (Manhattan distance) to {@code from}, or null if none. */
+    private Entity nearestEnemyTo(Entity from) {
+        DungeonMap map = engine.getDungeonMap();
+        if (map == null) {
+            return null;
+        }
+        Entity best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                GridCell cell = map.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Entity e : cell.getEntitiesView()) {
+                    if (e instanceof Knight || e instanceof Sorcerer || e instanceof BossEnemy) {
+                        int d = Math.abs(e.getX() - from.getX()) + Math.abs(e.getY() - from.getY());
+                        if (d < bestDist) {
+                            bestDist = d;
+                            best = e;
+                        }
+                    }
+                }
+            }
+        }
+        return best;
     }
 
     private void drawEquippedWeaponOverlay(Graphics2D g2, Hero hero, int drawX, int drawY, int spriteW,
@@ -1768,38 +1851,26 @@ private void handleInventoryKeyPress() {
     }
 
     /**
-     * Renders a small Chasing/Roaming tag just above the enemy sprite for debug visibility.
-     * Keeps rendering work tight so it stays cheap even with 5 enemies on screen.
+     * Returns a baby-blue tinted copy of an enemy sprite, used while it is frozen by the
+     * penguin pet. Results are cached per source image so the tint is computed once, not
+     * every repaint.
      */
-    private void drawAiStateLabel(Graphics2D g2, Entity ent, int px, int py, int cellW) {
-        String label;
-        Color color;
-        if (engine.isEnemyFrozen(ent)) {
-            label = "FROZEN";
-            color = new Color(110, 220, 255);
-        } else if (ent instanceof Knight k) {
-            label = k.getAiState().name();
-            color = k.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
-        } else if (ent instanceof Sorcerer s) {
-            label = s.getAiState().name();
-            color = s.getAiState() == model.AIState.CHASING ? new Color(255, 90, 90) : new Color(200, 200, 200);
-        } else if (ent instanceof BossEnemy boss) {
-            label = boss.getAiState().name();
-            color = boss.getAiState() == model.AIState.CHASING
-                    ? new Color(210, 110, 255) : new Color(200, 200, 200);
-        } else {
-            return;
+    private BufferedImage frozenTinted(BufferedImage src) {
+        BufferedImage cached = frozenTintCache.get(src);
+        if (cached != null) {
+            return cached;
         }
-        g2.setFont(g2.getFont().deriveFont(10f));
-        java.awt.FontMetrics fm = g2.getFontMetrics();
-        int textW = fm.stringWidth(label);
-        int textX = px + (cellW - textW) / 2;
-        int textY = py - 2;
-        // background for readability
-        g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRect(textX - 2, textY - fm.getAscent(), textW + 4, fm.getHeight());
-        g2.setColor(color);
-        g2.drawString(label, textX, textY - 2);
+        BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D tg = out.createGraphics();
+        tg.drawImage(src, 0, 0, null);
+        // SRC_ATOP only paints over the sprite's opaque pixels, leaving the surrounding
+        // transparency untouched so just the enemy picks up the hue.
+        tg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, 0.45f));
+        tg.setColor(FROZEN_TINT);
+        tg.fillRect(0, 0, src.getWidth(), src.getHeight());
+        tg.dispose();
+        frozenTintCache.put(src, out);
+        return out;
     }
 
     private record GridPosition(int x, int y) {

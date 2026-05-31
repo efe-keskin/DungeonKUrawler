@@ -157,6 +157,14 @@ public final class CombatManager {
         return new AttackResult(0, 0, 0, false);
     }
 
+    /**
+     * Applies a flat melee hit from a pet (e.g. the penguin's touch) to an enemy,
+     * bypassing the DEF formula. Knight armor still flat-reduces by 1.
+     */
+    public AttackResult applyPetMeleeHit(Entity target, int damage) {
+        return applyDamageToEntity(target, damage, damage);
+    }
+
     public static int heroRangedCostFor(Weapon weapon) {
         return weapon == null ? 0 : weapon.getRangedCostAmount();
     }
