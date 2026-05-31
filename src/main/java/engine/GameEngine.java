@@ -2478,6 +2478,37 @@ public class GameEngine {
         }
     }
 
+    /**
+     * Pet-style AI for active shadow clones: each clone steps one
+     * tile closer to the hero per tick. Multiple clones can exist;
+     * each ticks independently. Stops one cell short to avoid
+     * crowding the hero's tile.
+     */
+    private void updateShadowClones() {
+        if (isPaused || isGameOver) return;
+        List<ShadowClone> clones = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell c = dungeonMap.getCell(x, y);
+                if (c == null) continue;
+                for (Entity entity : c.getEntitiesView()) {
+                    if (entity instanceof ShadowClone clone) {
+                        clones.add(clone);
+                    }
+                }
+            }
+        }
+        boolean changed = false;
+        for (ShadowClone clone : clones) {
+            if (stepShadowCloneTowardHero(clone)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
     private boolean movePenguinTowardEnemy() {
         Entity target = nearestEnemyNearPet();
         if (target == null) {
