@@ -2,6 +2,7 @@ package engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -75,6 +76,26 @@ class DungeonLevelFactoryMapTest {
                 engine.shutdown();
             }
         }
+    }
+
+    @Test
+    void freshTowerRunsRandomizeLooseItemLocations() {
+        DungeonMap first = new DungeonLevelFactory(new MinimumRandom())
+                .createMapForFloor(scenario.getLevel(2));
+        DungeonMap second = new DungeonLevelFactory(new MaximumRandom())
+                .createMapForFloor(scenario.getLevel(2));
+
+        assertNotEquals(findGroundKeyCell(first, "arch-gold"), findGroundKeyCell(second, "arch-gold"));
+    }
+
+    @Test
+    void freshTowerRunsRandomizePreparedHiddenItemLocations() {
+        DungeonMap first = new DungeonLevelFactory(new MinimumRandom())
+                .createMapForFloor(scenario.getLevel(5));
+        DungeonMap second = new DungeonLevelFactory(new MaximumRandom())
+                .createMapForFloor(scenario.getLevel(5));
+
+        assertNotEquals(findHiddenKeyCell(first, "arch-gold"), findHiddenKeyCell(second, "arch-gold"));
     }
 
     private int countInteriorObstacles(DungeonMap map) {
@@ -170,6 +191,31 @@ class DungeonLevelFactoryMapTest {
         return item instanceof Key key && key.matches(keyId);
     }
 
+    private String findGroundKeyCell(DungeonMap map, String keyId) {
+        for (GridCell[] column : map.getCells()) {
+            for (GridCell cell : column) {
+                if (cell.getItemsView().stream().anyMatch(item -> matchesKey(item, keyId))) {
+                    return cell.getX() + "," + cell.getY();
+                }
+            }
+        }
+        return "";
+    }
+
+    private String findHiddenKeyCell(DungeonMap map, String keyId) {
+        for (GridCell[] column : map.getCells()) {
+            for (GridCell cell : column) {
+                for (Item item : cell.getItemsView()) {
+                    if (item instanceof SearchableObject searchable
+                            && matchesKey(searchable.getHiddenItem(), keyId)) {
+                        return cell.getX() + "," + cell.getY();
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
     private boolean searchablesAreReachable(DungeonMap map) {
         for (GridCell[] column : map.getCells()) {
             for (GridCell cell : column) {
@@ -188,5 +234,19 @@ class DungeonLevelFactoryMapTest {
             }
         }
         return true;
+    }
+
+    private static final class MinimumRandom extends java.util.Random {
+        @Override
+        public int nextInt(int bound) {
+            return 0;
+        }
+    }
+
+    private static final class MaximumRandom extends java.util.Random {
+        @Override
+        public int nextInt(int bound) {
+            return bound - 1;
+        }
     }
 }

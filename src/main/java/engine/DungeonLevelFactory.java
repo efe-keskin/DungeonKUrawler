@@ -1,6 +1,9 @@
 package engine;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -38,6 +41,7 @@ public final class DungeonLevelFactory {
 
     private final Random random;
     private final BuildMapPersistence mapPersistence;
+    private final TowerFloorItemRandomizer itemRandomizer;
 
     public DungeonLevelFactory() {
         this(ThreadLocalRandom.current());
@@ -51,6 +55,7 @@ public final class DungeonLevelFactory {
     DungeonLevelFactory(Random random, BuildMapPersistence mapPersistence) {
         this.random = random == null ? ThreadLocalRandom.current() : random;
         this.mapPersistence = mapPersistence;
+        this.itemRandomizer = new TowerFloorItemRandomizer(this.random);
     }
 
     /**
@@ -106,6 +111,7 @@ public final class DungeonLevelFactory {
             map = createGeneratedFallbackMap(level);
         }
         map.setFogEnabled(level.fogHidden());
+        itemRandomizer.randomize(map);
         if (level.fogHidden()) {
             seedStarterTorch(map);
         }
@@ -179,28 +185,12 @@ public final class DungeonLevelFactory {
     }
 
     /**
-     * Places a single Torch on a walkable cell within a few tiles
-     * of the hero start. Tries (3,1) first, then (1,3), then a
-     * small scan; gives up silently if no free cell is available
-     * (extremely cramped maps). Never places on the start cell
-     * itself - the torch must be a step the player consciously
-     * takes, not an auto-pickup.
+     * Places a single Torch on a random walkable cell within a few tiles of the
+     * hero start. Never places on the start cell itself - the torch must be a
+     * step the player consciously takes, not an auto-pickup.
      */
     private void seedStarterTorch(DungeonMap map) {
-        int[][] preferred = { {3, 1}, {1, 3}, {2, 2}, {4, 1}, {1, 4} };
-        for (int[] coord : preferred) {
-            GridCell cell = map.getCell(coord[0], coord[1]);
-            if (cell != null
-                    && !(coord[0] == HERO_START_X && coord[1] == HERO_START_Y)
-                    && cell.isWalkable()
-                    && cell.getItemsView().isEmpty()
-                    && cell.getEntitiesView().isEmpty()) {
-                cell.getItems().add(new Torch());
-                return;
-            }
-        }
-        // Fallback scan: any free interior cell that's at most ~5 tiles
-        // from the start in Chebyshev distance.
+        List<GridCell> candidates = new ArrayList<>();
         for (int y = 1; y < map.getHeight() - 1; y++) {
             for (int x = 1; x < map.getWidth() - 1; x++) {
                 if (x == HERO_START_X && y == HERO_START_Y) {
@@ -215,10 +205,13 @@ public final class DungeonLevelFactory {
                 if (cell != null && cell.isWalkable()
                         && cell.getItemsView().isEmpty()
                         && cell.getEntitiesView().isEmpty()) {
-                    cell.getItems().add(new Torch());
-                    return;
+                    candidates.add(cell);
                 }
             }
+        }
+        Collections.shuffle(candidates, random);
+        if (!candidates.isEmpty()) {
+            candidates.get(0).getItems().add(new Torch());
         }
         // If nothing free was found, the random spawn elsewhere can
         // still provide a torch eventually. Don't crash.
