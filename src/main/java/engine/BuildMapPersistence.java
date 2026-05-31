@@ -448,6 +448,7 @@ public final class BuildMapPersistence {
         String levelName;
         int width;
         int height;
+        // Legacy JSON key retained for saved .dkmap compatibility.
         Boolean fogEnabled;
         List<CellDto> cells;
     }

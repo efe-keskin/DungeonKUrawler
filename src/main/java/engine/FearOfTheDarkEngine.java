@@ -24,7 +24,7 @@ import model.Torch;
  * Only DISCOVERED is persisted; VISIBLE is recomputed every
  * paint frame from the hero's current position.
  */
-public final class FogOfWarEngine {
+public final class FearOfTheDarkEngine {
 
     public static final double DEFAULT_VISION_RADIUS = 3.0;
     public static final double TORCH_VISION_RADIUS = 5.0;

@@ -84,7 +84,7 @@ public class GameEngine {
     private final TeamMatchAiController teamMatchAiController = new TeamMatchAiController();
     private final TeamMatchOutcomeEvaluator teamMatchOutcomeEvaluator = new TeamMatchOutcomeEvaluator();
     private final TargetItemMission targetMission = new TargetItemMission();
-    private final FogOfWarEngine fogEngine = new FogOfWarEngine();
+    private final FearOfTheDarkEngine fearOfTheDarkEngine = new FearOfTheDarkEngine();
     private final List<GameStateListener> listeners = new CopyOnWriteArrayList<>();
     private final List<GameEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private long lastMoveNanos = System.nanoTime();
@@ -205,7 +205,7 @@ public class GameEngine {
         int[] heroStart = findHeroStart(this.dungeonMap);
         this.hero = new Hero(heroStart[0], heroStart[1], "Hero", 17, startingStr, 80, 2, 100);
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         if (designedMap != null) {
             new LockedChestKeyPlacer(random).ensureKeysForLockedChests(dungeonMap);
         }
@@ -230,7 +230,7 @@ public class GameEngine {
         this.dungeonMap = dungeonMap;
         this.hero = hero;
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         startTeamMatchTimers();
     }
 
@@ -276,7 +276,7 @@ public class GameEngine {
         this.hero = hero;
         this.spawnPolicy = spawnPolicy != null ? spawnPolicy : new RegularEnemySpawnPolicy(enemyFactory);
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         this.targetMission.restore(missionTarget, missionStarted, missionWon);
         startGameTimers();
     }
@@ -298,7 +298,7 @@ public class GameEngine {
         this.dungeonMap = map;
         this.hero = hero;
         placeHeroOnMap();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
         startGameTimers();
@@ -510,7 +510,10 @@ public class GameEngine {
     }
 
     private void checkTargetMissionPickup(Item item) {
-        if (targetMission.checkPickup(item) && standaloneMissionVictoryEnabled) {
+        boolean wonNow = targetMission.checkPickup(item);
+        boolean targetAlreadyRevealed = targetMission.isWon()
+                && item == targetMission.getTarget();
+        if (standaloneMissionVictoryEnabled && (wonNow || targetAlreadyRevealed)) {
             finishStandaloneMission();
         }
     }
@@ -549,6 +552,45 @@ public class GameEngine {
         return true;
     }
 
+    /**
+     * Places an item on a randomly chosen walkable, empty interior cell.
+     * Returns the cell that received the item, or null when the map is fully
+     * occupied (extremely unlikely on the demo map).
+     */
+    private GridCell placeRandomly(DungeonMap map, Item item) {
+        List<int[]> candidates = new ArrayList<>();
+        for (int x = 1; x < map.getWidth() - 1; x++) {
+            for (int y = 1; y < map.getHeight() - 1; y++) {
+                GridCell c = map.getCell(x, y);
+                if (c == null) {
+                    continue;
+                }
+                if (!c.isWalkable()) {
+                    continue;
+                }
+                if (!c.getItemsView().isEmpty()) {
+                    continue;
+                }
+                if (!c.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+                if (x == 1 && y == 1) {
+                    continue;
+                }
+                candidates.add(new int[] { x, y });
+            }
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        int[] pick = candidates.get(random.nextInt(candidates.size()));
+        GridCell target = map.getCell(pick[0], pick[1]);
+        if (target != null) {
+            target.getItems().add(item);
+        }
+        return target;
+    }
+
     // DEMO WALLS
     private DungeonMap buildDemoMap(String levelName) {
         int w = 16;
@@ -575,56 +617,33 @@ public class GameEngine {
             }
         }
 
-        // Temporary test items: hero should be able to move onto these cells.
-        GridCell itemCell1 = map.getCell(3, 1);
-        if (itemCell1 != null) {
-            itemCell1.getItems().add(new HealPotion());
-        }
+        // Hero starts at (1, 1). Everything else is random walkable.
+        placeRandomly(map, new HealPotion());
+        placeRandomly(map, new EnergyPotion());
+        placeRandomly(map, new ManaPotion());
+        placeRandomly(map, new Ring("Protective Ring", 2));
+        placeRandomly(map, new Weapon(WeaponCatalog.get().byId("W002")));
 
-        GridCell itemCell2 = map.getCell(5, 3);
-        if (itemCell2 != null) {
-            itemCell2.getItems().add(new EnergyPotion());
-        }
+        // Wooden Chest (locked with olive key) gets a guaranteed cell before keys land.
+        Chest wooden = Chest.locked("Wooden Chest", 16, "olive");
+        wooden.addItem(new HealPotion());
+        wooden.addItem(new Key("silver", KeyColor.SILVER));
+        wooden.addItem(new Book("Explorer's Journal",
+                "The old silver chest protects equipment for anyone brave enough to unlock it."));
+        placeRandomly(map, wooden);
 
-        GridCell itemCell3 = map.getCell(5, 4);
-        if (itemCell3 != null) {
-            itemCell3.getItems().add(new ManaPotion());
-        }
+        // Silver Chest with the gold key + leather armor.
+        Chest silver = Chest.locked("Silver Chest", 16, "silver");
+        silver.addItem(new EnergyPotion());
+        silver.addItem(new Key("gold", KeyColor.GOLD));
+        silver.addItem(new Armor("Leather Armor", 3));
+        placeRandomly(map, silver);
 
-        GridCell ringCell = map.getCell(3, 3);
-        if (ringCell != null) {
-            ringCell.getItems().add(new Ring("Power Ring", RingEffectType.STRENGTH, 3,
-                    "/items/rings/10_ring_red_gem.png"));
-        }
+        // Olive key lands after chests so it cannot share a chest cell.
+        placeRandomly(map, new Key("olive", KeyColor.OLIVE));
 
-        GridCell weaponCell = map.getCell(11, 3);
-        if (weaponCell != null) {
-            weaponCell.getItems().add(new Weapon(WeaponCatalog.get().byId("W002")));
-        }
-
-        GridCell chestCell = map.getCell(4, 2);
-        if (chestCell != null) {
-            Chest chest = new Chest("Wooden Chest", 16);
-            chest.addItem(new HealPotion());
-            chest.addItem(new Key("silver", KeyColor.SILVER));
-            chest.addItem(new Book("Explorer's Journal",
-                    "The old silver chest protects equipment for anyone brave enough to unlock it."));
-            chestCell.getItems().add(chest);
-        }
-
-        GridCell keyCell = map.getCell(8, 2);
-        if (keyCell != null) {
-            keyCell.getItems().add(new Key("olive", KeyColor.OLIVE));
-        }
-
-        GridCell lockedChestCell = map.getCell(10, 6);
-        if (lockedChestCell != null) {
-            Chest lockedChest = Chest.locked("Silver Chest", 16, "silver");
-            lockedChest.addItem(new EnergyPotion());
-            lockedChest.addItem(new Key("gold", KeyColor.GOLD));
-            lockedChest.addItem(new Armor("Leather Armor", 3));
-            lockedChestCell.getItems().add(lockedChest);
-        }
+        placeRandomly(map, new Ring("Power Ring", RingEffectType.STRENGTH, 3,
+                "/items/rings/10_ring_red_gem.png"));
 
         placeRandomSearchablesOnHorizontalWalls(map);
 
@@ -829,7 +848,7 @@ public class GameEngine {
         container.removeItem(item);
         checkTargetMissionPickup(item);
         fireItemPickedUp(item);
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return true;
     }
@@ -869,7 +888,7 @@ public class GameEngine {
         }
         object.markSearched();
         if (found == null) {
-            fogEngine.revealAround(dungeonMap, hero);
+            fearOfTheDarkEngine.revealAround(dungeonMap, hero);
             notifyListeners();
             return SearchResult.nothingFound();
         }
@@ -877,7 +896,9 @@ public class GameEngine {
         // draws the first item in a tile. This makes the item visibly appear at
         // the exact place that was searched.
         cell.getItems().add(0, found);
-        fogEngine.revealAround(dungeonMap, hero);
+        targetMission.checkPickup(found);
+        fireItemPickedUp(found);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return SearchResult.found(found);
     }
@@ -912,8 +933,8 @@ public class GameEngine {
         return hero;
     }
 
-    public FogOfWarEngine getFogEngine() {
-        return fogEngine;
+    public FearOfTheDarkEngine getFearOfTheDarkEngine() {
+        return fearOfTheDarkEngine;
     }
 
     public List<Projectile> getActiveProjectilesView() {
@@ -954,7 +975,7 @@ public class GameEngine {
         moveShadowClonesOpposite(heroDx, heroDy);
 
         lastMoveNanos = System.nanoTime();
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         checkTowerExit(to);
     }
@@ -1010,6 +1031,9 @@ public class GameEngine {
             return false;
         }
         arch.open();
+        for (GameEventListener listener : eventListeners) {
+            listener.onArchOpened();
+        }
         notifyListeners();
         return true;
     }
@@ -1078,7 +1102,7 @@ public class GameEngine {
         }
         boolean applied = effect.apply(hero, item);
         if (applied && effect.notifyAfterApply()) {
-            fogEngine.revealAround(dungeonMap, hero);
+            fearOfTheDarkEngine.revealAround(dungeonMap, hero);
             notifyListeners();
         }
         return applied;
@@ -1169,7 +1193,7 @@ public class GameEngine {
         dungeonMap.removeItemFromCell(item, x, y);
         checkTargetMissionPickup(item);
         fireItemPickedUp(item);
-        fogEngine.revealAround(dungeonMap, hero);
+        fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
         return true;
     }
@@ -1471,7 +1495,7 @@ public class GameEngine {
         knightActionTimer.setRepeats(true);
         knightActionTimer.start();
 
-        sorcererAttackTimer = new Timer(GameConstants.GLOBAL_ACTION_TICK_MS, e -> updateSorcererAttacks());
+        sorcererAttackTimer = new Timer(GameConstants.SORCERER_ATTACK_TICK_MS, e -> updateSorcererAttacks());
         sorcererAttackTimer.setRepeats(true);
         sorcererAttackTimer.start();
 

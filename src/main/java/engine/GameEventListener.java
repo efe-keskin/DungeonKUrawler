@@ -34,6 +34,10 @@ public interface GameEventListener {
     default void onHeroDefeated() {
     }
 
+    /** Hero passed through the now-open arch; the floor/run is over. */
+    default void onArchOpened() {
+    }
+
     /** A UI button was clicked. View layer fires this directly. */
     default void onButtonClick() {
     }

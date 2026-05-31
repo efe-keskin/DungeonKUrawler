@@ -25,7 +25,7 @@ import javax.swing.Timer;
 import engine.CombatController;
 import engine.CombatManager;
 import engine.Direction;
-import engine.FogOfWarEngine;
+import engine.FearOfTheDarkEngine;
 import engine.GameEngine;
 import engine.GameMode;
 import engine.InventoryController;
@@ -35,7 +35,6 @@ import engine.GameStateListener;
 import engine.InteractionController;
 import model.BossEnemy;
 import model.Container;
-import model.DefeatedEnemyMarker;
 import model.DungeonMap;
 import model.Entity;
 import model.GridCell;
@@ -100,7 +99,7 @@ public class GamePanel extends JPanel implements GameStateListener {
 
     private static final int HERO_ANIM_INTERVAL_MS = 100;
     private static final int ENERGY_REFILL_INTERVAL_MS = 300;
-    private static final int FOG_SHIMMER_INTERVAL_MS = 100;
+    private static final int DARKNESS_SHIMMER_INTERVAL_MS = 100;
     private static final float HERO_ANIM_STEP = 0.20f;
     private static final float ENEMY_ANIM_STEP = 0.25f;
     private static final float HERO_SPRITE_SCALE = 1.15f;
@@ -116,7 +115,7 @@ public class GamePanel extends JPanel implements GameStateListener {
     private final AmbienceRenderer ambienceRenderer = new AmbienceRenderer();
     private final Timer heroAnimTimer;
     private final Timer energyRefillTimer;
-    private final Timer fogShimmerTimer;
+    private final Timer darknessShimmerTimer;
     private final long playStartTime = System.currentTimeMillis();
     private Timer continuousMoveTimer;
     private Timer transientWarningTimer;
@@ -194,13 +193,13 @@ public class GamePanel extends JPanel implements GameStateListener {
         energyRefillTimer = new Timer(ENERGY_REFILL_INTERVAL_MS, e -> engine.tickEnergyRefill());
         energyRefillTimer.start();
 
-        fogShimmerTimer = new Timer(FOG_SHIMMER_INTERVAL_MS, e -> {
+        darknessShimmerTimer = new Timer(DARKNESS_SHIMMER_INTERVAL_MS, e -> {
             DungeonMap map = engine.getDungeonMap();
             if (map != null && map.isFogEnabled()) {
                 repaint();
             }
         });
-        fogShimmerTimer.start();
+        darknessShimmerTimer.start();
 
         addKeyListener(new KeyAdapter() {
             @Override
@@ -286,9 +285,6 @@ public class GamePanel extends JPanel implements GameStateListener {
 
                 CombatManager.AttackResult attackResult = GamePanel.this.combatController.attackAt(gridX, gridY);
                 if (attackResult != null) {
-                    if (attackResult.isDefenderDefeated()) {
-                        leaveDefeatMarker(gridX, gridY);
-                    }
                     GamePanel.this.requestFocusInWindow();
                     return;
                 }
@@ -325,14 +321,15 @@ public class GamePanel extends JPanel implements GameStateListener {
     /**
      * Shows the action menu for one ground item and runs the user's choice.
      *
-     * @return {@code true} when the user picked a real action (caller should
-     *         stop iterating remaining items); {@code false} when the menu was
-     *         skipped/cancelled so the caller can move on to the next item.
+     * @return {@code true} when the user picked a real action or explicitly
+     *         clicked Close (caller should stop iterating); {@code false} when
+     *         the dialog was dismissed via the window controls so the next item
+     *         should be offered.
      */
     private boolean presentItemInteraction(Window parent,
             InteractionController.ItemInteraction interaction, int index, int total) {
         List<InteractionController.ActionOption> actions = interaction.getActions();
-        String dismissLabel = (index < total - 1) ? "Next Item" : "Close";
+        String dismissLabel = "Close";
         String[] labels = new String[actions.size() + 1];
         for (int i = 0; i < actions.size(); i++) {
             labels[i] = actions.get(i).getLabel();
@@ -351,8 +348,11 @@ public class GamePanel extends JPanel implements GameStateListener {
 
         int choice = ItemActionMenuDialog.show(parent, "Nearby Object",
                 interaction.getItemName(), message, labels);
-        if (choice < 0 || choice == labels.length - 1) {
+        if (choice < 0) {
             return false;
+        }
+        if (choice == labels.length - 1) {
+            return true;
         }
 
         InteractionController.ActionOption picked = actions.get(choice);
@@ -456,14 +456,6 @@ public class GamePanel extends JPanel implements GameStateListener {
         }
     }
 
-    private void leaveDefeatMarker(int gridX, int gridY) {
-        GridCell cell = engine.getDungeonMap().getCell(gridX, gridY);
-        if (cell != null) {
-            cell.getItems().add(new DefeatedEnemyMarker());
-            repaint();
-        }
-    }
-
     private void handleOpenKeyPress() {
         Window parent = SwingUtilities.getWindowAncestor(this);
 
@@ -533,9 +525,6 @@ public class GamePanel extends JPanel implements GameStateListener {
                 ? combatController.autoAimRangedAttack()
                 : combatController.attackNearestEnemy();
         if (attack != null) {
-            if (attack.result().isDefenderDefeated()) {
-                leaveDefeatMarker(attack.x(), attack.y());
-            }
             requestFocusInWindow();
             return;
         }
@@ -598,7 +587,7 @@ private void handleInventoryKeyPress() {
     public void removeNotify() {
         heroAnimTimer.stop();
         energyRefillTimer.stop();
-        fogShimmerTimer.stop();
+        darknessShimmerTimer.stop();
         engine.removeGameStateListener(this);
         super.removeNotify();
     }
@@ -770,7 +759,7 @@ private void handleInventoryKeyPress() {
             drawHero(g2, map, tileSize, offsetX, offsetY);
             drawHud(g2);
             drawTransientWarning(g2);
-            drawFogOverlay(g2, tileSize, offsetX, offsetY);
+            drawDarknessOverlay(g2, tileSize, offsetX, offsetY);
         } finally {
             g2.dispose();
         }
@@ -1069,13 +1058,13 @@ private void handleInventoryKeyPress() {
         g2.drawRect(px + inset, py + inset, itemW, itemH);
     }
 
-    private void drawFogOverlay(Graphics2D g2, int tileSize,
+    private void drawDarknessOverlay(Graphics2D g2, int tileSize,
                                 int offsetX, int offsetY) {
         DungeonMap map = engine.getDungeonMap();
         if (map == null || !map.isFogEnabled()) {
             return;
         }
-        FogOfWarEngine fog = engine.getFogEngine();
+        FearOfTheDarkEngine fear = engine.getFearOfTheDarkEngine();
         Hero hero = engine.getHero();
         if (hero == null) {
             return;
@@ -1088,7 +1077,7 @@ private void handleInventoryKeyPress() {
 
         for (int x = 0; x < map.getWidth(); x++) {
             for (int y = 0; y < map.getHeight(); y++) {
-                if (fog.isVisible(map, hero, x, y)) {
+                if (fear.isVisible(map, hero, x, y)) {
                     continue;
                 }
                 GridCell cell = map.getCell(x, y);
@@ -1108,7 +1097,7 @@ private void handleInventoryKeyPress() {
             return true;
         }
         Hero hero = engine.getHero();
-        return hero != null && engine.getFogEngine().isVisible(map, hero, x, y);
+        return hero != null && engine.getFearOfTheDarkEngine().isVisible(map, hero, x, y);
     }
 
     private boolean advanceEnemyAnimations() {
@@ -1586,7 +1575,7 @@ private void handleInventoryKeyPress() {
         int barW = Math.max(10, cellW - 8);
         int barH = Math.max(3, cellH / 10);
         int barX = px + (cellW - barW) / 2;
-        int barY = py + cellH - barH - 2;
+        int barY = py + cellH + 2;
         int fillW = Math.round(barW * Math.max(0, currentHp) / (float) maxHp);
 
         g2.setColor(new Color(20, 20, 24, 210));

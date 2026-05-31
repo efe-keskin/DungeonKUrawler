@@ -5,7 +5,6 @@ import engine.GameEventListener;
 import engine.MissionListener;
 import model.Entity;
 import model.Item;
-import model.ValuableItem;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -146,6 +145,14 @@ public class AudioManager implements GameEventListener, MissionListener {
         }
     }
 
+    /** Halts the Fear of the Dark cue immediately if playing. */
+    public void stopFearOfTheDark() {
+        if (activeFearOfTheDarkClip != null) {
+            activeFearOfTheDarkClip.stop();
+            activeFearOfTheDarkClip = null;
+        }
+    }
+
     /** Starts the main menu theme on a loop. No-op if already playing or unavailable. */
     public void startMenuMusic() {
         if (musicClip == null || musicMuted || musicClip.isRunning()) {
@@ -225,12 +232,12 @@ public class AudioManager implements GameEventListener, MissionListener {
     }
 
     @Override
-    public void onButtonClick() {
-        play("button_click");
+    public void onArchOpened() {
+        play("victory");
     }
 
     @Override
-    public void onMissionWon(ValuableItem target) {
-        play("victory");
+    public void onButtonClick() {
+        play("button_click");
     }
 }

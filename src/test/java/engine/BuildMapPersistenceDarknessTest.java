@@ -12,7 +12,7 @@ import model.DungeonMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class BuildMapPersistenceFogTest {
+class BuildMapPersistenceDarknessTest {
 
     @TempDir
     Path tempDir;
@@ -63,9 +63,9 @@ class BuildMapPersistenceFogTest {
         assertFalse(loaded.isFogEnabled());
     }
 
-    private DungeonMap newMap(boolean fogEnabled) {
+    private DungeonMap newMap(boolean fearOfTheDarkEnabled) {
         DungeonMap map = new BuildMapFactory().createEmptyMap("Fog Map", 4, 4);
-        map.setFogEnabled(fogEnabled);
+        map.setFogEnabled(fearOfTheDarkEnabled);
         return map;
     }
 
