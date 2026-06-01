@@ -67,8 +67,8 @@ public final class HelpDialog extends JDialog {
                 "/inventorychest.png");
         addSectionWithIcons(helpPanel, "Weapons and Items",
                 "Melee weapons such as swords are used for close combat and increase melee damage. Bows are ranged physical weapons and use energy when attacking. Magic staffs or wands are ranged magical weapons and use mana when attacking. Armor increases defense and helps reduce incoming damage. Rings give passive bonuses such as extra strength, mana, energy, or defense. Potions can be used for helpful effects. Keys are used when the game requires them. Money can be found as loot, but it is not shown inside the inventory.",
-                "/weapons/bows/058_curved_bow.png",
-                "/weapons/staves/012_long_wooden_pole.png",
+                "/weapons/bows/052_red_brown_bow.png",
+                "/weapons/wands/047_large_silver_wand.png",
                 "/weapons/armor.png");
         addSectionWithIcons(helpPanel, "Objects and Loot",
                 "Searchable objects can be opened or searched with O. They may contain weapons, equipment, potions, keys, money, valuable items, or other inventory items. Breakable objects can be destroyed with P. Breaking an object may reveal an item or money. If you are stuck or need better equipment, check containers and break nearby objects when it is safe.",
