@@ -44,6 +44,7 @@ import model.Vase;
 import model.WaterPipe;
 import model.Weapon;
 import model.WeaponCatalog;
+import model.WeaponType;
 
 /**
  * Pure Fabrication / Creator: centralizes the build-mode palette and object
@@ -63,7 +64,7 @@ public final class BuildToolCatalog {
     private final Map<String, BuildTool> byId;
 
     public BuildToolCatalog() {
-        tools = List.of(
+        List<BuildTool> baseTools = List.of(
                 brush("FLOOR", "Floor Brush", FLOOR_BRUSH),
                 brush("WALL", "Wall Brush", WALL_BRUSH),
                 decor("FLOOR_WORN_PATCH", "Floor Worn Patch", false,
@@ -208,6 +209,15 @@ public final class BuildToolCatalog {
                 new BuildTool("VALUABLE", "Random Valuable", FLOOR_OBJECT,
                         () -> ValuableItemCatalog.randomValuable(ThreadLocalRandom.current()),
                         () -> valuable("Random Valuable", "crystal_shard_64x64.png")));
+
+        // Expose every catalog weapon as its own palette entry so build mode can
+        // place any sprite/rarity, not just the generic sword. B23_BOW/B23_WAND
+        // are already listed above, so skip their ids to avoid duplicates.
+        List<BuildTool> allTools = new java.util.ArrayList<>(baseTools);
+        for (WeaponType type : catalogWeaponsForPalette(baseTools)) {
+            allTools.add(weaponTool(type));
+        }
+        tools = List.copyOf(allTools);
 
         byId = new LinkedHashMap<>();
         for (BuildTool tool : tools) {
@@ -369,5 +379,34 @@ public final class BuildToolCatalog {
 
     private static BuildTool b23Weapon(String catalogId, String label) {
         return object(catalogId, label, () -> new Weapon(WeaponCatalog.get().byId(catalogId)));
+    }
+
+    /** Palette entry for a catalog weapon; the label shows its attack for builders. */
+    private static BuildTool weaponTool(WeaponType type) {
+        String id = type.id();
+        String label = type.displayName() + " (" + type.baseAttack() + ")";
+        return object(id, label, () -> new Weapon(WeaponCatalog.get().byId(id)));
+    }
+
+    /**
+     * Catalog weapons to surface in the palette, sorted by category then ascending
+     * attack so each subclass reads as a low-to-high block. Ids already present in
+     * {@code baseTools} (the B23 hero weapons) are skipped.
+     */
+    private static List<WeaponType> catalogWeaponsForPalette(List<BuildTool> baseTools) {
+        java.util.Set<String> existing = new java.util.HashSet<>();
+        for (BuildTool tool : baseTools) {
+            existing.add(tool.id());
+        }
+        List<WeaponType> weapons = new java.util.ArrayList<>();
+        for (WeaponType type : WeaponCatalog.get().all()) {
+            if (!existing.contains(type.id())) {
+                weapons.add(type);
+            }
+        }
+        weapons.sort(java.util.Comparator.comparing(WeaponType::category)
+                .thenComparingInt(WeaponType::baseAttack)
+                .thenComparing(WeaponType::id));
+        return weapons;
     }
 }
