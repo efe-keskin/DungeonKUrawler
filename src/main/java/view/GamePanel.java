@@ -115,7 +115,7 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
     private static final double WEAPON_REST_RADIANS = Math.toRadians(28);
     /** Maximum lean of an attacking knight toward the hero. */
     private static final double KNIGHT_TILT_RADIANS = Math.toRadians(15);
-    private static final int KNIGHT_MAX_HP = 20;
+    private static final int KNIGHT_MAX_HP = 16;
     private static final int SORCERER_MAX_HP = 10;
 
     private final GameEngine engine;

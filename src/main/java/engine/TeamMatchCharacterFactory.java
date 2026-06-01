@@ -17,7 +17,7 @@ final class TeamMatchCharacterFactory {
     private static final int HERO_MANA = 80;
     private static final int HERO_DEF = 2;
     private static final int HERO_ENERGY = 100;
-    private static final int KNIGHT_HP = 20;
+    private static final int KNIGHT_HP = 16;
     private static final int KNIGHT_STR = 8;
     // Design decision: all Team Match knights share the same DEF so the match
     // stays fair and predictable instead of depending on random armor stats.

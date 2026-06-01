@@ -27,7 +27,7 @@ public class EnemyFactory {
             return null;
         }
         if (roll < 60) {
-            return new Knight(x, y, "Knight", 20, 8, 4, 5);  // spec 2.5.1: 20 HP
+            return new Knight(x, y, "Knight", 16, 8, 4, 5);  // 20 HP base reduced 20%
         }
         return new Sorcerer(x, y, "Sorcerer", 10, 30, 3, random.nextBoolean());  // spec 2.5.2: 10 HP
     }

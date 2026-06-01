@@ -16,7 +16,7 @@ import java.util.List;
 public abstract class Pet extends Item {
 
     /** Shared baseline used by the concrete pets. */
-    public static final int DEFAULT_MAX_HP = 10;
+    public static final int DEFAULT_MAX_HP = 20;
 
     private final int maxHp;
     private final int followRange;
