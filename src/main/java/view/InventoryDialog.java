@@ -326,6 +326,7 @@ public class InventoryDialog extends JDialog {
             return false;
         }
         return "B23_WAND".equals(weapon.getType().id())
+                || "wands".equals(weapon.getType().category())
                 || "staves".equals(weapon.getType().category())
                 || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("wand");
     }

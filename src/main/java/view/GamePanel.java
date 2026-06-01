@@ -55,6 +55,7 @@ import save.CustomGameSaveStrategy;
 import save.GameSaveStrategy;
 import save.SaveGameException;
 import save.SaveLimitExceededException;
+import view.assets.AssetManager;
 import view.assets.SpriteRegistry;
 import view.render.AmbienceRenderer;
 
@@ -1389,8 +1390,33 @@ private void handleInventoryKeyPress() {
         }
     }
 
-    /** Brown 8-bit arrow oriented along travel direction. */
+    /** Sprite of the arrow fired by the bow; null until first lookup resolves. */
+    private static final String ARROW_SPRITE = "/weapons/arrows/055_staff_green_arrow.png";
+
+    /**
+     * Draws the bow's arrow projectile using the arrow asset, rotated to point
+     * along travel. Falls back to the hand-drawn pixel arrow if the sprite is
+     * unavailable. The source sprite points up (north), so the rotation is
+     * measured from that base orientation.
+     */
     private void drawHeroArrowPixelArt(Graphics2D g2, int tileX, int tileY, int tileSize, int dx, int dy) {
+        BufferedImage arrow = AssetManager.get().image(ARROW_SPRITE);
+        if (arrow != null && (dx != 0 || dy != 0)) {
+            int size = (int) (tileSize * 0.8);
+            int cx = tileX + tileSize / 2;
+            int cy = tileY + tileSize / 2;
+            double angle = Math.atan2(dy, dx) + Math.PI / 2; // sprite base points up
+            AffineTransform saved = g2.getTransform();
+            g2.rotate(angle, cx, cy);
+            g2.drawImage(arrow, cx - size / 2, cy - size / 2, size, size, null);
+            g2.setTransform(saved);
+            return;
+        }
+        drawHeroArrowFallback(g2, tileX, tileY, tileSize, dx, dy);
+    }
+
+    /** Brown 8-bit arrow oriented along travel direction (fallback). */
+    private void drawHeroArrowFallback(Graphics2D g2, int tileX, int tileY, int tileSize, int dx, int dy) {
         int pixel = Math.max(2, tileSize / 7);
         int cx = tileX + tileSize / 2;
         int cy = tileY + tileSize / 2;
@@ -1648,6 +1674,7 @@ private void handleInventoryKeyPress() {
             return false;
         }
         return "B23_WAND".equals(weapon.getType().id())
+                || "wands".equals(weapon.getType().category())
                 || "staves".equals(weapon.getType().category())
                 || weapon.getName().toLowerCase(java.util.Locale.ROOT).contains("wand");
     }

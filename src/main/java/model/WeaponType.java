@@ -19,16 +19,32 @@ public record WeaponType(
         int maxRange,
         RangedCostType rangedCostType,
         int rangedCostAmount,
-        HeroProjectileStyle projectileStyle) {
+        HeroProjectileStyle projectileStyle,
+        Rarity rarity) {
 
     /** Legacy constructor for melee weapons and simple test fixtures. */
     public WeaponType(String id, String displayName, String category, String spritePath,
             int baseAttack, boolean ranged) {
+        this(id, displayName, category, spritePath, baseAttack, ranged, Rarity.COMMON);
+    }
+
+    /** Melee/simple constructor that also carries a drop rarity. */
+    public WeaponType(String id, String displayName, String category, String spritePath,
+            int baseAttack, boolean ranged, Rarity rarity) {
         this(id, displayName, category, spritePath, baseAttack, ranged,
                 defaultMaxRange(ranged),
                 defaultCostType(category, ranged),
                 defaultCostAmount(category, ranged),
-                defaultStyle(category, ranged));
+                defaultStyle(category, ranged),
+                rarity);
+    }
+
+    /** Nine-arg constructor (no rarity) kept for the B23 ranged hero weapons. */
+    public WeaponType(String id, String displayName, String category, String spritePath,
+            int baseAttack, boolean ranged, int maxRange, RangedCostType rangedCostType,
+            int rangedCostAmount, HeroProjectileStyle projectileStyle) {
+        this(id, displayName, category, spritePath, baseAttack, ranged, maxRange,
+                rangedCostType, rangedCostAmount, projectileStyle, Rarity.COMMON);
     }
 
     private static int defaultMaxRange(boolean ranged) {

@@ -20,9 +20,10 @@ import java.util.Random;
  * Each row produces one shared {@link WeaponType}; lookups are by ID or
  * category. The CSV is the single source of truth for sprite + name + category.
  *
- * <p>The CSV does not encode combat stats, so {@code baseAttack}/{@code ranged}
- * are derived from {@link #STATS_BY_CATEGORY}. Adjust there if categories
- * should hit harder or be ranged.
+ * <p>Per-weapon attack and rarity now live in the CSV ({@code Attack},
+ * {@code Rarity}, {@code Ranged} columns). {@link #STATS_BY_CATEGORY} only
+ * supplies fallbacks when a row omits them — notably which categories are
+ * ranged by default. Adjust the CSV to retune individual weapons.
  */
 public final class WeaponCatalog {
 
@@ -31,15 +32,19 @@ public final class WeaponCatalog {
     private record CategoryStats(int baseAttack, boolean ranged) {
     }
 
-    private static final Map<String, CategoryStats> STATS_BY_CATEGORY = Map.of(
-            "swords", new CategoryStats(3, false),
-            "daggers", new CategoryStats(2, false),
-            "axes", new CategoryStats(4, false),
-            "maces", new CategoryStats(4, false),
-            "polearms", new CategoryStats(4, false),
-            "bows", new CategoryStats(3, true),
-            "staves", new CategoryStats(2, true),
-            "tools", new CategoryStats(1, false));
+    // Fallback stats used only when a CSV row lacks an explicit attack/ranged
+    // value. "ranged" here is what decides bows/wands fire projectiles.
+    private static final Map<String, CategoryStats> STATS_BY_CATEGORY = Map.ofEntries(
+            Map.entry("swords", new CategoryStats(3, false)),
+            Map.entry("daggers", new CategoryStats(2, false)),
+            Map.entry("axes", new CategoryStats(4, false)),
+            Map.entry("hammers", new CategoryStats(3, false)),
+            Map.entry("maces", new CategoryStats(3, false)),
+            Map.entry("polearms", new CategoryStats(4, false)),
+            Map.entry("bows", new CategoryStats(6, true)),
+            Map.entry("wands", new CategoryStats(8, true)),
+            Map.entry("staves", new CategoryStats(2, true)),
+            Map.entry("tools", new CategoryStats(1, false)));
 
     private static final CategoryStats DEFAULT_STATS = new CategoryStats(2, false);
 
@@ -82,14 +87,30 @@ public final class WeaponCatalog {
 
     /**
      * A random weapon in the given category, or {@code null} if the category
-     * has no entries. Useful for populating dungeon spawns.
+     * has no entries. The pick is weighted by {@link Rarity#spawnWeight()} so
+     * common (weak) weapons surface far more often than legendary (powerful)
+     * ones — rarity is conversely related to attack. Useful for dungeon spawns.
      */
     public WeaponType randomIn(String category, Random rng) {
         List<WeaponType> options = byCategory(category);
         if (options.isEmpty()) {
             return null;
         }
-        return options.get(rng.nextInt(options.size()));
+        int total = 0;
+        for (WeaponType type : options) {
+            total += type.rarity().spawnWeight();
+        }
+        if (total <= 0) {
+            return options.get(rng.nextInt(options.size()));
+        }
+        int roll = rng.nextInt(total);
+        for (WeaponType type : options) {
+            roll -= type.rarity().spawnWeight();
+            if (roll < 0) {
+                return type;
+            }
+        }
+        return options.get(options.size() - 1);
     }
 
     private void loadFromCsv() {
@@ -119,9 +140,10 @@ public final class WeaponCatalog {
     }
 
     private static WeaponType parseRow(String line) {
-        // Only the first four columns are needed (ID, Filename, Suggested label,
-        // Category); later columns may contain commas (Notes) but we ignore them.
-        String[] cols = line.split(",", 5);
+        // Columns: ID, Filename, Suggested label, Category, Attack, Rarity, Ranged.
+        // Attack/Rarity/Ranged are optional — missing values fall back to the
+        // category defaults so older/hand-edited rows still load.
+        String[] cols = line.split(",", -1);
         if (cols.length < 4) {
             return null;
         }
@@ -134,8 +156,23 @@ public final class WeaponCatalog {
         }
         String spritePath = "/weapons/" + category + "/" + filename;
         CategoryStats stats = STATS_BY_CATEGORY.getOrDefault(category, DEFAULT_STATS);
-        return new WeaponType(id, titleCase(label), category, spritePath,
-                stats.baseAttack(), stats.ranged());
+        int attack = parseIntOr(cols, 4, stats.baseAttack());
+        Rarity rarity = cols.length > 5 ? Rarity.fromString(cols[5]) : Rarity.COMMON;
+        boolean ranged = cols.length > 6 && !cols[6].isBlank()
+                ? Boolean.parseBoolean(cols[6].trim())
+                : stats.ranged();
+        return new WeaponType(id, titleCase(label), category, spritePath, attack, ranged, rarity);
+    }
+
+    private static int parseIntOr(String[] cols, int index, int fallback) {
+        if (cols.length <= index || cols[index].isBlank()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(cols[index].trim());
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
     }
 
     /** B23 hero ranged weapons with explicit resource costs and projectile styles. */
@@ -144,7 +181,7 @@ public final class WeaponCatalog {
                 "B23_BOW",
                 "Wooden Bow",
                 "bows",
-                "/weapons/bows/058_curved_bow.png",
+                "/weapons/bows/052_red_brown_bow.png",
                 6,
                 true,
                 4,
@@ -154,8 +191,8 @@ public final class WeaponCatalog {
         registerWeapon(new WeaponType(
                 "B23_WAND",
                 "Magic Wand",
-                "staves",
-                "/weapons/staves/012_long_wooden_pole.png",
+                "wands",
+                "/weapons/wands/047_large_silver_wand.png",
                 8,
                 true,
                 4,
