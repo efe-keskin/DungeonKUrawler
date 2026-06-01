@@ -8,6 +8,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import model.Column;
 import model.Container;
 import model.Crate;
+import model.BreakableObject;
 import model.GridCell;
 import model.Hero;
 import model.Item;
@@ -126,6 +127,12 @@ final class BreakController {
         }
         if (item instanceof SearchableObject searchableObject) {
             Item hidden = searchableObject.takeHiddenItem();
+            if (hidden != null) {
+                drops.add(hidden);
+            }
+        }
+        if (item instanceof BreakableObject breakableObject) {
+            Item hidden = breakableObject.takeHiddenItem();
             if (hidden != null) {
                 drops.add(hidden);
             }

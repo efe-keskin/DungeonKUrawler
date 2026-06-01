@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import model.BreakableObject;
 import model.Chest;
 import model.Container;
 import model.DungeonMap;
 import model.GridCell;
 import model.Item;
+import model.ItemAction;
 import model.Key;
 import model.KeyColor;
 import model.SearchableObject;
@@ -66,10 +68,26 @@ public final class LockedChestKeyPlacer {
 
     private Placement place(DungeonMap map, Key key) {
         List<SearchableObject> searchables = emptySearchables(map);
-        if (!searchables.isEmpty()) {
-            SearchableObject searchable = searchables.get(random.nextInt(searchables.size()));
-            searchable.setHiddenItem(key);
-            return Placement.placed(key, "hidden in " + searchable.getName());
+        List<BreakableObject> breakables = emptyBreakables(map);
+        List<Container> containers = availableUnlockedContainers(map);
+        int hidingPlaceCount = searchables.size() + breakables.size() + containers.size();
+        if (hidingPlaceCount > 0) {
+            int pick = random.nextInt(hidingPlaceCount);
+            if (pick < searchables.size()) {
+                SearchableObject searchable = searchables.get(pick);
+                searchable.setHiddenItem(key);
+                return Placement.placed(key, "hidden in " + searchable.getName());
+            }
+            pick -= searchables.size();
+            if (pick < breakables.size()) {
+                BreakableObject breakable = breakables.get(pick);
+                breakable.setHiddenItem(key);
+                return Placement.placed(key, "hidden in " + breakable.getName());
+            }
+            Container container = containers.get(pick - breakables.size());
+            if (container.addItem(key)) {
+                return Placement.placed(key, "hidden in " + container.getName());
+            }
         }
 
         List<GridCell> floorCells = emptyFloorCells(map);
@@ -78,7 +96,8 @@ public final class LockedChestKeyPlacer {
             floor.getItems().add(key);
             return Placement.placed(key, "placed on floor (" + floor.getX() + ", " + floor.getY() + ")");
         }
-        return Placement.notPlaced(key, "could not be placed: add an open floor tile or searchable fixture");
+        return Placement.notPlaced(key,
+                "could not be placed: add an open floor tile or empty searchable, breakable, or open chest");
     }
 
     private List<Chest> lockedChests(DungeonMap map) {
@@ -136,6 +155,28 @@ public final class LockedChestKeyPlacer {
         return floorCells;
     }
 
+    private List<BreakableObject> emptyBreakables(DungeonMap map) {
+        List<BreakableObject> breakables = new ArrayList<>();
+        forEachMapItem(map, item -> {
+            if (item instanceof BreakableObject breakableObject
+                    && breakableObject.getHiddenItem() == null
+                    && breakableObject.getInventoryActions().contains(ItemAction.BREAK)) {
+                breakables.add(breakableObject);
+            }
+        });
+        return breakables;
+    }
+
+    private List<Container> availableUnlockedContainers(DungeonMap map) {
+        List<Container> containers = new ArrayList<>();
+        forEachMapItem(map, item -> {
+            if (item instanceof Container container && !container.isLocked() && !container.isFull()) {
+                containers.add(container);
+            }
+        });
+        return containers;
+    }
+
     private boolean hasAccessibleMatchingKey(DungeonMap map, String requiredKeyId) {
         for (int x = 0; x < map.getWidth(); x++) {
             for (int y = 0; y < map.getHeight(); y++) {
@@ -151,6 +192,10 @@ public final class LockedChestKeyPlacer {
                             && matches(searchableObject.getHiddenItem(), requiredKeyId)) {
                         return true;
                     }
+                    if (item instanceof BreakableObject breakableObject
+                            && matches(breakableObject.getHiddenItem(), requiredKeyId)) {
+                        return true;
+                    }
                     if (item instanceof Container container && !container.isLocked()) {
                         for (Item content : container.getContents()) {
                             if (matches(content, requiredKeyId)) {
@@ -162,6 +207,20 @@ public final class LockedChestKeyPlacer {
             }
         }
         return false;
+    }
+
+    private void forEachMapItem(DungeonMap map, java.util.function.Consumer<Item> consumer) {
+        for (int x = 0; x < map.getWidth(); x++) {
+            for (int y = 0; y < map.getHeight(); y++) {
+                GridCell cell = map.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    consumer.accept(item);
+                }
+            }
+        }
     }
 
     private boolean matches(Item item, String requiredKeyId) {

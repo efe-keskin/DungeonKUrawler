@@ -48,8 +48,8 @@ final class ObjectLootTable {
     }
 
     // Default Custom / Build Map table matches tower levels 3-4:
-    // 22% coin, 16% heal, 11% energy, 11% mana,
-    // 7% silver key, 18% ring, 15% weapon/armor.
+    // 22% coin, 16% heal, 18% energy, 11% mana,
+    // 7% silver key, 15% ring, 11% weapon/armor.
     static Item randomLoot(Random random) {
         return randomLoot(random, LootTier.DEFAULT);
     }
@@ -59,9 +59,9 @@ final class ObjectLootTable {
      * DEFAULT is the Build Map / Custom Game table and matches tower levels 3-4.
      *
      * <p>Percentages by tier (coin/heal/energy/mana/key/ring/equipment):
-     * DEFAULT 22/16/11/11/7/18/15, EARLY 26/18/13/13/7/13/10,
-     * MID 22/16/11/11/7/18/15, ADVANCED 16/13/9/9/6/24/23,
-     * LATE 8/8/4/4/4/32/40.
+     * DEFAULT 22/16/18/11/7/15/11, EARLY 26/18/20/13/7/10/6,
+     * MID 22/16/18/11/7/15/11, ADVANCED 16/13/16/9/6/21/19,
+     * LATE 8/8/14/4/4/28/34.
      */
     static Item randomLoot(Random random, LootTier tier) {
         Random rng = safeRandom(random);
@@ -131,41 +131,41 @@ final class ObjectLootTable {
 
     private static double energyLimit(LootTier tier) {
         return switch (tier) {
-            case DEFAULT -> 0.49;
-            case EARLY -> 0.57;
-            case MID -> 0.49;
-            case ADVANCED -> 0.38;
-            case LATE -> 0.20;
+            case DEFAULT -> 0.56;
+            case EARLY -> 0.64;
+            case MID -> 0.56;
+            case ADVANCED -> 0.45;
+            case LATE -> 0.30;
         };
     }
 
     private static double manaLimit(LootTier tier) {
         return switch (tier) {
-            case DEFAULT -> 0.60;
-            case EARLY -> 0.70;
-            case MID -> 0.60;
-            case ADVANCED -> 0.47;
-            case LATE -> 0.24;
+            case DEFAULT -> 0.67;
+            case EARLY -> 0.77;
+            case MID -> 0.67;
+            case ADVANCED -> 0.54;
+            case LATE -> 0.34;
         };
     }
 
     private static double keyLimit(LootTier tier) {
         return switch (tier) {
-            case DEFAULT -> 0.67;
-            case EARLY -> 0.77;
-            case MID -> 0.67;
-            case ADVANCED -> 0.53;
-            case LATE -> 0.28;
+            case DEFAULT -> 0.74;
+            case EARLY -> 0.84;
+            case MID -> 0.74;
+            case ADVANCED -> 0.60;
+            case LATE -> 0.38;
         };
     }
 
     private static double ringLimit(LootTier tier) {
         return switch (tier) {
-            case DEFAULT -> 0.85;
-            case EARLY -> 0.90;
-            case MID -> 0.85;
-            case ADVANCED -> 0.77;
-            case LATE -> 0.60;
+            case DEFAULT -> 0.89;
+            case EARLY -> 0.94;
+            case MID -> 0.89;
+            case ADVANCED -> 0.81;
+            case LATE -> 0.66;
         };
     }
 

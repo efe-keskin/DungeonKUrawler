@@ -5,10 +5,19 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Random;
 
+import model.BreakableObject;
+import model.BreakableObjectHidingPlace;
 import model.DungeonMap;
 import model.Chest;
+import model.Container;
+import model.ContainerHidingPlace;
 import model.GridCell;
+import model.HidingPlace;
 import model.Item;
+import model.Key;
+import model.SearchableObject;
+import model.SearchableObjectHidingPlace;
+import model.ValuableItem;
 
 
 /**
@@ -23,6 +32,12 @@ public final class BuildModeController {
             "Add exactly one closed door to an outer side of the map before running it.";
     public static final String BORDER_DOOR_ONLY_MESSAGE =
             "Doors can only be placed on the outer sides of the map.";
+    public static final String VALUABLE_HIDING_PLACE_ONLY_MESSAGE =
+            "Hide valuable items inside an existing chest, searchable object, or breakable object.";
+    public static final String VALUABLE_HIDING_PLACE_OCCUPIED_MESSAGE =
+            "This object cannot hold the valuable item. Choose another chest, searchable object, or breakable object.";
+    public static final String KEY_CONTAINER_FULL_MESSAGE =
+            "This chest cannot hold another item.";
 
     private static final String DEFAULT_LEVEL_NAME = "Designed Map";
 
@@ -32,6 +47,7 @@ public final class BuildModeController {
     private final BuildMapPersistence mapPersistence;
     private final BuildRandomItemPlacer randomItemPlacer;
     private final LockedChestKeyPlacer lockedChestKeyPlacer;
+    private final MapValuableItemManager valuableItemManager;
     private DungeonMap designMap;
     private BuildTool selectedTool;
     private int randomItemAddCount;
@@ -54,6 +70,7 @@ public final class BuildModeController {
         this.mapPersistence = new BuildMapPersistence(toolCatalog, mapFactory, placementStrategy);
         this.randomItemPlacer = new BuildRandomItemPlacer(toolCatalog, placementStrategy, random);
         this.lockedChestKeyPlacer = new LockedChestKeyPlacer(random);
+        this.valuableItemManager = new MapValuableItemManager();
         this.selectedTool = toolCatalog.defaultTool();
         clearMap();
     }
@@ -119,6 +136,15 @@ public final class BuildModeController {
             return false;
         }
         selectTool(tool);
+        if (tool.previewItem() instanceof ValuableItem) {
+            return hideValuableAt(x, y, tool);
+        }
+        if (tool.previewItem() instanceof Key) {
+            Boolean hidden = hideKeyInContainerAt(x, y, tool);
+            if (hidden != null) {
+                return hidden;
+            }
+        }
         if (tool.isDoorObject() && !isBorderCell(x, y)) {
             lastPlacementMessage = BORDER_DOOR_ONLY_MESSAGE;
             return false;
@@ -139,6 +165,47 @@ public final class BuildModeController {
             }
         }
         return placed;
+    }
+
+    private boolean hideValuableAt(int x, int y, BuildTool tool) {
+        GridCell cell = designMap.getCell(x, y);
+        ValuableHidingPlace target = valuableHidingPlaceIn(cell);
+        if (target == null) {
+            lastPlacementMessage = VALUABLE_HIDING_PLACE_ONLY_MESSAGE;
+            return false;
+        }
+        if (!target.canReceiveValuable()) {
+            lastPlacementMessage = VALUABLE_HIDING_PLACE_OCCUPIED_MESSAGE;
+            return false;
+        }
+
+        Item item = tool.createItem();
+        if (!(item instanceof ValuableItem valuableItem)) {
+            return false;
+        }
+        valuableItemManager.removeAll(designMap);
+        if (!target.hidingPlace().hide(valuableItem)) {
+            return false;
+        }
+        lastPlacementMessage = valuableItem.getName() + " hidden in " + target.hidingPlace().describe();
+        return true;
+    }
+
+    private Boolean hideKeyInContainerAt(int x, int y, BuildTool tool) {
+        Container container = containerIn(designMap.getCell(x, y));
+        if (container == null) {
+            return null;
+        }
+        Item item = tool.createItem();
+        if (!(item instanceof Key key)) {
+            return false;
+        }
+        if (!container.addItem(key)) {
+            lastPlacementMessage = KEY_CONTAINER_FULL_MESSAGE;
+            return false;
+        }
+        lastPlacementMessage = key.getName() + " hidden in " + container.getName();
+        return true;
     }
 
     public String getLastPlacementMessage() {
@@ -205,5 +272,50 @@ public final class BuildModeController {
     private boolean isBorderCell(int x, int y) {
         return designMap.getCell(x, y) != null
                 && (x == 0 || y == 0 || x == designMap.getWidth() - 1 || y == designMap.getHeight() - 1);
+    }
+
+    private ValuableHidingPlace valuableHidingPlaceIn(GridCell cell) {
+        if (cell == null) {
+            return null;
+        }
+        for (Item item : cell.getItemsView()) {
+            if (item instanceof SearchableObject searchableObject) {
+                return new ValuableHidingPlace(
+                        new SearchableObjectHidingPlace(searchableObject),
+                        searchableObject.getHiddenItem() == null
+                                || searchableObject.getHiddenItem() instanceof ValuableItem);
+            }
+            if (item instanceof BreakableObject breakableObject) {
+                return new ValuableHidingPlace(
+                        new BreakableObjectHidingPlace(breakableObject),
+                        breakableObject.getHiddenItem() == null
+                                || breakableObject.getHiddenItem() instanceof ValuableItem);
+            }
+            if (item instanceof Container container) {
+                return new ValuableHidingPlace(
+                        new ContainerHidingPlace(container),
+                        !container.isFull() || containsValuable(container));
+            }
+        }
+        return null;
+    }
+
+    private Container containerIn(GridCell cell) {
+        if (cell == null) {
+            return null;
+        }
+        for (Item item : cell.getItemsView()) {
+            if (item instanceof Container container) {
+                return container;
+            }
+        }
+        return null;
+    }
+
+    private boolean containsValuable(Container container) {
+        return container.getContents().stream().anyMatch(ValuableItem.class::isInstance);
+    }
+
+    private record ValuableHidingPlace(HidingPlace hidingPlace, boolean canReceiveValuable) {
     }
 }

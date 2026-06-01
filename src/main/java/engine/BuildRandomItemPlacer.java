@@ -22,7 +22,7 @@ public final class BuildRandomItemPlacer {
     public static final int VISIBLE_ITEM_COUNT = 5;
 
     private static final List<String> VISIBLE_ITEM_TOOL_IDS = List.of(
-            "HEAL", "ENERGY", "MANA", "KEY", "WEAPON", "ARMOR", "RING", "VALUABLE");
+            "HEAL", "ENERGY", "MANA", "KEY", "WEAPON", "ARMOR", "RING");
     private static final List<String> HIDDEN_ITEM_TOOL_IDS = VISIBLE_ITEM_TOOL_IDS;
     private static final List<String> WALL_SEARCHABLE_TOOL_IDS = List.of(
             "CRATE", "CRATE_WOOD_RIGHT", "CRATE_ORANGE", "HOLE", "HOLE_2", "HOLE_3",

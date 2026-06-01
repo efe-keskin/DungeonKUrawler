@@ -204,6 +204,7 @@ public class GameEngine {
         this.standaloneMissionVictoryEnabled = designedMap != null;
         this.spawnPolicy = new RegularEnemySpawnPolicy(enemyFactory);
         this.dungeonMap = designedMap == null ? buildDemoMap("Phase 1 - Build Mode") : designedMap;
+        model.Arch designedExit = designedMap == null ? null : normalizeDesignedExitDoor();
         int startingStr = 8 + random.nextInt(8);  // 8..15 inclusive (spec 2.4.1)
         // Spec section 2.4.1: HP=17, STR=random[8,15], Mana=80, DEF=2.
         // Energy=100 is a project design decision (spec leaves it open).
@@ -216,7 +217,41 @@ public class GameEngine {
         }
         fillMinimumGroundCoins(-1, -1);
         startTargetMission();
+        if (designedExit != null) {
+            ExitDoorKeyPlacer.Placement placement =
+                    new ExitDoorKeyPlacer(random).ensureKeyForExit(dungeonMap, designedExit);
+            System.out.println("[exit] " + placement.location());
+        }
         startGameTimers();
+    }
+
+    /**
+     * Converts the single closed door authored in Build Mode into the runtime
+     * exit fixture. The cell itself stays passable; the closed arch blocks it
+     * until the matching key is used.
+     */
+    private model.Arch normalizeDesignedExitDoor() {
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (int index = 0; index < cell.getItems().size(); index++) {
+                    Item item = cell.getItems().get(index);
+                    if (item instanceof model.Arch arch) {
+                        return arch;
+                    }
+                    if (BuildToolCatalog.CLOSED_DOOR_SPRITE_RESOURCE.equals(item.spriteResource())) {
+                        model.Arch arch = new model.Arch(null);
+                        cell.getItems().set(index, arch);
+                        cell.setPassable(true);
+                        return arch;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     static GameEngine createTeamMatch(DungeonMap dungeonMap, Hero hero) {
@@ -310,14 +345,24 @@ public class GameEngine {
     }
 
     /**
-     * Picks a random valuable, hides it in a random container or searchable
-     * fixture, and arms the win condition. Designed maps without either receive
-     * a mission chest on an open floor cell so play mode always has an objective.
+     * Arms the authored valuable when the map already contains one. Otherwise,
+     * picks one random valuable and hides it in an available fixture. Designed
+     * maps without either receive a mission chest on an open floor cell so play
+     * mode always has an objective.
      */
     private void startTargetMission() {
         HidingPlaceProvider provider = new CompositeHidingPlaceProvider(List.of(
                 new ContainerHidingPlaceProvider(),
-                new SearchableObjectHidingPlaceProvider()));
+                new SearchableObjectHidingPlaceProvider(),
+                new BreakableObjectHidingPlaceProvider()));
+        MapValuableItemManager valuableItemManager = new MapValuableItemManager();
+        MapValuableItemManager.Placement authoredTarget =
+                valuableItemManager.findFirst(dungeonMap).orElse(null);
+        if (authoredTarget != null) {
+            targetMission.startPlaced(authoredTarget.valuableItem(), authoredTarget.hidingPlace());
+            placeClueBook(provider);
+            return;
+        }
         ValuableItem target = ValuableItemCatalog.randomValuable(random);
         if (!targetMission.start(provider, dungeonMap, random, target)
                 && (!seedMissionChest() || !targetMission.start(provider, dungeonMap, random, target))) {
@@ -370,6 +415,10 @@ public class GameEngine {
         if (a instanceof model.SearchableObjectHidingPlace sa
                 && b instanceof model.SearchableObjectHidingPlace sb) {
             return sa.getSearchableObject() == sb.getSearchableObject();
+        }
+        if (a instanceof model.BreakableObjectHidingPlace ba
+                && b instanceof model.BreakableObjectHidingPlace bb) {
+            return ba.getBreakableObject() == bb.getBreakableObject();
         }
         return false;
     }
@@ -571,9 +620,21 @@ public class GameEngine {
         boolean wonNow = targetMission.checkPickup(item);
         boolean targetAlreadyRevealed = targetMission.isWon()
                 && item == targetMission.getTarget();
-        if (standaloneMissionVictoryEnabled && (wonNow || targetAlreadyRevealed)) {
+        if (standaloneMissionVictoryEnabled && !hasExitArch() && (wonNow || targetAlreadyRevealed)) {
             finishStandaloneMission();
         }
+    }
+
+    private boolean hasExitArch() {
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell != null && cell.getItemsView().stream().anyMatch(model.Arch.class::isInstance)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void finishStandaloneMission() {
@@ -956,7 +1017,6 @@ public class GameEngine {
         // draws the first item in a tile. This makes the item visibly appear at
         // the exact place that was searched.
         cell.getItems().add(0, found);
-        targetMission.checkPickup(found);
         fireItemPickedUp(found);
         fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
@@ -1077,9 +1137,37 @@ public class GameEngine {
         return null;
     }
 
+    public enum ExitOpenResult {
+        OPENED,
+        ALREADY_OPEN,
+        NO_MATCHING_KEY,
+        TREASURE_REQUIRED,
+        NO_EXIT
+    }
+
+    /**
+     * Opens a nearby exit only when the hero carries its assigned key and has
+     * collected the target valuable.
+     */
+    public ExitOpenResult tryOpenExit(model.Arch arch) {
+        if (arch == null) {
+            return ExitOpenResult.NO_EXIT;
+        }
+        if (arch.isOpen()) {
+            return ExitOpenResult.ALREADY_OPEN;
+        }
+        if (hero.getInventory().findKey(arch.getRequiredKeyId()) == null) {
+            return ExitOpenResult.NO_MATCHING_KEY;
+        }
+        if (!targetMission.isWon()) {
+            return ExitOpenResult.TREASURE_REQUIRED;
+        }
+        return openArch(arch) ? ExitOpenResult.OPENED : ExitOpenResult.ALREADY_OPEN;
+    }
+
     /**
      * Opens the exit arch. Callers gate this on the unlock requirements
-     * (gold key found and treasure collected); see {@code GamePanel}.
+     * (assigned key found and treasure collected); see {@code GamePanel}.
      *
      * @return true if the arch transitioned from closed to open.
      */
@@ -1092,8 +1180,16 @@ public class GameEngine {
         for (GameEventListener listener : eventListeners) {
             listener.onArchOpened();
         }
-        notifyListeners();
+        if (standaloneExitVictoryEnabled() && targetMission.isWon()) {
+            finishStandaloneMission();
+        } else {
+            notifyListeners();
+        }
         return true;
+    }
+
+    private boolean standaloneExitVictoryEnabled() {
+        return standaloneMissionVictoryEnabled || (!isTowerLevel() && hasExitArch());
     }
 
     /**

@@ -135,7 +135,7 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
     private Direction currentMovementDirection = null;
     private String transientWarningTitle;
     private String transientWarningMessage;
-    private TransientNoticeBar noticeBar;
+    private GameNoticeSink noticeSink;
     private boolean lastPausedState;
     private int heroFrame = 0;
     private int heroLastX = Integer.MIN_VALUE;
@@ -464,19 +464,17 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
                 returnStrategy.returnFrom(parent);
                 return false;
             } else {
-                ItemActionMenuDialog.showNotice(parent, "Save Game", "Saved",
-                        "Game saved successfully.");
+                showTransientWarning("Saved", "Game saved successfully.");
                 requestFocusInWindow();
                 return true;
             }
         } catch (SaveLimitExceededException ex) {
-            ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Limit",
+            showTransientWarning("Save Limit",
                     "You can keep at most 10 saved games. Delete an old save first.");
             requestFocusInWindow();
             return true;
         } catch (SaveGameException ex) {
-            ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
-                    "Game could not be saved. Please try again.");
+            showTransientWarning("Save Failed", "Game could not be saved. Please try again.");
             requestFocusInWindow();
             return true;
         }
@@ -500,13 +498,11 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
                 returnStrategy.returnFrom(parent);
                 return false;
             }
-            ItemActionMenuDialog.showNotice(parent, "Save Game", "Saved",
-                    "This floor's progress was saved.");
+            showTransientWarning("Saved", "This floor's progress was saved.");
             requestFocusInWindow();
             return true;
         } catch (SaveGameException ex) {
-            ItemActionMenuDialog.showNotice(parent, "Save Game", "Save Failed",
-                    "This floor could not be saved. Please try again.");
+            showTransientWarning("Save Failed", "This floor could not be saved. Please try again.");
             requestFocusInWindow();
             return true;
         }
@@ -533,16 +529,15 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
 
         model.Arch arch = engine.findArchNearHero();
         if (arch != null) {
-            boolean hasKey = engine.heroHasGoldKey();
-            boolean foundTreasure = engine.getTargetMission().isWon();
-            if (!hasKey) {
-                showTransientWarning("Cannot Open Exit",
-                        "The exit is locked. Find the gold key before opening the arch.");
-            } else if (!foundTreasure) {
-                showTransientWarning("Treasure Required",
-                        "You have the gold key, but you must claim the floor's hidden treasure before leaving.");
-            } else {
-                engine.openArch(arch);
+            GameEngine.ExitOpenResult result = engine.tryOpenExit(arch);
+            switch (result) {
+                case NO_MATCHING_KEY -> showTransientWarning("Cannot Open Exit",
+                        "The exit is locked. Find its assigned key before opening the door.");
+                case TREASURE_REQUIRED -> showTransientWarning("Treasure Required",
+                        "You have the exit key, but you must claim the floor's hidden treasure before leaving.");
+                default -> {
+                    // Opening and already-open exits need no blocking notice.
+                }
             }
             requestFocusInWindow();
             return;
@@ -561,8 +556,7 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
         if (container.isLocked()) {
             model.Key match = engine.getHero().getInventory().findKey(container.getRequiredKeyId());
             if (match == null) {
-                ItemActionMenuDialog.showNotice(parent, "Locked Container", "Locked",
-                        container.getName() + " is locked.");
+                showTransientWarning("Locked Container", container.getName() + " is locked.");
                 requestFocusInWindow();
                 return;
             }
@@ -578,14 +572,13 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
             }
             LockController.UnlockResult result = engine.tryUnlock(container);
             if (result == LockController.UnlockResult.NO_MATCHING_KEY) {
-                ItemActionMenuDialog.showNotice(parent, "Locked Container", "Locked",
-                        container.getName() + " is locked.");
+                showTransientWarning("Locked Container", container.getName() + " is locked.");
                 requestFocusInWindow();
                 return;
             }
         }
 
-        ChestDialog dialog = new ChestDialog(parent, engine, container);
+        ChestDialog dialog = new ChestDialog(parent, engine, container, this::showTransientWarning);
         dialog.setVisible(true);
         requestFocusInWindow();
     }
@@ -662,9 +655,9 @@ private void handleInventoryKeyPress() {
 
         
         if (parent instanceof java.awt.Frame) {
-            dialog = new view.InventoryDialog((java.awt.Frame) parent, engine);
+            dialog = new view.InventoryDialog((java.awt.Frame) parent, engine, this::showTransientWarning);
         } else if (parent instanceof javax.swing.JDialog) {
-            dialog = new view.InventoryDialog((javax.swing.JDialog) parent, engine);
+            dialog = new view.InventoryDialog((javax.swing.JDialog) parent, engine, this::showTransientWarning);
         }
 
         
@@ -956,13 +949,13 @@ private void handleInventoryKeyPress() {
      * Routes no-input notices to the off-map {@link TransientNoticeBar} beside
      * the PAUSE button. When set, warnings render there instead of over the map.
      */
-    void setNoticeBar(TransientNoticeBar noticeBar) {
-        this.noticeBar = noticeBar;
+    void setNoticeSink(GameNoticeSink noticeSink) {
+        this.noticeSink = noticeSink;
     }
 
     private void showTransientWarning(String title, String message) {
-        if (noticeBar != null) {
-            noticeBar.show(title == null ? "Warning" : title, message == null ? "" : message);
+        if (noticeSink != null) {
+            noticeSink.showNotice(title == null ? "Warning" : title, message == null ? "" : message);
             requestFocusInWindow();
             return;
         }

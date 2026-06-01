@@ -9,11 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Random;
 
 import model.Armor;
-import model.Coin;
 import model.GridCell;
 import model.HealPotion;
 import model.ManaPotion;
 import model.SearchableObject;
+import model.ShadowCloneScroll;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -88,7 +88,7 @@ class SearchableObjectTest {
         GameEngine.SearchResult second = engine.search(object);
 
         assertEquals(GameEngine.SearchOutcome.FOUND, first.getOutcome());
-        assertTrue(first.getFoundItem() instanceof Coin);
+        assertTrue(first.getFoundItem() instanceof ShadowCloneScroll);
         assertTrue(cell.getItems().contains(first.getFoundItem()));
         assertSame(first.getFoundItem(), cell.getItems().get(0));
         assertEquals(GameEngine.SearchOutcome.NOTHING_FOUND, second.getOutcome());

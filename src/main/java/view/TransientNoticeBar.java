@@ -17,7 +17,7 @@ import javax.swing.Timer;
  * over the map, so gameplay feedback never covers the dungeon. Auto-hides after
  * a short delay; messages that do not fit are ellipsized.
  */
-public final class TransientNoticeBar extends JPanel {
+public final class TransientNoticeBar extends JPanel implements GameNoticeSink {
 
     private static final int WIDTH = 600;
     private static final int HEIGHT = 45;
@@ -43,9 +43,10 @@ public final class TransientNoticeBar extends JPanel {
     }
 
     /** Shows {@code title}/{@code message} and restarts the auto-hide timer. */
-    public void show(String title, String message) {
+    @Override
+    public void showNotice(String title, String message) {
         this.title = title == null ? "Warning" : title;
-        this.message = message == null ? "" : message;
+        this.message = message == null ? "" : message.replaceAll("\\s+", " ").trim();
         hideTimer.restart();
         repaint();
     }

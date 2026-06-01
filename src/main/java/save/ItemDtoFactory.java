@@ -1,7 +1,9 @@
 package save;
 
 import model.Armor;
+import model.Arch;
 import model.Book;
+import model.BreakableObject;
 import model.Chest;
 import model.Coin;
 import model.Column;
@@ -45,6 +47,7 @@ import save.SaveDtos.ItemDto;
 final class ItemDtoFactory {
 
     private static final String ARMOR = "ARMOR";
+    private static final String ARCH = "ARCH";
     private static final String BOOK = "BOOK";
     private static final String CHEST = "CHEST";
     private static final String COIN = "COIN";
@@ -88,6 +91,9 @@ final class ItemDtoFactory {
 
         if (item instanceof Coin coin) {
             dto.value = coin.getValue();
+        } else if (item instanceof Arch arch) {
+            dto.locked = !arch.isOpen();
+            dto.requiredKeyId = arch.getRequiredKeyId();
         } else if (item instanceof Key key) {
             dto.keyId = key.getKeyId();
             dto.keyColor = key.getColor().name();
@@ -123,6 +129,9 @@ final class ItemDtoFactory {
             dto.hiddenItem = toDto(searchableObject.getHiddenItem(), missionTarget);
             dto.searched = searchableObject.isSearched();
         }
+        if (item instanceof BreakableObject breakableObject) {
+            dto.hiddenItem = toDto(breakableObject.getHiddenItem(), missionTarget);
+        }
 
         if (item instanceof Pet pet) {
             dto.petHp = pet.getHp();
@@ -149,6 +158,7 @@ final class ItemDtoFactory {
                     ringBonus(dto),
                     dto.spriteResource);
             case ARMOR -> new Armor(fallback(dto.name, "Armor"), dto.defModifier);
+            case ARCH -> restoreArch(dto);
             case WEAPON -> new Weapon(resolveWeaponType(dto));
             case BOOK -> new Book(fallback(dto.name, "Book"), fallback(dto.bookText, ""));
             case SHADOW_CLONE_SCROLL -> new ShadowCloneScroll(
@@ -162,13 +172,15 @@ final class ItemDtoFactory {
                     dto, context);
             case MISSING_BRICK -> new MissingBrick(fallback(dto.spriteResource, MissingBrick.SPRITE_1),
                     fromDto(dto.hiddenItem, context));
-            case WATER_PIPE -> new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE));
+            case WATER_PIPE -> restoreBreakable(
+                    new WaterPipe(fallback(dto.spriteResource, WaterPipe.LARGE_RING_SPRITE)), dto, context);
             case GARGOYLE -> new Gargoyle(fallback(dto.spriteResource, Gargoyle.RED_LEFT_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case HOLE -> new Hole(fallback(dto.spriteResource, Hole.SPRITE), fromDto(dto.hiddenItem, context));
             case GRILL -> new Grill(fallback(dto.spriteResource, Grill.HORIZONTAL_SPRITE),
                     fromDto(dto.hiddenItem, context));
-            case COLUMN -> new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE));
+            case COLUMN -> restoreBreakable(
+                    new Column(fallback(dto.spriteResource, Column.GRAY_SPRITE)), dto, context);
             case POOL -> new Pool(fallback(dto.spriteResource, Pool.CYAN_DRIP_SPRITE),
                     fromDto(dto.hiddenItem, context));
             case SEARCHABLE -> new SearchableObject(fallback(dto.name, "Searchable Location"),
@@ -177,7 +189,7 @@ final class ItemDtoFactory {
                     fromDto(dto.hiddenItem, context));
             case DECORATIVE -> new DecorativeObject(fallback(dto.name, "Decorative Object"),
                     dto.blocking, dto.spriteResource);
-            case VASE -> new Vase(Vase.BROKEN_SPRITE.equals(dto.spriteResource));
+            case VASE -> restoreBreakable(new Vase(Vase.BROKEN_SPRITE.equals(dto.spriteResource)), dto, context);
             case PEDESTAL -> new Pedestal(fromDto(dto.hiddenItem, context));
             case DEFEATED_ENEMY -> new DefeatedEnemyMarker();
             case PENGUIN_PET -> new PenguinPet();
@@ -223,6 +235,9 @@ final class ItemDtoFactory {
         }
         if (item instanceof Armor) {
             return ARMOR;
+        }
+        if (item instanceof Arch) {
+            return ARCH;
         }
         if (item instanceof Weapon) {
             return WEAPON;
@@ -308,6 +323,20 @@ final class ItemDtoFactory {
             }
         }
         return container;
+    }
+
+    private <T extends BreakableObject> T restoreBreakable(T breakableObject, ItemDto dto,
+            RestoreContext context) {
+        breakableObject.setHiddenItem(fromDto(dto.hiddenItem, context));
+        return breakableObject;
+    }
+
+    private Arch restoreArch(ItemDto dto) {
+        Arch arch = new Arch(fallback(dto.requiredKeyId, Arch.DEFAULT_REQUIRED_KEY_ID));
+        if (!dto.locked) {
+            arch.open();
+        }
+        return arch;
     }
 
     private static WeaponType resolveWeaponType(ItemDto dto) {

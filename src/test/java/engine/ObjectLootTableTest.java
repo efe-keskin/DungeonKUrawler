@@ -7,6 +7,7 @@ import java.util.Random;
 
 import model.Armor;
 import model.Coin;
+import model.EnergyPotion;
 import model.HealPotion;
 import model.Key;
 import model.ManaPotion;
@@ -21,10 +22,11 @@ class ObjectLootTableTest {
     void customGameUsesTowerLevelsThreeToFourLootThresholds() {
         assertInstanceOf(Coin.class, ObjectLootTable.randomLoot(rolls(0.21)));
         assertInstanceOf(HealPotion.class, ObjectLootTable.randomLoot(rolls(0.37)));
+        assertInstanceOf(EnergyPotion.class, ObjectLootTable.randomLoot(rolls(0.50)));
         assertInstanceOf(ManaPotion.class, ObjectLootTable.randomLoot(rolls(0.59)));
-        assertInstanceOf(Key.class, ObjectLootTable.randomLoot(rolls(0.66)));
+        assertInstanceOf(Key.class, ObjectLootTable.randomLoot(rolls(0.70)));
         assertInstanceOf(Ring.class, randomLoot(rolls(0.84), ints(0)));
-        assertInstanceOf(Weapon.class, randomLoot(rolls(0.99, 0.0), ints(0)));
+        assertInstanceOf(Weapon.class, randomLoot(rolls(0.99, 0.99, 0.0), ints(0)));
         assertInstanceOf(Armor.class, ObjectLootTable.randomLoot(rolls(0.99, 0.99)));
     }
 
@@ -42,7 +44,13 @@ class ObjectLootTableTest {
         assertInstanceOf(Ring.class,
                 ObjectLootTable.randomLoot(rolls(0.75), ObjectLootTable.LootTier.DEFAULT));
         assertInstanceOf(Weapon.class,
-                randomLoot(rolls(0.75, 0.0), ints(0), ObjectLootTable.LootTier.LATE));
+                randomLoot(rolls(0.75, 0.75, 0.0), ints(0), ObjectLootTable.LootTier.LATE));
+    }
+
+    @Test
+    void energyPotionRemainsAvailableInLateTowerLoot() {
+        assertInstanceOf(EnergyPotion.class,
+                ObjectLootTable.randomLoot(rolls(0.29), ObjectLootTable.LootTier.LATE));
     }
 
     @Test

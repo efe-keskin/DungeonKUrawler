@@ -53,11 +53,18 @@ public class ChestDialog extends JDialog {
 
     private final GameEngine engine;
     private final Container container;
+    private final GameNoticeSink noticeSink;
 
     public ChestDialog(java.awt.Window owner, GameEngine engine, Container container) {
+        this(owner, engine, container, null);
+    }
+
+    public ChestDialog(java.awt.Window owner, GameEngine engine, Container container,
+            GameNoticeSink noticeSink) {
         super(owner, container.getName(), java.awt.Dialog.ModalityType.APPLICATION_MODAL);
         this.engine = engine;
         this.container = container;
+        this.noticeSink = noticeSink;
         buildUi();
     }
 
@@ -165,8 +172,8 @@ public class ChestDialog extends JDialog {
                 // Taking is a single click — no confirmation prompt (redundant).
                 boolean taken = engine.takeFromContainer(container, item);
                 if (!taken) {
-                    ItemActionMenuDialog.showNotice(
-                            ChestDialog.this, "Warning",
+                    showPassiveNotice(
+                            "Warning",
                             item instanceof Coin ? "Cannot Collect Coins" : "Cannot Take Item",
                             item instanceof Coin ? "Coin reward is no longer available." : "Inventory is full.");
                     return;
@@ -180,6 +187,14 @@ public class ChestDialog extends JDialog {
             if (child instanceof JComponent jc) {
                 jc.addMouseListener(takeOnClick);
             }
+        }
+    }
+
+    private void showPassiveNotice(String category, String title, String message) {
+        if (noticeSink != null) {
+            noticeSink.showNotice(title, message);
+        } else {
+            ItemActionMenuDialog.showNotice(this, category, title, message);
         }
     }
 

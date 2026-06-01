@@ -76,19 +76,30 @@ public class InventoryDialog extends JDialog {
     private static final Color BADGE_FG = new Color(245, 228, 188);
 
     private final GameEngine engine;
+    private final GameNoticeSink noticeSink;
     private int torchFrame = 0;
     private Timer torchAnimationTimer;
 
     public InventoryDialog(JDialog owner, GameEngine engine) {
+        this(owner, engine, null);
+    }
+
+    public InventoryDialog(JDialog owner, GameEngine engine, GameNoticeSink noticeSink) {
         super(owner, "Inventory", Dialog.ModalityType.APPLICATION_MODAL);
         this.engine = engine;
+        this.noticeSink = noticeSink;
         buildUi();
         startTorchAnimationTimer();
     }
 
     public InventoryDialog(java.awt.Frame owner, GameEngine engine) {
+        this(owner, engine, null);
+    }
+
+    public InventoryDialog(java.awt.Frame owner, GameEngine engine, GameNoticeSink noticeSink) {
         super(owner, "Inventory", true);
         this.engine = engine;
+        this.noticeSink = noticeSink;
         buildUi();
         startTorchAnimationTimer();
     }
@@ -421,7 +432,7 @@ public class InventoryDialog extends JDialog {
      */
     private void performQuick(Item item, ItemAction action) {
         if (!engine.performInventoryAction(item, action)) {
-            ItemActionMenuDialog.showNotice(this, "Warning", "Cannot Use Item",
+            showPassiveNotice("Warning", "Cannot Use Item",
                     "That action is no longer available.");
         }
         rebuildUi();
@@ -457,7 +468,7 @@ public class InventoryDialog extends JDialog {
 
         ItemAction action = actions.get(choice);
         if (!engine.performInventoryAction(item, action)) {
-            ItemActionMenuDialog.showNotice(this, "Warning", "Cannot Use Item",
+            showPassiveNotice("Warning", "Cannot Use Item",
                     "That action is no longer available.");
             rebuildUi();
             return;
@@ -468,7 +479,7 @@ public class InventoryDialog extends JDialog {
         }
 
         if (action == ItemAction.WEAR || action == ItemAction.EQUIP || action == ItemAction.REMOVE) {
-            ItemActionMenuDialog.showNotice(this, "Equipment", "Equipment Updated",
+            showPassiveNotice("Equipment", "Equipment Updated",
                     "STR: " + engine.getHero().getStr()
                             + "    DEF: " + engine.getHero().getDef()
                             + "\nMANA: " + engine.getHero().getMana() + "/" + engine.getHero().getMaxMana()
@@ -476,6 +487,14 @@ public class InventoryDialog extends JDialog {
                             + engine.getHero().getMaxEnergy());
         }
         rebuildUi();
+    }
+
+    private void showPassiveNotice(String category, String title, String message) {
+        if (noticeSink != null) {
+            noticeSink.showNotice(title, message);
+        } else {
+            ItemActionMenuDialog.showNotice(this, category, title, message);
+        }
     }
 
     private List<Pet> ownedPets() {
