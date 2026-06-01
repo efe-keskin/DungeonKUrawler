@@ -757,7 +757,8 @@ public class DesignWindow extends JFrame {
         if (id.startsWith("BAG_")) {
             return "Containers";
         }
-        if (id.equals("WEAPON") || id.equals("ARMOR") || id.startsWith("B23_")) {
+        if (id.equals("WEAPON") || id.equals("ARMOR") || id.startsWith("B23_")
+                || id.matches("W\\d{3}")) {
             return "Weapons";
         }
         if (id.equals("KEY") || id.startsWith("KEY_") || id.equals("RING") || id.startsWith("RING_")) {
