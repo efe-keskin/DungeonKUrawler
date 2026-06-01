@@ -1650,8 +1650,12 @@ private void handleInventoryKeyPress() {
         }
 
         int dir = heroFacingLeft ? -1 : 1;
-        int wpnH = Math.max(1, Math.round(heroSpriteH * 0.8f));
+        // Keep the blade roughly the hero's torso height so it reads as "held"
+        // rather than towering over the head, and drop the grip down into the
+        // hand instead of pinning it at the hero's vertical middle.
+        int wpnH = Math.max(1, Math.round(heroSpriteH * 0.6f));
         int wpnW = Math.max(1, Math.round(wpnH * (sprite.getWidth() / (float) sprite.getHeight())));
+        int gripY = handY + Math.round(heroSpriteH * 0.12f);
 
         double swing = 0;
         long elapsed = System.nanoTime() - heroAttackAnimNanos;
@@ -1662,7 +1666,7 @@ private void handleInventoryKeyPress() {
         double angle = (WEAPON_REST_RADIANS + swing) * dir;
 
         AffineTransform saved = g2.getTransform();
-        g2.translate(handX, handY);
+        g2.translate(handX, gripY);
         g2.rotate(angle);
         // Handle sits at the pivot (hand); blade extends upward from there.
         g2.drawImage(sprite, -wpnW / 2, -wpnH, wpnW, wpnH, null);

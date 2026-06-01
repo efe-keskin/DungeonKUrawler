@@ -811,14 +811,9 @@ public class DesignWindow extends JFrame {
                     paintWall(g2, x, y);
                     return;
                 }
-                if (isMagicWand(tool.previewItem())) {
-                    paintWandPixelArt(g2, x, y, size);
-                    return;
-                }
-                if (isWoodenBow(tool.previewItem())) {
-                    paintBowPixelArt(g2, x, y, size);
-                    return;
-                }
+                // Prefer the weapon's real sprite so each wand/bow shows its own
+                // art. The pixel-art wand/bow below is only a fallback for tools
+                // whose sprite is unavailable (e.g. the legacy B23 art).
                 if (sprite != null) {
                     int inset = 3;
                     int box = size - inset * 2;
@@ -828,6 +823,14 @@ public class DesignWindow extends JFrame {
                     int drawX = x + (size - drawW) / 2;
                     int drawY = y + (size - drawH) / 2;
                     g2.drawImage(sprite, drawX, drawY, drawW, drawH, null);
+                    return;
+                }
+                if (isMagicWand(tool.previewItem())) {
+                    paintWandPixelArt(g2, x, y, size);
+                    return;
+                }
+                if (isWoodenBow(tool.previewItem())) {
+                    paintBowPixelArt(g2, x, y, size);
                     return;
                 }
                 paintFallbackObject(g2, x, y);
