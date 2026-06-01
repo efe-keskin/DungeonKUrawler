@@ -48,6 +48,10 @@ public final class HelpDialog extends JDialog {
                 "Story Mode contains 10 levels. Levels are unlocked in order, so you must complete the current level before moving to the next one. Finishing level 10 means you win the game. Custom Map Mode lets you play maps created in Build Map. Load Map starts a custom map, while Load Game lets you continue from a saved game.");
         addSection(helpPanel, "Main Menu",
                 "Start Game opens Story Mode and lets you choose from the available unlocked levels. Load Map loads a custom map created in Build Map and starts it in Custom Map Mode. Load Game continues from a previously saved game. Build Map opens the map editor where you can create your own dungeon layout. Exit closes the game. The question mark button opens this help page.");
+        addSectionWithIcons(helpPanel, "Store and Pets",
+                "In Story Mode / Start Game screens, there is a store button in the bottom-right area. The store lets you spend money collected during gameplay. You can buy pets from the store. Pets follow the hero and fight alongside you. Pets can strengthen the hero's combat power and may have their own special traits. The store can also include rare collectible items for players who want to collect special pieces. Money is useful not only as loot, but also for buying pets and collectibles.",
+                "/pets/penguin1.png",
+                "/pets/dragon1.png");
         addSectionWithIcons(helpPanel, "Play Mode Controls",
                 "Use these controls while playing a map:\n\n"
                         + "WASD / Arrow Keys ---> move the hero\n"
@@ -91,7 +95,7 @@ public final class HelpDialog extends JDialog {
         addSection(helpPanel, "Saving and Loading",
                 "Press ESC during gameplay to open the in-game menu and save your progress. Both Story Mode and Custom Map Mode can be saved. Multiple save files may exist. Load Game continues from a saved game, while Load Map starts a custom map from the beginning instead of continuing a saved state.");
         addSection(helpPanel, "Tips",
-                "Find the valuable item before going to the exit door. Keep your inventory organized because space is limited. Search containers and break objects to find better loot, money, keys, potions, or equipment. Equip the right weapon for the situation: melee weapons for close enemies, bows when you have energy, and magic weapons when you have mana. Save before risky fights, especially before boss levels. If a fight feels too hard, look for better equipment or useful items first.");
+                "Find the valuable item before going to the exit door. Keep your inventory organized because space is limited. Search containers and break objects to find better loot, money, keys, potions, or equipment. Collect money and check the store when available. Equip the right weapon for the situation: melee weapons for close enemies, bows when you have energy, and magic weapons when you have mana. Pets can help in difficult fights, especially later levels and boss encounters. Save before risky fights, especially before boss levels. If a fight feels too hard, look for better equipment, useful items, or pet support first.");
 
         JScrollPane scrollPane = new JScrollPane(helpPanel);
         scrollPane.setPreferredSize(new Dimension(560, 420));
