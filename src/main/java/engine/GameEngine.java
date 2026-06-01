@@ -116,6 +116,8 @@ public class GameEngine {
     /** Transient on-grid presence of the equipped pet for this floor; null when none. */
     private PetEntity petEntity;
     private long lastDragonAttackNanos = 0L;
+    /** Counts enemy movement ticks so knights can step at a reduced cadence. */
+    private int enemyMoveTick = 0;
     /** Enemy -&gt; nanoTime until which it is frozen (penguin ability). Transient. */
     private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
@@ -132,6 +134,8 @@ public class GameEngine {
     /** Chebyshev radius of the dragon pet's light — radius 1 lights a 3x3 area. */
     private static final int DRAGON_LIGHT_RADIUS = 1;
     private static final int KNIGHT_PET_MELEE_DAMAGE = 2;
+    /** Knights walk once every this many movement ticks, i.e. 3x slower than other enemies. */
+    private static final int KNIGHT_MOVE_INTERVAL = 3;
     private static final int MIN_GROUND_COINS = 3;
     private static final int MAX_GROUND_COINS = 7;
     private static final int COIN_REWARD_VALUE = 10;
@@ -1770,8 +1774,9 @@ public class GameEngine {
     }
 
     private static boolean isAdjacentTo(Entity a, Entity b) {
-        return Math.max(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY())) <= 1
-                && !(a.getX() == b.getX() && a.getY() == b.getY());
+        // Chebyshev distance <= 1 includes the same tile, so a knight stacked on
+        // the hero/pet can still fight rather than passing harmlessly through.
+        return Math.max(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY())) <= 1;
     }
 
     /**
@@ -1781,13 +1786,15 @@ public class GameEngine {
         if (isPaused || isGameOver) {
             return;
         }
+        enemyMoveTick++;
+        boolean moveKnights = enemyMoveTick % KNIGHT_MOVE_INTERVAL == 0;
         boolean changed = false;
         for (Entity enemy : enemiesSnapshot()) {
             if (isFrozen(enemy)) {
                 continue;
             }
             if (enemy instanceof Knight knight) {
-                if (adjacentHeroLikeTarget(knight) != null) {
+                if (!moveKnights || adjacentHeroLikeTarget(knight) != null) {
                     continue;
                 }
                 changed |= applyEnemyWalkStep(knight);

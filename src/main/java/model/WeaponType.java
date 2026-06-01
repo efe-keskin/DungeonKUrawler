@@ -47,6 +47,21 @@ public record WeaponType(
                 rangedCostType, rangedCostAmount, projectileStyle, Rarity.COMMON);
     }
 
+    /**
+     * Human-friendly singular name of this weapon's class for display, e.g.
+     * "Sword", "Mace", "Staff" — never the specific weapon's display name.
+     */
+    public String categoryLabel() {
+        if (category == null || category.isBlank()) {
+            return "Weapon";
+        }
+        String singular = switch (category) {
+            case "staves" -> "staff";
+            default -> category.endsWith("s") ? category.substring(0, category.length() - 1) : category;
+        };
+        return Character.toUpperCase(singular.charAt(0)) + singular.substring(1);
+    }
+
     private static int defaultMaxRange(boolean ranged) {
         return ranged ? 4 : 0;
     }

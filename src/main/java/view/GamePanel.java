@@ -1798,7 +1798,7 @@ private void handleInventoryKeyPress() {
         drawHudStat(g2, x, y + 145, HUD_MANA, "MANA", Integer.toString(hero.getMana()));
 
         Weapon equipped = hero.getEquippedWeapon();
-        String weaponLabel = equipped == null ? "Unarmed" : equipped.getName();
+        String weaponLabel = equipped == null ? "Unarmed" : equipped.getType().categoryLabel();
         drawHudCombinedStat(g2, x, y + 163, HUD_GOLD, "WEAPON: " + weaponLabel);
 
         long elapsedSeconds = (System.currentTimeMillis() - playStartTime) / 1000;
