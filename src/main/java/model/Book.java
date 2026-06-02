@@ -9,10 +9,15 @@ import java.util.List;
  */
 public class Book extends Item implements Readable {
 
-    private final String text;
+    private String text;
 
     public Book(String name, String text) {
         super(name);
+        this.text = text;
+    }
+
+    /** Lets build mode author the book's content after it is placed. */
+    public void setText(String text) {
         this.text = text;
     }
 

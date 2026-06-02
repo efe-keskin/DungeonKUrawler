@@ -31,6 +31,7 @@ import engine.audio.AudioManager;
 import engine.GameEngine;
 import model.Armor;
 import model.Book;
+import model.Container;
 import model.Inventory;
 import model.Item;
 import model.ItemAction;
@@ -70,9 +71,6 @@ public class InventoryDialog extends JDialog {
     private static final Color GOLD_BRIGHT = new Color(244, 205, 103);
     private static final Color TITLE = new Color(240, 222, 180);
     private static final Color DETAIL = new Color(198, 190, 170);
-    private static final Color SLOT_EMPTY = new Color(15, 14, 18);
-    private static final Color SLOT_FILLED = new Color(31, 28, 28);
-    private static final Color SLOT_HOVER = new Color(53, 43, 31);
     private static final Color BADGE_FG = new Color(245, 228, 188);
 
     private final GameEngine engine;
@@ -474,6 +472,13 @@ public class InventoryDialog extends JDialog {
             return;
         }
 
+        if (action == ItemAction.OPEN && item instanceof Container container) {
+            java.awt.Window owner = SwingUtilities.getWindowAncestor(this);
+            new PouchDialog(owner, engine, container, noticeSink).setVisible(true);
+            rebuildUi();
+            return;
+        }
+
         if (action == ItemAction.READ && item instanceof Readable readable) {
             ItemActionMenuDialog.showNotice(this, "Readable Object", item.getName(), readable.read());
         }
@@ -843,43 +848,4 @@ public class InventoryDialog extends JDialog {
         g2.drawImage(HeroArmorPixelArt.armorImage, originX, y, bodyW, bodyH, null);
     }
 
-    private static final class RetroSlotPanel extends JPanel {
-        private final boolean filled;
-        private final boolean equipped;
-        private boolean hovered;
-
-        RetroSlotPanel(boolean filled, boolean equipped) {
-            this.filled = filled;
-            this.equipped = equipped;
-            setOpaque(false);
-            setLayout(null);
-        }
-
-        void setHovered(boolean hovered) {
-            this.hovered = hovered;
-            repaint();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            try {
-                Color fill = hovered ? SLOT_HOVER : filled ? SLOT_FILLED : SLOT_EMPTY;
-                Color border = equipped ? GOLD_BRIGHT : hovered ? GOLD : STONE_BORDER;
-                g2.setColor(STONE_OUTLINE);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(fill);
-                g2.fillRect(3, 3, getWidth() - 6, getHeight() - 6);
-                g2.setColor(border);
-                g2.drawRect(2, 2, getWidth() - 5, getHeight() - 5);
-                if (filled) {
-                    g2.setColor(equipped ? GOLD_BRIGHT : new Color(122, 103, 69));
-                    g2.fillRect(6, 6, getWidth() - 12, 2);
-                }
-            } finally {
-                g2.dispose();
-            }
-            super.paintComponent(g);
-        }
-    }
 }

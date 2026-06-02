@@ -207,6 +207,10 @@ public class GamePanel extends JPanel implements GameStateListener, engine.GameE
                     || now < enemyTiltEffectUntilNanos) {
                 repaintNeeded = true;
             }
+            // Keep animating while teleport flashes fade out.
+            if (!engine.getActiveTileFlashesView().isEmpty()) {
+                repaintNeeded = true;
+            }
             // Keep the HUD clock ticking even while the hero stands still: repaint
             // whenever the whole-second display value changes.
             long second = (System.currentTimeMillis() - playStartTime) / 1000;
@@ -870,6 +874,7 @@ private void handleInventoryKeyPress() {
                     }
                 }
             }
+            drawTileFlashes(g2, tileSize, offsetX, offsetY);
             drawProjectiles(g2, tileSize, offsetX, offsetY);
             drawHero(g2, map, tileSize, offsetX, offsetY);
             drawHud(g2);
@@ -1299,6 +1304,28 @@ private void handleInventoryKeyPress() {
         int frame = Math.min(SpriteRegistry.heroFrameCount() - 1,
                 Math.max(0, (int) (animation.progress * SpriteRegistry.heroFrameCount())));
         return SpriteRegistry.walkFrameFor(entity, frame);
+    }
+
+    /**
+     * Renders sorcerer teleport flashes as a bright light-blue glow on the
+     * vacated and arrival tiles, fading out over the flash's lifetime.
+     */
+    private void drawTileFlashes(Graphics2D g2, int tileSize, int offsetX, int offsetY) {
+        long now = System.nanoTime();
+        for (engine.TileFlash flash : engine.getActiveTileFlashesView()) {
+            if (!isContentVisible(engine.getDungeonMap(), flash.getX(), flash.getY())) {
+                continue;
+            }
+            // Bright at the start, fading to transparent as the half-second elapses.
+            int alpha = Math.max(0, Math.round(200f * (1f - flash.progress(now))));
+            if (alpha == 0) {
+                continue;
+            }
+            int px = offsetX + flash.getX() * tileSize;
+            int py = offsetY + flash.getY() * tileSize;
+            g2.setColor(new Color(120, 200, 255, alpha));
+            g2.fillRect(px, py, tileSize, tileSize);
+        }
     }
 
     private void drawProjectiles(Graphics2D g2, int tileSize, int offsetX, int offsetY) {

@@ -173,6 +173,19 @@ public class Container extends Item implements Lockable {
         return portable;
     }
 
+    /**
+     * Portable containers (pouches/bags) carry their own inventory, so once in
+     * the hero's bag they can be opened to move items in and out, or discarded.
+     * Fixtures keep the default actions.
+     */
+    @Override
+    public List<ItemAction> getInventoryActions() {
+        if (portable) {
+            return List.of(ItemAction.OPEN, ItemAction.DISCARD);
+        }
+        return super.getInventoryActions();
+    }
+
     /** Non-portable containers (chests, crates) block movement onto their tile. */
     @Override
     public boolean isBlocking() {

@@ -112,7 +112,10 @@ public class GameEngine {
     private Timer teamMatchActionTimer;
     private Timer petTimer;
     private Timer shadowCloneTimer;
+    private Timer scrollSpawnTimer;
     private final List<Projectile> activeProjectiles = new ArrayList<>();
+    /** Short-lived tile highlights (e.g. sorcerer teleport flashes) for the view to render. */
+    private final List<TileFlash> activeTileFlashes = new ArrayList<>();
     /** Transient on-grid presence of the equipped pet for this floor; null when none. */
     private PetEntity petEntity;
     private long lastDragonAttackNanos = 0L;
@@ -122,10 +125,18 @@ public class GameEngine {
     private final Map<Entity, Long> frozenUntilNanos = new IdentityHashMap<>();
 
     private static final int COIN_SPAWN_INTERVAL_MS = 5000;
+    /** A Shadow Clone scroll spawns on the floor this often, capped at one on the map. */
+    private static final int SCROLL_SPAWN_INTERVAL_MS = 15000;
     private static final int SHADOW_CLONE_DURATION_MS = 7000;
     private static final int SHADOW_CLONE_TICK_MS = 650;
+    /** Flat melee damage a shadow clone deals to an adjacent enemy per tick. */
+    private static final int SHADOW_CLONE_TOUCH_DAMAGE = 3;
     private static final int DETECTION_TICK_MS = 300;
     private static final int SORCERER_SHOOT_RANGE = 5;
+    /** Chebyshev radius a sorcerer may teleport (blink) per movement tick. */
+    private static final int SORCERER_TELEPORT_RANGE = 4;
+    /** How long a teleport tile flash stays lit, in milliseconds. */
+    private static final int TELEPORT_FLASH_MS = 500;
     private static final int BOSS_SHOOT_RANGE = 8;
     private static final int SORCERER_PROJECTILE_MANA_COST = 5;
     private static final int PROJECTILE_TICK_MS = 300;
@@ -979,6 +990,28 @@ public class GameEngine {
     }
 
     /**
+     * Moves {@code item} from the hero's inventory into a portable container
+     * (pouch) the hero is carrying, expanding effective storage. Containers may
+     * not be nested, and a pouch cannot store itself.
+     *
+     * @return true if the item was moved into the container.
+     */
+    public boolean storeInContainer(Container container, Item item) {
+        if (container == null || item == null || container == item || item instanceof Container) {
+            return false;
+        }
+        if (container.isFull() || !hero.getInventory().getItems().contains(item)) {
+            return false;
+        }
+        if (!container.addItem(item)) {
+            return false;
+        }
+        hero.getInventory().remove(item);
+        notifyListeners();
+        return true;
+    }
+
+    /**
      * Routes a collected valuable straight into the persistent
      * {@link model.FullGameInventory} (it survives between floors) rather than
      * the per-level bag, then runs the usual pickup notifications.
@@ -1082,6 +1115,8 @@ public class GameEngine {
         if (!canHeroAct()) {
             return;
         }
+        int heroDx = nx - hero.getX();
+        int heroDy = ny - hero.getY();
         GridCell from = dungeonMap.getCell(hero.getX(), hero.getY());
         GridCell to = dungeonMap.getCell(nx, ny);
 
@@ -1095,6 +1130,7 @@ public class GameEngine {
             to.getEntities().add(hero);
         }
 
+        mirrorShadowClones(heroDx, heroDy);
         lastMoveNanos = System.nanoTime();
         fearOfTheDarkEngine.revealAround(dungeonMap, hero);
         notifyListeners();
@@ -1564,6 +1600,45 @@ public class GameEngine {
         return count;
     }
 
+    /** Places one Shadow Clone scroll on a random empty walkable tile. */
+    private boolean spawnShadowCloneScroll() {
+        List<GridCell> candidates = new ArrayList<>();
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null || !cell.isWalkable()
+                        || !cell.getItemsView().isEmpty()
+                        || !cell.getEntitiesView().isEmpty()) {
+                    continue;
+                }
+                candidates.add(cell);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return false;
+        }
+        candidates.get(random.nextInt(candidates.size())).getItems().add(new ShadowCloneScroll());
+        return true;
+    }
+
+    /** True when a Shadow Clone scroll is already lying on the floor. */
+    private boolean hasGroundShadowCloneScroll() {
+        for (int x = 0; x < dungeonMap.getWidth(); x++) {
+            for (int y = 0; y < dungeonMap.getHeight(); y++) {
+                GridCell cell = dungeonMap.getCell(x, y);
+                if (cell == null) {
+                    continue;
+                }
+                for (Item item : cell.getItemsView()) {
+                    if (item instanceof ShadowCloneScroll) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Spec 2.5: enemies "appear at random locations on the edge of the
      * area". We interpret "edge" as the outer perimeter of the play
@@ -1690,6 +1765,18 @@ public class GameEngine {
         shadowCloneTimer = new Timer(SHADOW_CLONE_TICK_MS, e -> updateShadowClones());
         shadowCloneTimer.setRepeats(true);
         shadowCloneTimer.start();
+
+        scrollSpawnTimer = new Timer(SCROLL_SPAWN_INTERVAL_MS, e -> {
+            // At most one Shadow Clone scroll may sit on the map at a time.
+            if (hasGroundShadowCloneScroll()) {
+                return;
+            }
+            if (spawnShadowCloneScroll()) {
+                notifyListeners();
+            }
+        });
+        scrollSpawnTimer.setRepeats(true);
+        scrollSpawnTimer.start();
     }
 
     /** Counts all Knight/Sorcerer entities currently on the map. */
@@ -1802,7 +1889,7 @@ public class GameEngine {
                 if (canSorcererShootAtHero(sorcerer)) {
                     continue;
                 }
-                changed |= applyEnemyWalkStep(sorcerer);
+                changed |= teleportSorcerer(sorcerer);
             } else if (enemy instanceof BossEnemy boss) {
                 if (canBossShootAtHero(boss)) {
                     continue;
@@ -2592,6 +2679,84 @@ public class GameEngine {
         return true;
     }
 
+    /**
+     * Sorcerers blink rather than walk: when chasing they teleport to the empty
+     * tile (within {@link #SORCERER_TELEPORT_RANGE}) closest to the hero, and when
+     * roaming they teleport to a random nearby tile. Both the vacated and the
+     * arrival tiles flash for the view. Returns true if the sorcerer teleported.
+     */
+    private boolean teleportSorcerer(Sorcerer sorcerer) {
+        GridCell dest = sorcerer.getAiState() == AIState.CHASING
+                ? bestTeleportToward(sorcerer, hero.getX(), hero.getY())
+                : randomTeleportCell(sorcerer);
+        if (dest == null) {
+            return false;
+        }
+        int fromX = sorcerer.getX();
+        int fromY = sorcerer.getY();
+        if (!tryMoveEnemy(sorcerer, dest.getX(), dest.getY())) {
+            return false;
+        }
+        flashTile(fromX, fromY);
+        flashTile(dest.getX(), dest.getY());
+        return true;
+    }
+
+    /** Empty walkable tile within teleport range nearest to {@code (tx, ty)}, or null. */
+    private GridCell bestTeleportToward(Entity enemy, int tx, int ty) {
+        GridCell best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int nx = enemy.getX() - SORCERER_TELEPORT_RANGE; nx <= enemy.getX() + SORCERER_TELEPORT_RANGE; nx++) {
+            for (int ny = enemy.getY() - SORCERER_TELEPORT_RANGE; ny <= enemy.getY() + SORCERER_TELEPORT_RANGE; ny++) {
+                if (!isTeleportCandidate(enemy, nx, ny)) {
+                    continue;
+                }
+                double d = euclideanDistance(nx, ny, tx, ty);
+                if (d < bestDist) {
+                    bestDist = d;
+                    best = dungeonMap.getCell(nx, ny);
+                }
+            }
+        }
+        return best;
+    }
+
+    /** Random empty walkable tile within teleport range, or null when none is free. */
+    private GridCell randomTeleportCell(Entity enemy) {
+        List<GridCell> candidates = new ArrayList<>();
+        for (int nx = enemy.getX() - SORCERER_TELEPORT_RANGE; nx <= enemy.getX() + SORCERER_TELEPORT_RANGE; nx++) {
+            for (int ny = enemy.getY() - SORCERER_TELEPORT_RANGE; ny <= enemy.getY() + SORCERER_TELEPORT_RANGE; ny++) {
+                if (isTeleportCandidate(enemy, nx, ny)) {
+                    candidates.add(dungeonMap.getCell(nx, ny));
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(random.nextInt(candidates.size()));
+    }
+
+    private boolean isTeleportCandidate(Entity enemy, int nx, int ny) {
+        if (nx == enemy.getX() && ny == enemy.getY()) {
+            return false;
+        }
+        GridCell cell = dungeonMap.getCell(nx, ny);
+        return cell != null && cell.isWalkable() && cell.getEntitiesView().isEmpty();
+    }
+
+    private void flashTile(int x, int y) {
+        activeTileFlashes.add(new TileFlash(x, y, System.nanoTime(),
+                TimeUnit.MILLISECONDS.toNanos(TELEPORT_FLASH_MS)));
+    }
+
+    /** Live (unexpired) tile flashes for the view; expired entries are pruned on read. */
+    public List<TileFlash> getActiveTileFlashesView() {
+        long now = System.nanoTime();
+        activeTileFlashes.removeIf(flash -> flash.isExpired(now));
+        return List.copyOf(activeTileFlashes);
+    }
+
     private void startTeamMatchTimers() {
         teamMatchActionTimer = new Timer(GameConstants.GLOBAL_ACTION_TICK_MS, e -> updateTeamMatchAi());
         teamMatchActionTimer.setRepeats(true);
@@ -2719,13 +2884,27 @@ public class GameEngine {
     }
 
     /**
-     * Pet-style AI for active shadow clones: each clone steps one
-     * tile closer to the hero per tick. Multiple clones can exist;
-     * each ticks independently. Stops one cell short to avoid
-     * crowding the hero's tile.
+     * Shadow clones do not move on their own tick: their position is mirrored
+     * from the hero's movement (see {@link #mirrorShadowClones}). Each tick a
+     * clone only strikes an enemy that happens to be adjacent, so a mirrored
+     * clone still fights what it bumps into while drawing aggro via
+     * {@link #preferredTargetFor}.
      */
     private void updateShadowClones() {
         if (isPaused || isGameOver) return;
+        boolean changed = false;
+        for (ShadowClone clone : collectShadowClones()) {
+            Entity adjacent = nearestEnemyWithin(clone.getX(), clone.getY(), 1);
+            if (adjacent != null) {
+                changed |= shadowCloneStrike(clone, adjacent);
+            }
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    private List<ShadowClone> collectShadowClones() {
         List<ShadowClone> clones = new ArrayList<>();
         for (int x = 0; x < dungeonMap.getWidth(); x++) {
             for (int y = 0; y < dungeonMap.getHeight(); y++) {
@@ -2738,38 +2917,51 @@ public class GameEngine {
                 }
             }
         }
-        boolean changed = false;
-        for (ShadowClone clone : clones) {
-            if (stepShadowCloneTowardHero(clone)) {
-                changed = true;
-            }
-        }
-        if (changed) {
-            notifyListeners();
-        }
+        return clones;
     }
 
     /**
-     * One-step move for a shadow clone toward the hero. Returns true
-     * if the clone moved. Stops one cell short (chebyshev distance 1)
-     * so it doesn't crowd the hero.
+     * Mirrors every shadow clone against the hero's just-taken step: the clone
+     * moves by the negated hero delta, so it reflects the hero's motion rather
+     * than following. A clone whose mirrored tile is blocked simply holds still.
      */
-    private boolean stepShadowCloneTowardHero(ShadowClone clone) {
-        int distance = chebyshevDistance(clone.getX(), clone.getY(),
-                                          hero.getX(), hero.getY());
-        if (distance <= 1) return false;
-        int dx = Integer.compare(hero.getX(), clone.getX());
-        int dy = Integer.compare(hero.getY(), clone.getY());
-        if (Math.abs(hero.getX() - clone.getX()) >= Math.abs(hero.getY() - clone.getY())) {
-            if (tryMoveShadowClone(clone, clone.getX() + dx, clone.getY())) {
-                return true;
+    private void mirrorShadowClones(int heroDx, int heroDy) {
+        if (heroDx == 0 && heroDy == 0) {
+            return;
+        }
+        for (ShadowClone clone : collectShadowClones()) {
+            tryMoveShadowClone(clone, clone.getX() - heroDx, clone.getY() - heroDy);
+        }
+    }
+
+    /** A clone's light melee hit on an adjacent enemy, clearing it on defeat. */
+    private boolean shadowCloneStrike(ShadowClone clone, Entity enemy) {
+        CombatManager.AttackResult result =
+                combatManager.applyPetMeleeHit(enemy, SHADOW_CLONE_TOUCH_DAMAGE);
+        clone.markAttacked();
+        if (result.isDefenderDefeated()) {
+            removeDefeatedEnemy(enemy);
+        }
+        return true;
+    }
+
+    /** Nearest enemy to {@code (sx, sy)} within {@code range} (Chebyshev), or null. */
+    private Entity nearestEnemyWithin(int sx, int sy, int range) {
+        Entity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Entity enemy : enemiesSnapshot()) {
+            int dx = enemy.getX() - sx;
+            int dy = enemy.getY() - sy;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) > range) {
+                continue;
             }
-            return tryMoveShadowClone(clone, clone.getX(), clone.getY() + dy);
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = enemy;
+            }
         }
-        if (tryMoveShadowClone(clone, clone.getX(), clone.getY() + dy)) {
-            return true;
-        }
-        return tryMoveShadowClone(clone, clone.getX() + dx, clone.getY());
+        return best;
     }
 
     private boolean tryMoveShadowClone(ShadowClone clone, int targetX, int targetY) {
@@ -2921,14 +3113,19 @@ public class GameEngine {
         CombatManager.AttackResult result =
                 combatManager.applyPetMeleeHit(enemy, PenguinPet.TOUCH_DAMAGE);
         if (result.isDefenderDefeated()) {
-            frozenUntilNanos.remove(enemy);
-            GridCell cell = dungeonMap.getCell(enemy.getX(), enemy.getY());
-            if (cell != null) {
-                cell.getEntities().remove(enemy);
-            }
-            fireEnemyDefeated(enemy);
-            resolveTeamMatchOutcome();
+            removeDefeatedEnemy(enemy);
         }
+    }
+
+    /** Clears a defeated enemy from the grid and fires the usual defeat/outcome events. */
+    private void removeDefeatedEnemy(Entity enemy) {
+        frozenUntilNanos.remove(enemy);
+        GridCell cell = dungeonMap.getCell(enemy.getX(), enemy.getY());
+        if (cell != null) {
+            cell.getEntities().remove(enemy);
+        }
+        fireEnemyDefeated(enemy);
+        resolveTeamMatchOutcome();
     }
 
     /** Dragon: fires at the nearest enemy on a clear straight ray within range. */
@@ -3062,6 +3259,7 @@ public class GameEngine {
         if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
         if (petTimer != null) petTimer.stop();
         if (shadowCloneTimer != null) shadowCloneTimer.stop();
+        if (scrollSpawnTimer != null) scrollSpawnTimer.stop();
     }
 
     private void pauseAllTimers() {
@@ -3075,6 +3273,7 @@ public class GameEngine {
         if (teamMatchActionTimer != null) teamMatchActionTimer.stop();
         if (petTimer != null) petTimer.stop();
         if (shadowCloneTimer != null) shadowCloneTimer.stop();
+        if (scrollSpawnTimer != null) scrollSpawnTimer.stop();
     }
 
     private void resumeAllTimers() {
@@ -3088,5 +3287,6 @@ public class GameEngine {
         if (teamMatchActionTimer != null) teamMatchActionTimer.start();
         if (petTimer != null) petTimer.start();
         if (shadowCloneTimer != null) shadowCloneTimer.start();
+        if (scrollSpawnTimer != null) scrollSpawnTimer.start();
     }
 }

@@ -36,10 +36,12 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
@@ -52,6 +54,7 @@ import engine.BuildRandomItemPlacer;
 import engine.BuildTool;
 import engine.GameEngine;
 import engine.TeamMatchController;
+import model.Book;
 import model.DecorativeObject;
 import model.DungeonMap;
 import model.GridCell;
@@ -393,6 +396,10 @@ public class DesignWindow extends JFrame {
         if (cell == null) {
             return;
         }
+        if (isBookTool(tool)) {
+            placeBookWithPrompt(cell[0], cell[1], tool);
+            return;
+        }
         boolean placed = controller.placeToolAt(cell[0], cell[1], tool);
         String placementMessage = controller.getLastPlacementMessage();
         if (placementMessage != null) {
@@ -400,6 +407,56 @@ public class DesignWindow extends JFrame {
         }
         if (placed) {
             canvas.repaint();
+        }
+    }
+
+    private static boolean isBookTool(BuildTool tool) {
+        return tool != null && tool.previewItem() instanceof Book;
+    }
+
+    /**
+     * Books are authored on placement: prompt for the text the hero will read,
+     * place the book, then stamp the entered text onto the placed instance.
+     * Cancelling the prompt skips placement entirely.
+     */
+    private void placeBookWithPrompt(int x, int y, BuildTool tool) {
+        String text = promptForBookText();
+        if (text == null) {
+            return;
+        }
+        boolean placed = controller.placeToolAt(x, y, tool);
+        if (placed && !text.isBlank()) {
+            applyBookText(x, y, text);
+        }
+        String placementMessage = controller.getLastPlacementMessage();
+        if (placementMessage != null) {
+            refreshSelectedLabel(placementMessage);
+        }
+        if (placed) {
+            canvas.repaint();
+        }
+    }
+
+    /** Returns the entered book text, or {@code null} if the builder cancelled. */
+    private String promptForBookText() {
+        JTextArea area = new JTextArea(8, 32);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        int result = JOptionPane.showConfirmDialog(this, new JScrollPane(area),
+                "Book contents", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        return result == JOptionPane.OK_OPTION ? area.getText() : null;
+    }
+
+    private void applyBookText(int x, int y, String text) {
+        GridCell cell = controller.getDesignMap().getCell(x, y);
+        if (cell == null) {
+            return;
+        }
+        for (Item item : cell.getItemsView()) {
+            if (item instanceof Book book) {
+                book.setText(text);
+                return;
+            }
         }
     }
 
@@ -481,7 +538,8 @@ public class DesignWindow extends JFrame {
                 public void mouseDragged(MouseEvent e) {
                     if (isEraseGesture(e)) {
                         eraseAtPoint(e.getPoint());
-                    } else if (isPlaceGesture(e)) {
+                    } else if (isPlaceGesture(e) && !isBookTool(controller.getSelectedTool())) {
+                        // Books are click-to-place so dragging never re-opens the text prompt.
                         applyToolAtPoint(e.getPoint(), controller.getSelectedTool());
                     }
                 }
